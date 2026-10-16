@@ -1,8 +1,33 @@
-# Jienluv2bake — change history (v54 → v521)
+# Jienluv2bake — change history (v54 → v522)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**16 Oct 2026 — engine v522, THE BAKING BOX SAYS "TOTAL BAKED", AND TELLS YOU WHAT SAVE WILL DO BEFORE YOU PRESS IT (no database step).**
+
+**Your words:** __"if she decide to bake more say from 10 to 15, the second time she enter 15 or 5, should be the total bake for that day, reduce?"__ — and then __"if reduce?"__
+
+**1. ⚠️⚠️ THE BOX IS THE TOTAL — AND YOUR QUESTION IS THE PROOF THAT THE WORDS WERE NOT DOING THEIR JOB.** The panel already said *"type the TOTAL you baked"* and you still had to ask. ⭐ **On a busy day she will too, and the shelf goes the wrong way without anyone noticing.**
+
+**2. ⚠️ AND IT IS NOT A NEAR MISS — IT IS TEN LOAVES OUT. MEASURED, BOTH WAYS, ON THE REAL APP.** With 10 already recorded, she bakes **5 more** and types **5**, meaning *"five more"* — the app reads *"only five in all"* and **PUTS FIVE BACK ON THE SHELF** (2,500 g → 3,750 g). ⭐ **Her stock moves the wrong way by ten loaves: five not taken off, five put back.**
+
+**3. ⭐ SO THE BOX IS LABELLED "TOTAL BAKED", AND UNDER IT IS A LINE THAT SAYS WHAT SAVE WILL DO.** It changes as she types, so the mistake is visible **before** she saves. Measured on the real screen, with 10 recorded:
+
+| she types | the panel says |
+|---|---|
+| 10 | Already recorded — nothing changes. |
+| **15** | **Takes 5 more off the shelf.** |
+| **5** | **Puts 5 BACK on the shelf.** |
+| (blank) | Puts 10 BACK on the shelf. |
+
+⭐ **So to bake more, she types the NEW TOTAL and the extra comes off. To reduce, she types the SMALLER total and the difference goes back on the shelf** — and she can see which one she is about to do.
+
+**4. ⚠️⚠️ AND I FOUND AND FIXED A REAL FAULT WHILE DOING IT — ONE I SHIPPED AT v514 AND NOTHING CAUGHT.** The dead styling left behind when the two pop-ups were separated used a class name **that was already taken**: the **Home screen's own bake lines** wear `.bake-line`, and my leftover rule — declared later — **won**. ⭐ **So every bake line on your Home screen has been wearing a green box with a green left border since v514, and not one of 3,400 tests saw it.** ⭐ **It is the same fault this app already records from v394–v418 — a class collision squashed every card while every test passed** — and the lesson stands: **a dead rule is not harmless, because it can be the one that wins.** The leftovers are deleted and the Home screen is verified back to normal.
+
+**Measured, live, at 375×812:** the box reads **"total baked"**; with 10 recorded, typing 15 reads *"Takes 5 more off the shelf"* and typing 5 reads *"Puts 5 BACK on the shelf"*; and a Home screen bake line is now `display: flex` with **no background and no border** (it had both).
+
+**Tests stay 3,445**, and **the written faults were each watched to turn the suite red** — including **saving twice charging twice**, and **the box not coming back with what she recorded**.
 
 **16 Oct 2026 — engine v521, A PAST BAKE DAY OPENS READY TO SAVE — BECAUSE A DAY THAT HAS GONE IS BOOKKEEPING, NOT A DECISION (no database step).**
 

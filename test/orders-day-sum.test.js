@@ -2715,6 +2715,52 @@ test("★★★ Baked — how many? is the ONLY thing that moves the shelf, and 
     + "after the bake)");
   assert.deepEqual(st.deliveryDates.map((d) => d.id), ["d10"],
     "★ saving a bake wrote a delivery date — **the shop would offer a day she never opened**");
+
+  // ★★★ AND SAVING AGAIN DOES NOT TAKE IT OFF TWICE (v522). ⚠️⚠️ HER QUESTION: __"after we filled the baked
+  // say 10 then press save, will the 10 zerolized?"__ — ⭐ **no, and that is checked HERE rather than by
+  // reading the code:** the number is a **FACT she owns**, not an action that fires once.
+  // ⚠️ **A double-tap on Save is easy on a phone**, and without this the second press would take another ten
+  // off the shelf — ⭐ **the same bread charged twice, which is the class of fault this whole feature has
+  // already been through twice.** `setBakedTotal` makes that impossible by storing what it has ALREADY
+  // applied; this is what holds that in place.
+  const flourAfterFirstSave = st.ingredients[0].onHand;
+  const root2 = createEl("div");
+  renderOrders(root2, st, new URLSearchParams({ date: "d10" }));
+  buttonByText(root2, "Baked — how many?")._listeners.click[0]();
+  const pop2 = layers["popup-layer"];
+  const box2 = all(pop2).find((n) => n.tagName === "INPUT" && String(n.className).includes("bake-box"));
+  // ★★★ AND IT SAYS WHAT SAVE WILL DO, BEFORE SHE PRESSES IT (v522). ⚠️⚠️ Her questions: __"the second time she
+  // enter 15 or 5, should be the total bake for that day, reduce?"__ and __"if reduce?"__ — ⭐ **the box IS the
+  // total, and her having to ask is the proof that a sentence was not enough.** ⚠️ **MEASURED: 10 recorded,
+  // she bakes 5 more and types `5` — the app reads "only 5 in all" and PUTS FIVE BACK on the shelf.** ⭐ So the
+  // arithmetic is a READOUT that changes as she types, and **she can see it going the wrong way in time.**
+  assert.equal((all(pop2).find((n) => String(n.className).includes("bake-label")) || {}).textContent, "total baked",
+    "★ the box is not labelled as the day's TOTAL — **she will type the extra, and her stock will move the "
+    + "wrong way by twice the difference**");
+  const does = all(pop2).find((n) => String(n.className).includes("bake-does"));
+  assert.ok(does, "the pop-up does not say what Save will do");
+  const sayAt = (v) => { box2.value = v; (box2._listeners.input || []).forEach((f) => f()); return does.textContent; };
+  // ⚠️ AND IT IS RIGHT ON OPEN, before she touches anything — ⭐ **a past day opens pre-filled, and that is the
+  // most-read moment of this line.** A readout that only fills in after the first keystroke would leave the
+  // pre-filled number unexplained at exactly the point she is deciding whether to trust it.
+  assert.match(does.textContent, /Already recorded/,
+    "★ the pop-up opens with nothing said about what Save will do — **the pre-filled number is the one moment "
+    + "this line is most needed**");
+  assert.match(sayAt("15"), /Takes 5 more off the shelf/,
+    "★ typing a bigger total does not say the extra will come off");
+  assert.match(sayAt("5"), /Puts 5 BACK on the shelf/,
+    "★ typing a SMALLER total does not say the difference goes back — **this is the direction she asked about, "
+    + "and it is the one that moves her stock the wrong way when she means \"5 more\"**");
+  assert.match(sayAt("10"), /Already recorded/,
+    "★ typing the same number does not say nothing will change");
+  box2.value = "10"; (box2._listeners.input || []).forEach((f) => f());
+  assert.equal(box2.value, "10",
+    "★ the box came back EMPTY after it was saved — **the number she recorded is gone, so she cannot check it "
+    + "or correct it**");
+  buttonByText(pop2, "Save")._listeners.click[0]();
+  assert.equal(st.ingredients[0].onHand, flourAfterFirstSave,
+    "★ pressing Save a second time took the same bread off the shelf AGAIN — **a double-tap on a phone would "
+    + "charge her twice**");
 });
 
 test("★★★ a day that is NOT a bake day can still say what it baked (v515)", () => {

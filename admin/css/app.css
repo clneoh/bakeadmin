@@ -2682,10 +2682,6 @@ option.tone-off { color: var(--muted); }
 .day-adjust-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
   border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; }
 .day-adjust-row .day-adj-right { display: flex; align-items: center; gap: 8px; }
-/* ★★★ "YOU BAKED", IN ITS OWN POP-UP (v515). ⚠️ It borrows the availability pop-up's row shape so the two
-   read alike, but ⭐ **they are two controls answering two questions** — what the shop can still sell that
-   day, and what came out of the oven. See openBakedPopup in views/orders.js. */
-.bake-label { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
 .day-adjust-row .day-adj-preview { font-size: 13px; color: var(--brown-dark); font-weight: 600;
   min-width: 74px; text-align: right; }
 .day-adjust-row .day-adj-input { width: 76px; min-height: 36px; text-align: center; }
@@ -3081,45 +3077,25 @@ option.tone-off { color: var(--muted); }
   box-shadow: inset 0 0 0 2px var(--brown);
 }
 
-/* ---------- Baked: the production panel under the grid (v514) ----------
+/* ---------- Baked: the panel in this pop-up (v514, cleaned at v522) ----------
    Her words: __"i need system to allow us to enter bake qty, system dont have to track the extra bake, but
-   just need to deduct ingredient."__ ⚠️ One box per product, each with the day's ORDERS printed beside it,
-   because ⭐ **"I typed 10 and 6 were ordered" is the arithmetic she should never have to do in her head** —
-   and it is the arithmetic the app is doing to her shelf. */
-.bake-day {
-  margin: 12px 2px 8px;
-  font-family: var(--serif);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--ink);
-}
-.bake-flag { font-family: var(--sans); font-size: 12px; font-weight: 400; color: var(--muted); }
-.bake-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 0;
-  border-top: 1px solid var(--line);
-}
-.bake-name { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.bake-title { font-size: 14px; font-weight: 600; color: var(--ink); }
-.bake-ordered { font-size: 12px; color: var(--muted); }
+   just need to deduct ingredient."__
+   ⚠️⚠️ AND THIS BLOCK WORE A NAME THAT WAS ALREADY TAKEN. It used to declare `.bake-line` — **the SAME class
+   the Home screen's own bake lines use** (`views/dashboard.js`) — so this rule, declared later, won, and
+   **every bake line on her Home screen has been wearing a green box and a green left border since v514.**
+   ⭐ **No test saw it**, which is the same fault this project records from v394–v418: *a class collision
+   squashed every card while every test passed.* ⚠️ **A dead rule is not harmless — it can be the one that
+   wins.** Everything below is what the pop-up actually uses; the rest was deleted with it. */
+.bake-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .bake-label { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+/* ★★★ AND WHAT SAVE WILL DO, UNDER THE BOX (v522) — her question exposed the trap it answers: the box is the
+   day's TOTAL, and a sentence saying so was not enough. **MEASURED: 10 recorded, then she bakes 5 more and
+   types `5` meaning "5 more", and the app PUTS FIVE BACK on the shelf.** ⭐ So the arithmetic is a READOUT
+   rather than a label, and it changes as she types — **she can see it going the wrong way before she saves.** */
+.bake-does { margin: 0; font-size: 12px; line-height: 1.35; text-align: right; color: var(--muted); }
 /* ⚠️ 64px IS A PLAUSIBLE BAKING DAY, NOT A ROUND NUMBER: a 12-pan day is two digits, and a box narrower
    than its own answer makes her swipe to read back what she typed. */
 .bake-box { flex: 0 0 auto; width: 64px; text-align: center; }
-.bake-unit { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
-.bake-answer { margin-top: 8px; }
-.bake-line {
-  margin: 0;
-  padding: 7px 9px;
-  background: var(--green-bg);
-  border-left: 3px solid var(--green);
-  border-radius: 0 8px 8px 0;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--ink);
-}
 
 /* ★★★ THE PAST-DATE WARNING ON THE BAKE DAYS CARD (v464). Her words: __"i want to open a post date bake
    day, system should allow with a warning"__. ⭐ It wears the app's OWN warning colours - the amber the

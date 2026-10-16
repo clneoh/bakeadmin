@@ -1500,13 +1500,37 @@ export function openBakedPopup(state, dayIso, refresh) {
           "aria-label": `How many ${p.name} did you bake`,
         });
         boxes.set(p.id, { box });
+        // ★★★ AND IT SAYS WHAT SAVE WILL ACTUALLY DO, AS SHE TYPES (v522).
+        //
+        // ⚠️⚠️ HER QUESTION IS THE WHOLE REASON: __"if she decide to bake more say from 10 to 15, the second
+        // time she enter 15 or 5, should be the total bake for that day, reduce?"__ — ⭐ **the box IS the
+        // total, and she still had to ask.** ⚠️⚠️ **MEASURED, AND IT IS A TRAP: 10 recorded, then she bakes 5
+        // more and types `5` meaning "5 more" — the app reads "only 5 in all" and PUTS FIVE BACK ON THE
+        // SHELF** (2,500 g → 3,750 g). ⭐ **Her stock moves the wrong way by ten loaves and nothing says so.**
+        // ⭐⭐ **A sentence saying "type the TOTAL" is not enough — the arithmetic has to be VISIBLE**, so this
+        // is a READOUT, not a label: it updates as she types, before she saves, **so she can see it going the
+        // wrong way in time to stop.**
+        // ⚠️ Same idiom as the availability box's own preview above: the box is never rebuilt.
+        const applied = Number((rec && rec.applied) || 0);
+        const whatSaveWillDo = () => {
+          const want = Math.max(0, Number(box.value) || 0);
+          const d = want - applied;
+          if (!want && !applied) return "Nothing recorded yet — nothing will come off.";
+          if (d > 0) return `Takes ${d} more off the shelf.`;
+          if (d < 0) return `Puts ${-d} BACK on the shelf.`;
+          return "Already recorded — nothing changes.";
+        };
+        const does = el("p", { class: "bake-does" }, whatSaveWillDo());
+        box.addEventListener("input", () => { does.textContent = whatSaveWillDo(); });
         return el("div", { class: "day-adjust-row" },
           el("div", { style: "min-width:0" },
             el("p", { style: "margin:0" }, p.name),
             el("p", { class: "card-sub", style: "margin:0" }, was ? `${was} ordered` : "nothing ordered")),
-          el("div", { class: "day-adj-right" },
-            el("span", { class: "bake-label" }, "you baked"),
-            box));
+          el("div", { class: "bake-right" },
+            el("div", { class: "day-adj-right" },
+              el("span", { class: "bake-label" }, "total baked"),
+              box),
+            does));
       }));
 
     return el("div", {},
