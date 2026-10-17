@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v529)
+# Jienluv2bake — change history (v54 → v530)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v530, THE REMOVED LIST NOW KEEPS A REMOVED ORDER FOR 30 DAYS, ON YOUR WORD (no database step).**
+
+**You chose this today.** It was 48 hours — your own number, given at v452: __"the deleted order just need to keep for 48hrs"__, and chosen over thirty days, which was my guess.
+
+**1. ⭐ WHY IT CHANGED, AND IT IS NOT A CONTRADICTION OF YOUR FIRST ANSWER.** One number was doing **two jobs**:
+- **how long you can put a removed order back** — that is what you were answering at v452;
+- **how long a removal leaves a trace** for the "no order has left without a trace" check — ⚠️ **and that check opens a saved copy about a WEEK old, so a 48-hour shelf could never explain a removal inside it.** It named your own cancellations as losses for the whole band between two days and a week.
+
+⭐ **So you were asked again, in those terms, and you chose 30 days.**
+
+**2. What it means on your screen:** a removed order stays puttable-back for **a month** instead of two days, and the check can now explain a copy up to a week old — so it stops flagging your own deliberate removals.
+
+**3. ⚠️ AND THE NUMBER IS NOW SPELLED IN ONE PLACE ONLY.** The shelf's own sentence, the receipt check and the trace check all **ask** for the window instead of repeating it. ⚠️ **This project has already paid for the other way round:** a note above the pruning code said *"Thirty days is long enough"* while the code said 48, and **that disagreement was quoted back to you as evidence.** ⭐ A number written into a sentence is a second copy of your decision, and second copies drift.
+
+**4. ⚠️ THE LIST CAN HOLD UP TO 200 ROWS** — the cap is unchanged, and it is now the thing that keeps a month of removals from growing without end.
+
+**5. Nothing of yours was rewritten.** No order, day or stock row changed; the shelf simply keeps what it already keeps, for longer. **No database step.**
+
+⚠️ **A dated note inside the v452 entry below says the same thing**, so the earlier entry is not left describing a rule the app no longer follows.
+
+---
 
 **17 Oct 2026 — engine v529, ONE ORDER IN THE REMOVED LIST IS ONE ROW, ALWAYS (no database step).**
 
@@ -924,6 +946,8 @@ __Corrected at v509:__ **the offer and the "then does it by itself" half are bot
 **5. ⚠️ AND ONE THING IT DOES THAT IS EASY TO MISS.** If a stale row came from your shared data, **the drop is written back up** — ⭐ otherwise the other phone would hand the same row back on every sync, for ever. **A tidy that only tidies one phone is not a tidy.**
 
 **6. ⭐ AND TO ANSWER YOUR QUESTION ABOUT TIME, WHICH IS A FAIR ONE.** The shelf keeps removed orders for **48 hours — not 24.** ⭐ So yes, a stale row **would** eventually disappear on its own — **but waiting two days for something the app can plainly see is wrong is the wrong answer**, and it is exactly the kind of thing that should settle itself. **This version settles it the moment it runs.**
+
+__Corrected at v530 (17 Oct 2026):__ **the shelf now keeps a removed order for 30 days, not 48 hours** — you chose it, at this project's own request, because one number was doing two jobs and the "left without a trace" check opens a copy about a week old. See v530. **The line above is left standing as what was true at v474.**
 
 **Measured:** tests **3,384 → 3,387**, the invariant seen to fail when the tidy is reversed. **No database step.**
 
