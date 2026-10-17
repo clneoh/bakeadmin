@@ -504,7 +504,7 @@ function canonical(value) {
 // ── journal (bakeadmin.sync) ──────────────────────────────────────────────
 
 function emptyBlob() {
-  return { version: 1, pending: {}, snapshot: {}, meta: {}, lastPullAt: null, lastFail: null, lastCount: null };
+  return { version: 1, pending: {}, snapshot: {}, meta: {}, lastPullAt: null, lastFail: null, lastCount: null, lastSeq: null, seqUnsupported: false };
 }
 
 function readSync() {
@@ -526,6 +526,10 @@ function readSync() {
           // phone that has never read would report "0 records" as a fact — the v419 fault exactly ("a missing
           // `days` means EVERY DAY"). ⭐ A count nobody has measured is null, and null is SKIPPED, not 0.
           lastCount: b.lastCount != null && Number.isFinite(Number(b.lastCount)) ? Number(b.lastCount) : null,
+          // ⭐ THE "SINCE" CURSOR (v533) — the highest database number this phone has read. ⚠️ Same `!= null`
+          // rule: **a cursor that came back 0 would mean "since the beginning" while looking like a cursor.**
+          lastSeq: b.lastSeq != null && Number.isFinite(Number(b.lastSeq)) ? Number(b.lastSeq) : null,
+          seqUnsupported: b.seqUnsupported === true,
         };
       }
     }
@@ -951,9 +955,30 @@ export async function pull(state) {
   const token = cachedToken();
   if (!token) return { ok: false, changed: false, reason: "Not signed in" };
 
-  const read = await readAllRows(
-    c.url, "select=kind,id,data,updated_at,_deleted",
-    { apikey: c.anonKey, Authorization: `Bearer ${token}` });
+  const headers = { apikey: c.anonKey, Authorization: `Bearer ${token}` };
+  const b = readSync();
+  // ★★★ AND FROM v533 IT ASKS ONLY FOR WHAT HAS CHANGED. ⭐ **After one complete read it asks for `seq > lastSeq`
+  // — a handful of rows on the ordinary 30-second beat, instead of the whole book.**
+  // ⚠️⚠️ AND THE NUMBER IS THE DATABASE'S, NOT THE PHONE'S CLOCK. The obvious version of "what changed since
+  // 10:23?" trusts the time — ⚠️ **and your two phones are not the same clock: a phone running behind writes
+  // its edits with a time in the PAST, and a search for "everything after 10:23" would never look there
+  // again.** ⭐ **With a full read that only costs speed; with a "since" read a missed record is missed for
+  // EVER.** So the cursor is a number the database stamps itself, strictly higher on every write.
+  // ⚠️ `lastSeq != null` FIRST — **`Number(null)` IS 0, and a cursor of 0 is a "since the beginning" read
+  // dressed as a normal one** (the v419 lesson, for the third time today).
+  const useCursor = !b.seqUnsupported && b.lastSeq != null && Number.isFinite(Number(b.lastSeq));
+  const select = "select=kind,id,data,updated_at,_deleted,seq";
+  let read = await readAllRows(
+    c.url, useCursor ? `${select}&seq=gt.${encodeURIComponent(String(b.lastSeq))}` : select,
+    headers, useCursor ? "seq" : "kind,id");
+  // ⚠️⚠️ AND IF THE DATABASE STEP HAS NOT BEEN RUN, FALL BACK — NEVER LEAVE HER WITH NO SYNC AT ALL. Without
+  // the column, PostgREST answers 400 and the app would simply stop reading. ⭐ **The fallback is a FULL,
+  // PAGED read: slower, never wrong** — and the flag stops this phone asking again.
+  if (!read.ok && read.status === 400 && !b.seqUnsupported) {
+    b.seqUnsupported = true;
+    writeSync(b);
+    read = await readAllRows(c.url, "select=kind,id,data,updated_at,_deleted", headers, "kind,id");
+  }
   if (!read.ok) {
     return { ok: false, changed: false,
       reason: read.offline ? "Offline — will retry"
@@ -969,13 +994,23 @@ export async function pull(state) {
   }
   const rows = read.rows;
 
-  const b = readSync();
   const first = !b.lastPullAt;
   const { changed } = mergeCloudRows(state, rows, b);
   b.lastPullAt = new Date().toISOString();
-  // ⭐ HOW BIG THE BOOK IS, KEPT FOR THE COUNT ON CHECK MY SYSTEM (v531) — no second request, because this
-  // read has just fetched every row anyway.
-  b.lastCount = rows.length;
+  // ⚠️⚠️ THE CURSOR ADVANCES ONLY ON A COMPLETE READ. ⭐ **A half-read book must not be remembered as "seen"**
+  // — the next read would start after records this one never received. ⭐ And a record written WHILE the read
+  // is running always takes a HIGHER number than anything already read, so it cannot slip behind the cursor:
+  // the next beat asks for it by name.
+  if (read.complete && !b.seqUnsupported) {
+    const top = rows.reduce((m, r) => (Number.isFinite(Number(r && r.seq)) && Number(r.seq) > m ? Number(r.seq) : m),
+      Number.isFinite(Number(b.lastSeq)) && b.lastSeq != null ? Number(b.lastSeq) : 0);
+    if (top > 0) b.lastSeq = top;
+  }
+  // ⭐ HOW BIG THE BOOK IS, FOR THE COUNT ON CHECK MY SYSTEM — ⚠️⚠️ **ONLY FROM A READ OF THE WHOLE BOOK.** A
+  // cursor read fetches just the changed rows, so taking its length would make her count collapse to "3
+  // records" the first time nothing had changed. ⭐ **A number that describes a different thing than it says
+  // is worse than no number.**
+  if (!useCursor) b.lastCount = rows.length;
   writeSync(b);
 
   // On the first pull (or when rows changed), save so the save-hook queues any

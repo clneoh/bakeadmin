@@ -2176,6 +2176,92 @@ test("★★ an unread count is null, never 0 — `Number(null)` IS 0 (v531)", (
   } finally { restore(); }
 });
 
+// ── v533: ask only for what has CHANGED ─────────────────────────────────────
+//
+// ⚠️⚠️ AND THE NUMBER IS THE DATABASE'S, NOT THE PHONE'S CLOCK. ⭐ **Your two phones are not the same clock: a
+// phone running behind writes its edits with a time in the PAST, so "everything after 10:23" would never look
+// there again.** ⚠️ **With a full read that only costs speed; with a "since" read a missed record is missed
+// for ever.**
+const seqRow = (id, seq) => ({ kind: "uoms", id, data: "{}", updated_at: "2026-01-01T00:00:00.000Z", _deleted: false, seq });
+
+test("★★★ pull: after one full read it asks only for what CHANGED (v533)", async () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    seedToken(store);
+    const urls = [];
+    const restoreFetch = installFetch(async (url) => {
+      urls.push(url);
+      return { ok: true, json: async () => [seqRow("u1", 41)] };
+    });
+    try {
+      await sync.pull(st);   // the FIRST read — the whole book, a short page
+      // ⚠️ It must NOT start with a cursor: before the first complete read there is nothing to start from.
+      assert.equal(urls[0].includes("seq=gt."), false,
+        "★ the FIRST read already carried a cursor — **there is nothing to start one from, so it would skip "
+        + "every record written before it**");
+      urls.length = 0;
+      await sync.pull(st);   // the second — only what changed
+      assert.match(urls[0], /seq=gt\.41/,
+        "★ the second read did not ask for what changed — **it downloads the whole book every 30 seconds, "
+        + "which is the thing v533 exists to stop**");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("★★★ and if the database step has NOT been run, it FALLS BACK rather than stopping (v533)", async () => {
+  // ⚠️⚠️ **A missing column must never leave her with no sync at all.** ⭐ The fallback is a FULL, PAGED read:
+  // slower, never wrong — and the flag stops this phone asking again.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    seedToken(store);
+    const urls = [];
+    const restoreFetch = installFetch(async (url) => {
+      urls.push(url);
+      // ⭐ Exactly what PostgREST does when `seq` does not exist.
+      if (url.includes("select=") && url.includes("seq")) return { ok: false, status: 400, json: async () => ({}) };
+      return { ok: true, json: async () => [] };
+    });
+    try {
+      const r = await sync.pull(st);
+      assert.equal(r.ok, true,
+        "★ a missing column stopped the sync entirely — **the fallback must be a full read: slower, never wrong**");
+      assert.equal(urls.length, 2, "the fallback did not happen (it should ask, fail, then ask again without seq)");
+      assert.equal(urls[1].includes(",seq"), false, "the retry still names the column that does not exist");
+      assert.equal(JSON.parse(store.get("bakeadmin.sync")).seqUnsupported, true,
+        "★ the refusal is not remembered — **this phone would ask for the missing column on every beat, for ever**");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("★★★ a cursor read must NOT overwrite the record count with the few rows it fetched (v533)", async () => {
+  // ⚠️⚠️ **A BUG I WROTE AND CAUGHT BEFORE SHIPPING IT.** The count on Check my system comes from the last
+  // read's length — and a cursor read fetches only the CHANGED rows. ⭐ **Take its length and her book would
+  // collapse to "1 record" the first time nothing had changed** — a number that describes a different thing
+  // than it says, which is worse than no number at all.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    seedToken(store);
+    let call = 0;
+    const restoreFetch = installFetch(async () => {
+      call += 1;
+      return { ok: true, json: async () => (call === 1
+        ? [seqRow("u1", 10), seqRow("u2", 11), seqRow("u3", 12)]   // the whole book
+        : [seqRow("u2", 11)]) };                                   // one changed row
+    });
+    try {
+      await sync.pull(st);
+      assert.equal(sync.lastCloudCount(), 3, "the first full read did not record the size of the book");
+      await sync.pull(st);
+      assert.equal(sync.lastCloudCount(), 3,
+        "★ a cursor read replaced the book's size with the number of rows that happened to change — "
+        + "**her count would read \"1 record\" on a quiet day**");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
 // ── v475: a queue holding ONLY an un-sendable record ─────────────────────────
 test("★★★ flush: a queue holding only a record that can never be sent is swept, and still reports ok", async () => {
   // ⚠️⚠️ HER REPORT, IN TWO LINES: __"after sync now, the phone still say 1 changes waiting to be send"__

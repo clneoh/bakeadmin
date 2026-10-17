@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v532)
+# Jienluv2bake — change history (v54 → v533)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v533, THE SYNC NOW READS ONLY WHAT HAS CHANGED — and your database step is already done.**
+
+**Your numbers, from the step you ran:** **791 rows, 791 stamped, 1 to 791.** Every record has a number, and the database now stamps a new one on every write.
+
+**1. What it does now.** After its first full read, your phone asks the database for **only the records that changed since it last looked** — a handful, instead of the whole book, every 30 seconds.
+
+**2. ⚠️ And why the number cannot be the clock.** The obvious way to ask "what changed since 10:23?" is to trust the time. **Your two phones are not the same clock** — a phone running behind writes its edits with a time in the *past*, and a search for "everything after 10:23" would never look there again. With a full read that only costs speed; **with a "since" read a missed record is missed for ever.** So the cursor is a number the **database** stamps itself.
+
+**3. ⚠️ The cursor only moves forward on a COMPLETE read.** A half-read book is never remembered as "seen" — otherwise the next read would start after records this one never received. And a record written *while* the read is running always takes a higher number, so it cannot slip behind.
+
+**4. ⚠️ And if the database step had not been run, nothing would have broken.** The app asks, is refused, and **falls back to reading the whole book — slower, never wrong** — and remembers to stop asking. ⭐ **You have run it, so it will not need to.**
+
+**5. ⚠️ A bug I wrote and caught before shipping it.** The record count on your System page comes from the last read — and a "since" read fetches only the changed rows. **Taken from that, your count would have collapsed to "1 record" the first quiet day.** The count is now only taken from a read of the whole book.
+
+**6. ⚠️ AND YOUR 791 ANSWERS SOMETHING I GOT WRONG.** I said v531's thousand-record cap "may be the whole of this week". **791 is under a thousand, so it was not** — v531 was still worth doing, because an order is one record per *item* and you were close, but **it was not what has been hurting you.** I would rather correct that than let a good story stand.
+
+**7. Nothing of yours is rewritten. The database step is already done — there is nothing else to run.**
+
+---
 
 **17 Oct 2026 — engine v532, YOU CAN PUT MISSING ORDERS BACK WITHOUT REWINDING ANYTHING (no database step).**
 
