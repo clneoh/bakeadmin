@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v545)
+# Jienluv2bake — change history (v54 → v546)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v546, THE LAST TWO INGREDIENT FAULTS — AND A REMOVAL THAT CANNOT BE UNDONE NOW SAYS SO (no database step).**
+
+**1. ⚠️⚠️ A STOCK-CARD LINE THE SHELF CANNOT GIVE BACK IS NOW REFUSED.** Removing a row means **undoing that movement** — and if the shelf does not hold enough to undo it, **the movement cannot be undone.** ⚠️ Before, it was stopped at zero and **the row was taken off the card anyway**, so the remaining rows stopped adding up to the shelf they explain.
+- ⭐ **The message names the shortfall AND the way through:** *"That line can't be taken back: your shelf holds 5 kg, and undoing it needs 3 kg more. Set the real amount with Adjust instead."*
+- ⚠️ **The alternative I tried first was to keep the row and rewrite its number — my own measurement showed it did not do what it claimed, so it was thrown away.** ⭐ **Refusing is the honest answer: it changes nothing, and it tells you the shelf and the journal already disagree.**
+
+**2. ⚠️⚠️ AND A BAKING DAY IS NOW ONE RECORD PER PRODUCT, not one for the whole day.** ⭐ **Two phones recording different bread on the same day were writing two versions of ONE row** — and the sync keeps the newest whole row, so **one phone's totals were thrown away** and the next correction re-took a bake that had already come off the shelf.
+- ⭐ **Your existing records are SPLIT when the app opens, and every total you recorded is carried across exactly.** ⚠️ **Measured on the real app:** an old one-row day split into `bake_2026-10-16_p1` and `_p2`, each keeping its own totals, **the shelf did not move**, and the baking boxes showed **4** and **3**.
+- ⭐ **A shape change only — nothing is rewritten, and a phone already updated is left alone.**
+
+**3. ⭐ AND BOTH ARE MEASURED, NOT ASSUMED.** The refusal was watched on the real app — no confirm box, the message on screen, the row still there, the shelf at 5,000. And the split was watched on real saved data, with the shelf unchanged.
+
+**4. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v545, THE INGREDIENT AUDIT: THREE FAULTS THAT PUT A WRONG NUMBER IN FRONT OF YOU, FIXED. TWO MORE STILL OPEN, SAID OUT LOUD (no database step).**
 

@@ -8,7 +8,7 @@
 // items) and never goes below 0. Re-adding after an undo recomputes from the
 // recipe, which keeps it symmetric for a fixed recipe.
 
-import { byId, round2 } from "./state.js";
+import { byId, round2, bakeId } from "./state.js";
 import { expandProduct } from "./bom.js";
 import { cookingUnit, baseFactorOf } from "./purchasing.js";
 import { longDate, todayISO } from "./dates.js";
@@ -128,28 +128,33 @@ export function stockRowUndo(ingredient, entry) {
   const log = stockLogOf(ingredient);
   if (log.indexOf(entry) < 0) return null;
   const was = Number(ingredient.onHand) || 0;
-  // ⚠️ STOCK NEVER GOES BELOW ZERO, so a reversal that would is CLAMPED — and the caller must show the
-  // clamped figure, because that is the number her shelf will really hold.
-  const now = round2(Math.max(0, was - (Number(entry.delta) || 0)));
-  return { was, now, moved: round2(now - was) };
+  // ★★★ AND A ROW THE SHELF CANNOT GIVE BACK IS REFUSED, NOT CLAMPED (v546).
+  //
+  // ⚠️⚠️ **THE FAULT: the reversal was clamped at zero and the row was taken off the card anyway** — so its
+  // WHOLE movement left the journal while only PART of it left the shelf, and **the rows that remained no longer
+  // added up to the shelf they exist to explain.** ⭐ My first attempt kept the row and rewrote its delta, and
+  // **my own measurement showed it did not do what it claimed** — so it was reverted, and this is the answer
+  // instead.
+  // ⭐ **REMOVING A ROW MEANS UNDOING THAT MOVEMENT. If the shelf cannot give it all back, the movement cannot be
+  // undone** — so this says so and changes nothing. ⚠️ **The alternative was to rewrite the row into something it
+  // never said**, which is the class of fault this whole week has been about.
+  // ⭐ **The refusal names the way through** (her rule): a stocktake sets the real amount, which is the honest
+  // tool when the shelf and the journal disagree.
+  const raw = round2(was - (Number(entry.delta) || 0));
+  if (raw < 0) return { was, now: was, moved: 0, blocked: round2(-raw) };
+  return { was, now: raw, moved: round2(raw - was), blocked: 0 };
 }
 
 // Take that line off the card and put its movement back, in one step.
 export function undoStockRow(ingredient, entry) {
   const plan = stockRowUndo(ingredient, entry);
   if (!plan) return null;
+  // ⚠️ A REFUSAL CHANGES NOTHING AT ALL — the row stays on the card and the shelf does not move (v546).
+  if (plan.blocked) return plan;
   ingredient.onHand = plan.now;
   stockLogOf(ingredient).splice(stockLogOf(ingredient).indexOf(entry), 1);
   return plan;
 }
-
-// ⚠️⚠️ AND A KNOWN FAULT, LEFT OPEN ON PURPOSE RATHER THAN HALF-FIXED (v545). When the reversal above is
-// CLAMPED at zero — removing a row bigger than the shelf holds — **the row is still taken off the card**, so the
-// rows that remain no longer add up to the shelf they explain. ⭐ **My first fix kept the row and rewrote its
-// delta, and MY OWN MEASUREMENT showed it did not do what the comment claimed** (the shelf ended at 0 while the
-// journal said 5,000). ⚠️ **So it was reverted, and this note is what is left: a fault that is DESCRIBED beats a
-// fix that is not understood.** ⭐ The proper answer is a decision about what removing such a row MEANS — refuse
-// it, or record the part that really came back — and that is not a decision to make at the end of a long day.
 
 // ── ★★ UNDOING A WHOLE SHOP'S "BOUGHT" (v393) ─────────────────────────────────
 //
@@ -321,14 +326,15 @@ export function applyBake(state, product, dayIso, delta) {
 //   `applied` — **the extra pans actually taken off the shelf so far.** ⭐ Storing what we DID, rather than
 //               recomputing it from the orders each time, is what makes a correction exact: the shelf
 //               follows the difference from a number we know we moved.
-export function bakedDayOf(state, dayIso) {
+export function bakedDayOf(state, dayIso, productId) {
   const day = String(dayIso || "");
-  if (!day) return null;
-  return (state.bakedDays || []).find((r) => r && r.date === day) || null;
+  const pid = String(productId || "");
+  if (!day || !pid) return null;
+  return (state.bakedDays || []).find((r) => r && r.id === bakeId(day, pid)) || null;
 }
 
 export function bakedOf(state, dayIso, productId) {
-  const row = bakedDayOf(state, dayIso);
+  const row = bakedDayOf(state, dayIso, productId);
   return (row && row.items && row.items[String(productId || "")]) || null;
 }
 
@@ -347,9 +353,11 @@ export function setBakedTotal(state, product, dayIso, total) {
   const pid = String((product && product.id) || "");
   if (!day || !pid) return { wanted: 0, delta: 0 };
   const list = state.bakedDays || (state.bakedDays = []);
-  let row = list.find((r) => r && r.date === day);
+  // ⚠️ THE KEY IS THE DAY **AND THE PRODUCT** (v546) — see `bakeId`. ⭐ **Two phones recording different bread
+  // on one day make two rows, not two versions of one.**
+  let row = list.find((r) => r && r.id === bakeId(day, pid));
   if (!row) {
-    row = { id: `bake_${day}`, date: day, items: {} };
+    row = { id: bakeId(day, pid), date: day, items: {} };
     list.push(row);
   }
   const items = row.items || (row.items = {});

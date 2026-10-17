@@ -247,14 +247,31 @@ test("★★⚠️ removing a card line puts its movement back — the row and t
   assert.equal(stockLogOf(ing)[0].why, "bought", "the wrong row came off");
 });
 
-test("⚠️ a removal that would take stock below zero is CLAMPED, and the plan says so in advance", () => {
-  // ⚠️ Stock never goes below zero, so taking back a +8 kg buy against a 7.5 kg shelf cannot leave
-  // −0.5 kg. ⚠️⚠️ THE PLAN MUST REPORT THE CLAMPED FIGURE, because the confirm shows it to her BEFORE
-  // she commits — a one-way change to her stock is not something a tap should discover afterwards.
+// ★★★ v546 — SHE CHANGED THIS RULE, AND THE OLD ONE LEFT THE JOURNAL NOT ADDING UP.
+//
+// ⚠️ The old rule CLAMPED the reversal at zero and then took the row off the card anyway — ⭐ **so its whole
+// movement left the journal while only part of it left the shelf, and the rows that remained no longer added up
+// to the shelf they exist to explain.**
+// ⚠️ **My first attempt kept the row and rewrote its delta — and my own measurement showed it did not do what
+// its comment claimed** (shelf 0, journal 5,000), so it was reverted.
+// ⭐ **REMOVING A ROW MEANS UNDOING THAT MOVEMENT. If the shelf cannot give it all back, it cannot be undone** —
+// so it is REFUSED, nothing changes, and the way through is a stocktake.
+test("★★★ a removal the shelf cannot give back is REFUSED, and nothing moves", () => {
   const ing = flour(7500);
   logStock(ing, { at: "2026-10-08", delta: 8000, why: "bought", what: "Bought — Mydin" });
   const plan = stockRowUndo(ing, stockLogOf(ing)[0]);
-  assert.equal(plan.now, 0, "the plan offered a figure her shelf can never hold");
+  assert.equal(plan.now, 7500, "★ the plan offered a figure her shelf can never hold — and worse, it offered to "
+    + "take a movement back that the shelf cannot cover");
+  assert.equal(plan.blocked, 500, "★ the refusal does not say HOW MUCH the shelf is short, so the message "
+    + "cannot name the way through");
+  assert.equal(plan.moved, 0, "a refused removal reports movement");
+
+  // ⭐ AND THE ROW STAYS, AND THE SHELF STAYS — a refusal must change nothing at all.
+  const before = stockLogOf(ing).length;
+  undoStockRow(ing, stockLogOf(ing)[0]);
+  assert.equal(ing.onHand, 7500, "★ a refused removal moved her shelf");
+  assert.equal(stockLogOf(ing).length, before, "★ a refused removal took the row off the card anyway — **that "
+    + "is the fault: the journal then stops adding up to the shelf it explains**");
 });
 
 test("⚠️ a row that is not on the card cannot be removed through it", () => {

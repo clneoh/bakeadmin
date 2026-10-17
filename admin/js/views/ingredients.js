@@ -579,6 +579,11 @@ function stockDeltaText(state, ing, delta) {
 function stockRowDelete(state, ing, entry, refresh) {
   const plan = stockRowUndo(ing, entry);
   if (!plan) return;
+  // ⚠️⚠️ AND A ROW THE SHELF CANNOT GIVE BACK IS REFUSED OUT LOUD (v546). ⭐ **No confirm box, because there is
+  // nothing to confirm** — and the message names the way through, which is a stocktake, not a quieter removal.
+  if (plan.blocked) {
+    return toast(`That line can't be taken back: your shelf holds ${fmtStockAmount(state, ing, plan.was)}, and undoing it needs ${fmtStockAmount(state, ing, plan.blocked)} more. Set the real amount with Adjust instead.`);
+  }
   confirmDialog(
     `Remove this line from the card? Your ${ing.name} is ${fmtStockAmount(state, ing, plan.was)} now, and taking this movement back leaves ${fmtStockAmount(state, ing, plan.now)}. This cannot be undone.`,
     () => {

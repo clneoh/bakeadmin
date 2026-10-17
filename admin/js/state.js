@@ -496,7 +496,25 @@ function normalize(s) {
     // tree on it without the shape being assumed.
     productCategories: Array.isArray(s.productCategories) ? s.productCategories : [],
     deliveryDates: Array.isArray(s.deliveryDates) ? s.deliveryDates : [],
-    bakedDays: Array.isArray(s.bakedDays) ? s.bakedDays : [],
+    // ★★★ ONE RECORD PER DAY **PER PRODUCT**, AND THE OLD SHAPE IS SPLIT ON LOAD (v546).
+    //
+    // ⚠️⚠️ **THE FAULT: the id was `bake_<day>`, ONE ROW FOR ALL PRODUCTS.** ⭐ **Two phones recording different
+    // bread on the same day were two versions of ONE record** — and the sync keeps the newest whole record, so
+    // **one phone's totals were discarded** and the next correction re-took a bake that had already come off
+    // the shelf.
+    // ⭐ **A record per product is a separate row each (`bake_<day>_<product>`), so two phones recording
+    // DIFFERENT bread MERGE instead of overwriting** — the same reason `removedOrders` and `rewards` are lists.
+    // ⚠️ **AND AN OLD ROW IS SPLIT HERE, KEEPING EVERY `total` AND `applied` EXACTLY**, so **no stock moves** —
+    // a shape change only. ⭐ A row already in the new shape is left untouched, so this is safe to run on every
+    // load and on a phone that has already been updated.
+    bakedDays: (Array.isArray(s.bakedDays) ? s.bakedDays : []).flatMap((row) => {
+      if (!row || !row.date) return [];
+      const items = row.items && typeof row.items === "object" ? row.items : {};
+      const pids = Object.keys(items);
+      if (!pids.length) return [];                      // a row with nothing in it says nothing
+      if (pids.length === 1 && row.id === bakeId(row.date, pids[0])) return [row]; // already per product
+      return pids.map((pid) => ({ ...row, id: bakeId(row.date, pid), items: { [pid]: items[pid] } }));
+    }),
     orders: Array.isArray(s.orders)
       ? s.orders.map((o) => (o && typeof o === "object" ? { ...o, status: o.status || "new" } : o))
       : [],
@@ -1123,6 +1141,11 @@ export function newId(prefix) {
 // model, because **the button that creates the record and the repair that fixes an older one must not be
 // able to disagree about it.**
 export const voidIdOf = (no) => `void_${Math.floor(Number(no))}`;
+
+// ⭐ THE ONE PLACE A BAKING DAY RECORD IS KEYED (v546) — a day AND a product, so two phones recording
+// different bread on one day make two rows instead of two versions of one. ⚠️ It lives in `state.js` because the
+// load repair needs it and `stock.js` already imports from here — the other direction would be a cycle.
+export const bakeId = (day, pid) => `bake_${String(day || "")}_${String(pid || "")}`;
 
 export function newVoidRecord(no, code, reason = "", at = "") {
   return {

@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { priceItems, baseFactorOf } from "../admin/js/purchasing.js";
 import { explodePicks } from "../admin/js/bom.js";
 import { productConsumption, setBakedTotal } from "../admin/js/stock.js";
-import { defaultState } from "../admin/js/state.js";
+import { defaultState, loadState } from "../admin/js/state.js";
 
 const base = () => {
   const st = defaultState();
@@ -115,4 +115,47 @@ test("★★★ and a bake row she DELETED leaves nothing to correct — no stoc
   setBakedTotal(st, st.products[0], "2026-10-17", 0);   // now "correct" the bake she already undid by hand
   assert.equal(st.ingredients[0].onHand, 5000,
     "★ correcting a bake whose row was deleted ADDED stock — **there was nothing left to give back**");
+});
+
+// ── 4 · ONE BAKING RECORD PER DAY, PER PRODUCT (v546) ─────────────────────
+test("★★★ two products baked on one day are TWO records, so two phones cannot overwrite each other", () => {
+  // ⚠️⚠️ THE FAULT: the id was `bake_<day>` — **ONE ROW FOR ALL PRODUCTS** — so two phones recording different
+  // bread on the same day were two versions of ONE record, and the sync keeps the newest whole record.
+  const st = base();
+  st.ingredients = [{ id: "i1", name: "Flour", unit: "g", uomId: "g", onHand: 10000, stockLog: [] }];
+  st.products = [
+    { id: "p1", name: "Focaccia", active: true, unit: "pc", recipe: [{ ingredientId: "i1", qty: 250, unit: "g" }] },
+    { id: "p2", name: "Sandwich", active: true, unit: "pc", recipe: [{ ingredientId: "i1", qty: 100, unit: "g" }] },
+  ];
+  setBakedTotal(st, st.products[0], "2026-10-17", 4);
+  setBakedTotal(st, st.products[1], "2026-10-17", 3);
+  assert.equal(st.bakedDays.length, 2,
+    "★ two products on one day share ONE record — **the two phones are writing two versions of one row, and "
+    + "the newest whole record discards the other phone's totals**");
+  assert.deepEqual(st.bakedDays.map((r) => r.id).sort(), ["bake_2026-10-17_p1", "bake_2026-10-17_p2"]);
+});
+
+test("★★★ and an old one-row-for-the-day is SPLIT on load, moving NO stock", () => {
+  // ⚠️ Her data already holds the old shape. ⭐ **The repair changes the SHAPE only — every `total` and
+  // `applied` is carried across exactly, so no shelf moves and no bake is re-taken.**
+  const OLD = { version: 1, settings: {}, products: [], ingredients: [], uom: {},
+    bakedDays: [{ id: "bake_2026-10-17", date: "2026-10-17",
+      items: { p1: { total: 10, applied: 10 }, p2: { total: 3, applied: 3 } } }],
+    orders: [], removedOrders: [] };
+  const store = new Map([["bakeadmin.v1", JSON.stringify(OLD)]]);
+  const real = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); }, removeItem: (k) => store.delete(k),
+  };
+  let st;
+  try { st = loadState(); } finally {
+    if (real === undefined) delete globalThis.localStorage; else globalThis.localStorage = real;
+  }
+  assert.deepEqual(st.bakedDays.map((r) => r.id).sort(), ["bake_2026-10-17_p1", "bake_2026-10-17_p2"],
+    "★ an old one-row day was not split — **two phones will keep overwriting each other on that day**");
+  const p1 = st.bakedDays.find((r) => r.id === "bake_2026-10-17_p1");
+  const p2 = st.bakedDays.find((r) => r.id === "bake_2026-10-17_p2");
+  assert.deepEqual(p1.items, { p1: { total: 10, applied: 10 } }, "★ the split lost what she recorded");
+  assert.deepEqual(p2.items, { p2: { total: 3, applied: 3 } }, "★ the split lost what she recorded");
 });
