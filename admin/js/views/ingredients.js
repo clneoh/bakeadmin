@@ -345,6 +345,9 @@ function ingredientCard(state, ing, root, handle = null) {
   const onHand = Math.max(0, Number(ing.onHand) || 0);
   const keep = Math.max(0, Number(ing.safetyBase) || 0);
   const below = belowReserve(keep, onHand);
+  // ⭐ A HIDDEN INGREDIENT, AS A FACT ABOUT THIS ROW (v544) — it says "Hidden" on its card and offers "Unhide"
+  // instead of "Hide", so the way back is on the thing she is looking at.
+  const hiddenNow = ing.active === false;
 
   // ★★ THE GRIP (v399). ⚠️ `ing-card-row` IS ONLY ON A CARD THAT CAN BE MOVED, and the handle only
   // with it — the reorder helper finds its list by that class, so a hidden ingredient (which has
@@ -400,7 +403,20 @@ function ingredientCard(state, ing, root, handle = null) {
         // read as a fault" — and the difference is that the page is no longer empty of WORDS: it names
         // the card and says what will appear on it.
         button("Stock card", () => openStockCard(state, ing), "ghost small"),
-        button(usedBy.length ? "Hide" : "Delete", () => deleteIngredient(state, ing, usedBy.length > 0, root), "ghost small"))));
+        // ★★★ AND A HIDDEN ONE CAN BE BROUGHT BACK (v544). ⚠️⚠️ **HER QUESTION FOUND THIS: __"how to unhide an
+        // ingredient?"__ — AND THERE WAS NO WAY.** ⭐ **The button said "Hide" on an ingredient that was already
+        // hidden, and pressing it did nothing** — so **hiding was a ONE-WAY DOOR in the interface**, and an
+        // ingredient she tucked away years ago was stranded in the Hidden section for ever. ⚠️ **A control that
+        // cannot be undone is exactly what this app's own rules forbid.**
+        hiddenNow
+          ? button("Unhide", () => {
+            ing.active = true;
+            save(state);
+            toast(`${ing.name} is back on your list`);
+            renderAll(root, state);
+          }, "ghost small")
+          : button(usedBy.length ? "Hide" : "Delete",
+            () => deleteIngredient(state, ing, usedBy.length > 0, root), "ghost small"))));
 }
 
 // ── The ingredient's STOCK CARD (v285 as a price journal, v385 stock added, v386 named) ───
@@ -494,7 +510,12 @@ export function stockCardSheet(state, ing, refresh = null) {
 
   return journalSheet({
     title: `${ing.name} — stock card`,
-    subtitle: `On hand: ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)} · Price now: ${priceNowText(state, ing)}`,
+    // ⚠️⚠️ A HIDDEN INGREDIENT MUST NOT LOOK LIKE A LIVE ONE (v544). ⭐ **Her case: she believed she had deleted a
+    // second "Instant yeast" long ago — the app had HIDDEN it, and its stock figure lived on at 1.142 kg with
+    // nothing on the card to say it belonged to anything.** ⚠️ **A number on a card that looks exactly like a
+    // working ingredient is the kind of number that makes her stop trusting the screen** — and she was right to.
+    subtitle: `On hand: ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)} · Price now: ${priceNowText(state, ing)}`
+      + (ing.active === false ? " · Hidden — kept because a recipe or a purchase used it, never on a shopping list" : ""),
     lines,
     totals: [],
     // ⚠️ A CARD THAT IS EMPTY STILL HAS TO SAY WHAT IT IS FOR — see the note on the press above. This
@@ -581,8 +602,13 @@ function openStockCard(state, ing) {
         // card — but her answer was "only when the price moves, PLUS TODAY", and "today" is the
         // half a movement list cannot carry by itself. ⚠️ Both figures, because a stock section
         // without the amount on the shelf would leave the reader doing the sum.
+        // ⚠️⚠️ THIS LINE IS THE ONE ON SCREEN, AND IT IS NOT THE SHEET'S `subtitle` — `journalBodyEl`
+        // deliberately draws no subtitle, so the sheet's own subtitle reaches only the paper, the shared text
+        // and the PDF. ⭐ **Both carry the Hidden note, because both are read by her.** ⚠️ **I put it on the
+        // sheet first and it did not appear — found by looking at the screen, not by reading the code.**
         el("p", { class: "card-sub", style: "margin:0 0 10px" },
-          `On hand: ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)} · Price now: ${priceNowText(state, ing)}`),
+          `On hand: ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)} · Price now: ${priceNowText(state, ing)}`
+          + (ing.active === false ? " · Hidden — kept because a recipe or a purchase used it, never on a shopping list" : "")),
         journalBodyEl(sheet, cur),
         el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur)));
     },

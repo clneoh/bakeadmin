@@ -141,7 +141,68 @@ export function localChecks(state) {
       : pass("shelf", "Every removed order says when it came off"));
   }
 
-  // ── 8 · there is room on this phone for your data (v534) ────────────────
+  // ── 8 · no two ingredients share a NAME (v544) ──────────────────────────
+  //
+  // ⚠️⚠️ HER OWN CASE, AND IT IS THE ONE THAT MADE HER DOUBT THE WHOLE SCREEN. Two records called "Instant
+  // yeast" — one at 70 g, one at 1.142 kg — and ⭐ **the stock card and the list row disagreed because they were
+  // NOT THE SAME RECORD.** ⚠️ **The card and the row both read `onHand`, so an app can only show two figures for
+  // one name if there are two ingredients.**
+  // ⚠️ **AND NOTHING STOPS A SECOND ONE BEING MADE** — there is no name check when an ingredient is added, so
+  // this is the same fault the app already guards for ORDERS ("No order appears twice"), in a list that never
+  // had the guard. ⭐ **Her question named the consequence: __"it is not reliable"__** — and she was right for
+  // exactly this reason.
+  {
+    const by = new Map();
+    for (const i of (Array.isArray(state && state.ingredients) ? state.ingredients : [])) {
+      if (!i) continue;
+      const k = String(i.name || "").trim().toLowerCase();
+      if (!k) continue;
+      by.set(k, (by.get(k) || []).concat(i));
+    }
+    const dupes = [...by.values()].filter((a) => a.length > 1)
+      .map((a) => `${String(a[0].name || "(ingredient)")} ×${a.length}`);
+    out.push(dupes.length
+      ? fail("dupeIngredient", "No two ingredients share a name", dupes,
+        "Two or more ingredients carry the same name. Their stock is separate, so a stock card can show one amount and the list another — and a recipe takes from whichever one it points at. Neither is wrong; they are simply two records with one name.",
+        "Open each one, see which your recipes use, and hide or delete the other. Then set the stock on the one that is left, so the number means something.")
+      : pass("dupeIngredient", "No two ingredients share a name"));
+  }
+
+  // ── 9 · no recipe points at an ingredient you have HIDDEN (v544) ────────
+  //
+  // ⚠️⚠️ HER OWN CASE, AND IT TOOK TWO SCREENSHOTS TO SEE. She believed she had deleted a second "Instant
+  // yeast" long ago. ⭐ **She had not — the app HIDES an ingredient a recipe uses rather than deleting it** (her
+  // own base rule: anything a transaction already uses cannot be deleted). ⚠️ **And a hidden ingredient keeps
+  // its stock figure**, so two "yeast" numbers lived on, one of them belonging to nothing she could see.
+  // ⚠️⚠️ **THE RISK BEHIND IT IS THE PART THAT MATTERS:** the shopping list tops up only **active** ingredients,
+  // ⚠️ **but a bake still consumes a hidden one** — so **if a recipe points at the hidden ingredient, that
+  // ingredient is used on every bake and never appears on a list to be bought again.** ⭐ **It would run out and
+  // nothing would say so.**
+  // ⭐ **That is worth a check rather than a warning on one screen: it is a fact about her data, and this page is
+  // where she looks when she is worried.**
+  {
+    const hidden = new Map();
+    for (const i of (Array.isArray(state && state.ingredients) ? state.ingredients : [])) {
+      if (i && i.id && i.active === false) hidden.set(i.id, String(i.name || "(ingredient)"));
+    }
+    const bad = [];
+    if (hidden.size) {
+      for (const p of (Array.isArray(state && state.products) ? state.products : [])) {
+        if (!p) continue;
+        for (const line of (Array.isArray(p.recipe) ? p.recipe : [])) {
+          const name = line && hidden.get(String(line.ingredientId || ""));
+          if (name) bad.push(`${p.name || "(product)"} → ${name}`);
+        }
+      }
+    }
+    out.push(bad.length
+      ? fail("hiddenUsed", "No recipe uses an ingredient you have hidden", bad,
+        "A recipe points at an ingredient that is hidden. A bake still takes that ingredient off your shelf, but a hidden ingredient is never put on a shopping list — so it is used and never topped up, and it can run out without anything saying so.",
+        "Open the product's recipe and point that line at the ingredient you are actually using, or un-hide the hidden one if it is the right one.")
+      : pass("hiddenUsed", "No recipe uses an ingredient you have hidden"));
+  }
+
+  // ── 9 · there is room on this phone for your data (v534) ────────────────
   //
   // ⚠️⚠️ WHY THIS IS ON THE PAGE AT ALL. Saving used to fail into a console she never sees, and the ONLY sign
   // was nothing at all — ⭐ **the same disease as the stuck queue: a promise with nothing behind it, and a

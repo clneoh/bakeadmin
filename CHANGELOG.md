@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v543)
+# Jienluv2bake — change history (v54 → v544)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v544, TWO INGREDIENTS WITH ONE NAME ARE NOW FINDABLE — AND A HIDDEN ONE CAN BE BROUGHT BACK (no database step).**
+
+**Your words, and they found both:** __"how to unhide an ingredient?"__ · __"and also i dont see hide yeast?"__ · __"it is not reliable"__
+
+**1. ⚠️⚠️ THE REAL ANSWER TO THE TWO YEAST NUMBERS: THERE ARE TWO INGREDIENTS CALLED "Instant yeast", AND BOTH ARE LIVE.** ⭐ The stock card and the list row both read the same figure, so **an app can only show two numbers for one name if there are two records.** ⚠️ **And nothing stops a second one being made** — there is no name check when an ingredient is added.
+- ⭐ **A new check names them: "No two ingredients share a name"**, with the count and what to do. It ignores capitals and stray spaces, so `Instant yeast` and `instant yeast ` cannot slip past.
+
+**2. ⚠️⚠️ AND A HIDDEN INGREDIENT COULD NOT BE BROUGHT BACK.** ⭐ **Your question found a one-way door:** the button said **"Hide"** on an ingredient that was already hidden, and pressing it did nothing. ⚠️ **An ingredient you tucked away years ago was stranded for ever.**
+- ⭐ **A hidden ingredient now offers "Unhide"**, and says so on its stock card: *"Hidden — kept because a recipe or a purchase used it, never on a shopping list."*
+
+**3. ⚠️ AND ONE MORE, FOUND WHILE LOOKING: a recipe that points at a HIDDEN ingredient.** ⭐ A bake still takes that ingredient off your shelf, but **a hidden ingredient never goes on a shopping list** — so **it would be used on every bake and never topped up, and run out with nothing saying so.** ⭐ That is now a check too.
+
+**4. ⚠️ I OWE YOU A CORRECTION.** I first told you the second yeast was probably **hidden**. ⭐ **You said you could not see a hidden yeast, and you were right** — both are live, and that is what the new check is for. ⚠️ **The hidden work still stands** (the one-way door was real), but it was not your cause.
+
+**5. ⚠️ AND A SMALL MISTAKE OF MY OWN, kept in the record:** I first put the "Hidden" wording where the **printed** card reads it, and it did not appear on screen — **the screen draws its own line.** ⭐ **Both carry it now** — found by looking at the screen rather than by reading the code.
+
+**6. What to do about the two yeasts:** open each one, see **which your Focaccia and Sandwich recipes actually use**, and hide or delete the other. ⭐ Then set the stock on the one that is left, so the number means something.
+
+**7. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v543, YOUR STOCK CARD NOW SHOWS THE TIME, SO TWO ON ONE DAY CAN BE TOLD APART (no database step).**
 
