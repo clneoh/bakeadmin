@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v536)
+# Jienluv2bake — change history (v54 → v537)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v537, THE PDFS CAN NOW PRINT CHINESE — AND YOUR WORDS WERE PRINTING AS GAPS (no database step).**
+
+**1. ⚠️⚠️ WHAT WAS WRONG: HER OWN CHINESE WAS A HOLE IN THE DOCUMENT THAT RECORDS IT.** This history records your wording decisions — **`烘焙中` → `已烤好`**, the word for the shop's app, the bake-day word — **and the PDF printed NONE of them.** ⚠️ It was silent: the build only warned, and **nothing ever read the PDF back**.
+
+**2. What caused it, exactly.** The document is Helvetica, and the entries put your Chinese inside **bold** spans. Chinese-bearing blocks already switched to a Unicode face — **but the BOLD face was still Arial Bold, a Latin font with no Chinese in it.** ⚠️ **So the characters that sat inside a bold span were drawn with a font that does not have them, and simply vanished.** A note beside that code said *"no block needs a bold Chinese character"* — **it was wrong, and it was wrong for five days.**
+
+**3. THE FIX, AND THE PROOF.** All four styles of the Chinese family now point at the one font that has the characters. ⭐ **Measured by reading your PDF back:** the text now contains **已烤好 · 烘焙日 · 应用程式 · 烘焙中 · 派送地址**, where before it read *"Regular: 烘焙中 ->  and bold Latin…"* — **the bold Chinese was not there at all.**
+
+**4. ⚠️ THE COST, SAID PLAINLY.** That font has no bold face, so **in a block that contains Chinese, the Latin bold prints at regular weight.** ⭐ It is confined to the handful of translation entries, and **it is a far smaller loss than a gap where your words should be.**
+
+**5. ⭐ AND THE GUIDE IS FIXED THE SAME WAY.** Until today, a single Chinese character in the guide **stopped the build outright** — which happened to me twice today. The guide now switches to the same face for any block that carries Chinese, and **I proved it by putting a Chinese word in, building, reading it back out of the PDF, and taking the word out again.**
+
+**6. ⭐ AND NOTHING CAN QUIETLY DO THIS AGAIN.** A new test builds the changelog, **reads the text back out of the PDF, and asks for every Chinese phrase in this history by name.** ⚠️ **I put the old bold face back and watched it fail** — *"2 of her Chinese phrases are MISSING from the changelog PDF"* — then restored the file byte-identically.
+
+**7. ⚠️ One deliberate exception, pinned too:** the word `中文` prints as the English **"Mandarin"**, because there it is the *name of a language* in ordinary prose, not a word of yours. ⭐ The test asserts that mapping still works, so it cannot be broken by accident either.
+
+**8. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v536, YOUR SIXTEEN WORDING DECISIONS ARE NOW PINNED, AND ONE WAS STILL MISSING (no database step).**
 
