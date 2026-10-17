@@ -841,7 +841,12 @@ const ms = {
   needDayTitle: "Pilih hari membakar anda dahulu.",
   needDayBody: "Langkah 1, di atas. Pilih hari anda mahu roti anda dibakar — kemudian anda boleh menambahnya.",
   confirmAddNameTitle: "Sila masukkan nama anda.",
-  confirmAddNameBody: "Kami guna untuk tahu order ini untuk siapa semasa mengesahkannya.",
+  // ⚠️ THE LAST OF HER 16 TRANSLATION DECISIONS TO BE APPLIED (17 Oct 2026). ⚠️ **The old line dropped the
+  // object of "guna" and dropped "with you"** — "Kami guna untuk tahu…" reads as an unfinished verb. Hers:
+  // "Kami guna **ini** untuk tahu order ini untuk siapa semasa **kami** mengesahkannya **dengan anda**."
+  // ⭐ **This string is not drawn on the shop yet** (it belongs to the step lock, which is unbuilt) — **which is
+  // exactly why it was the one nobody had looked at.** See `test/store-vocab.test.js`.
+  confirmAddNameBody: "Kami guna ini untuk tahu order ini untuk siapa semasa kami mengesahkannya dengan anda.",
   confirmClosedTitle: "Order untuk hari itu sudah ditutup.",
   confirmClosedBody: "Order untuk hari itu ditutup pada %1 sehari sebelum — sila pilih hari membakar yang lain.",
   confirmChangedTitle: "Order anda baru sahaja berubah.",
@@ -882,7 +887,11 @@ const ms = {
   promoFriend: "Diskaun bawa rakan yang dihantar kepada anda: -%1",
   tripStatus: "Penghantaran: %1",
   tripFinding: "Sedang mencari driver",
-  tripOnTheWay: "Pemandu dalam perjalanan",
+  // ⚠️ THE FIFTH DRIVER STRING, AND THE ONE HER DECISION MISSED (17 Oct 2026). ⭐ **Her rule was the WORD —
+  // __""driver", never `pemandu`"__ — and the note that recorded it listed four keys. This is the fifth.**
+  // ⭐⭐ **A rule recorded as a list of strings is a rule that stops at the end of the list**; the test below
+  // sweeps the whole Malay dictionary instead.
+  tripOnTheWay: "Driver dalam perjalanan",
   tripCollected: "Telah diambil",
   tripDelivered: "Telah dihantar",
   tripStopped: "Dibatalkan",

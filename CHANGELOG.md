@@ -1,8 +1,25 @@
-# Jienluv2bake — change history (v54 → v535)
+# Jienluv2bake — change history (v54 → v536)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v536, YOUR SIXTEEN WORDING DECISIONS ARE NOW PINNED, AND ONE WAS STILL MISSING (no database step).**
+
+**1. ⭐⭐ THE GOOD NEWS FIRST: FIFTEEN OF YOUR SIXTEEN DECISIONS WERE ALREADY IN THE SHOP.** I went to apply them one by one and found them applied — so **I checked every one against the live file instead of trusting the note that said "none applied".** ⚠️ **The note and the file disagreed, and nothing measured which was true** — which is the same fault as everything else this week, only about words.
+
+**2. ⚠️ AND ONE WAS STILL MISSING — the sentence you decided five days ago and never saw again**, because it is **not drawn on the shop yet** (it belongs to the step lock, which is unbuilt). The Malay read *"Kami guna untuk tahu order ini…"*, which leaves the verb hanging — the exact two things you fixed. It is yours now: *"Kami guna **ini** untuk tahu order ini untuk siapa semasa **kami** mengesahkannya **dengan anda**."*
+
+**3. ⚠️⚠️ AND A SECOND ONE WAS MISSING, WHICH YOUR OWN RULE CAUGHT.** Your decision was the word: **`driver`, never `pemandu`.** ⚠️ **The note recorded four strings; `tripOnTheWay` was the fifth** and still read *"Pemandu dalam perjalanan"*. ⭐⭐ **A rule recorded as a list of strings stops at the end of the list** — so the check now sweeps **the whole Malay dictionary**, not a list.
+
+**4. ⭐ AND THAT IS THE REAL FIX: A TEST THAT PINS YOUR DECISIONS.** Sixteen decisions lived only in a note, and **a decision that lives only in a note is one the next translation pass can undo in silence.** It now pins:
+- **the words you chose** — `bakeri` · `driver` · `order` · `hari membakar` · `hari itu` · `disertakan` · `dihentikan sementara` — **and it sweeps every Malay string for the rejected ones**, so a fifth "pemandu" cannot hide again;
+- **the sentences you wrote**, word for word — including the bring-a-friend line, the Chinese for **"baked"** on a stage that used to say *baking now*, the Chinese word for the shop's **app**, your firmer **"so the order is not lost"**, and the deliberately neutral **"the next day you can have bread"** line;
+- **the two you deliberately left alone** — the delivery-address word, and the Malay `!` — so a future sweep stops reporting them as faults.
+
+**5. Nothing of yours was rewritten and no wording was changed that you had not already decided. No database step.**
+
+---
 
 **17 Oct 2026 — engine v535, A SAVE THAT FAILS NOW SAYS SO, AND THE PAGE SHOWS HOW FULL YOUR PHONE IS (no database step).**
 
