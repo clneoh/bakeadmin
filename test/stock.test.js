@@ -377,6 +377,25 @@ test("★★ a stocktake that sets the SAME number now says so — 10 kg to 10 k
   assert.equal(log[0].what, "Stocktake — 1500 to 1500", "the row does not name both figures");
 });
 
+test("★★★ a stock row records WHEN it was written, so two on one day can be told apart (v543)", () => {
+  // ⚠️⚠️ **`at` HAS ALWAYS BEEN A DATE AND NOTHING MORE**, so her two "0 g to 10 kg" rows on 17 Oct were
+  // indistinguishable — ⭐ **neither of us could say which came first, or whether they were a second or an hour
+  // apart, and that is the whole of why it could not be explained.**
+  const ing = flour(0);
+  logStock(ing, { delta: 10, why: "stocktake", what: "Stocktake — 0 g to 10 kg" });
+  logStock(ing, { delta: 10, why: "stocktake", what: "Stocktake — 0 g to 10 kg" });
+  const log = stockLogOf(ing);
+  assert.equal(log.length, 2, "precondition: two rows were not written");
+  assert.match(String(log[0].ts), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/,
+    "★ the row carries NO TIME — **two movements on one day cannot be told apart, which is exactly the state "
+    + "her own journal was in**");
+  // ⚠️ AND `at` MUST STAY A PLAIN DATE: the When column is built with `dayMonth(e.at)`, which is `longDate`
+  // with the year sliced off. ⭐ **A timestamp there would break the column it is drawn in** — the reason the
+  // time went into its own field rather than into `at`.
+  assert.match(String(log[0].at), /^\d{4}-\d{2}-\d{2}$/,
+    "★ `at` is no longer a plain date — **the When column builds from it and would stop rendering**");
+});
+
 test("⚠️ but a BAKE that resolves no ingredient still writes NOTHING", () => {
   // ⚠️ THE RULE ABOVE IS OPT-IN, AND THIS IS WHY: a zero from a recipe means "this bake does not touch this
   // ingredient", which is not something she did — it is something the app could not find.

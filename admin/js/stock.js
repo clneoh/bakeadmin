@@ -52,6 +52,14 @@ export function logStock(ingredient, { at, delta, why, what, ref, keepZero = fal
   if (!Array.isArray(ingredient.stockLog)) ingredient.stockLog = [];
   const entry = {
     at: at || todayISO(),
+    // ★★★ AND WHEN IT WAS WRITTEN, TO THE SECOND (v543). ⚠️⚠️ **`at` HAS ALWAYS BEEN A DATE AND NOTHING MORE**,
+    // so two stocktakes on one day were indistinguishable — ⭐ **her own two "0 g to 10 kg" rows could not be
+    // told apart, and NEITHER SHE NOR I COULD SAY WHICH CAME FIRST OR HOW FAR APART THEY WERE.** That is the
+    // whole of why that could not be explained.
+    // ⚠️ A SEPARATE FIELD, NOT A LONGER `at`: `dayMonth(e.at)` builds the When column from a DATE string, and
+    // handing it a timestamp would break the column it is drawn in. ⚠️ **Old rows have no `ts` — they simply
+    // show no time, which is true of them.**
+    ts: new Date().toISOString(),
     delta: round2(n),
     why: String(why || ""),
     what: String(what || ""),

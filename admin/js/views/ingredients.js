@@ -457,7 +457,10 @@ export function stockCardSheet(state, ing, refresh = null) {
     // as ringgit, so 500 grams would read "RM 500.00". **Dashes are honest; grams dressed as ringgit
     // are not** (v385), and a separate cell is how the number leaves the sentence without becoming a
     // price.
-    cols: [dayMonth(e.at), e.what],
+    // ⭐ AND THE TIME, WHEN THE ROW HAS ONE (v543). ⚠️ **Two rows on one day were indistinguishable** — her own
+    // two stocktakes could not be told apart, so nothing could say which came first or whether they were a
+    // second or an hour apart. ⭐ **Old rows carry no `ts` and show no time, which is true of them.**
+    cols: [`${dayMonth(e.at)}${timeOf(e.ts)}`, e.what],
     val: stockDeltaText(state, ing, e.delta),
     // ⚠️ `what` IS STILL BUILT. The paper, the shared text and the PDF read it, and the columns are an
     // ARRANGEMENT of the same facts rather than a different set of them — the rule `journalSheet` sets
@@ -511,6 +514,15 @@ export function stockCardSheet(state, ing, refresh = null) {
 
 // The signed amount of one stock movement, with its unit — "+500 g", "−2.5 kg". ⚠️ MINUS IS THE
 // TYPOGRAPHIC ONE (U+2212), the same glyph the money journals use, so a printed column lines up.
+// ⭐ " · 14:32" FROM A ROW'S OWN TIMESTAMP, OR NOTHING AT ALL (v543). ⚠️ **An old row has no `ts`, and a blank
+// is the honest answer** — never a made-up time. ⚠️ The clock is the PHONE's, so it is a clue about what happened
+// on that phone, not a fact about the world.
+function timeOf(ts) {
+  const s = String(ts || "");
+  if (s.length < 16) return "";
+  return ` · ${s.slice(11, 16)}`;
+}
+
 function stockDeltaText(state, ing, delta) {
   const n = Number(delta) || 0;
   // ★★★ A CHANGE OF NOTHING READS IN THE UNIT THE AMOUNT ABOVE IT IS SHOWN IN (v542). ⚠️ **`fmtStockAmount`

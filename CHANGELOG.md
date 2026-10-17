@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v542)
+# Jienluv2bake — change history (v54 → v543)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v543, YOUR STOCK CARD NOW SHOWS THE TIME, SO TWO ON ONE DAY CAN BE TOLD APART (no database step).**
+
+**1. ⚠️⚠️ THIS IS THE ANSWER TO "WHY CAN NOBODY EXPLAIN MY TWO ROWS".** A stock row has always stored **a date and nothing more** — so **two stocktakes on 17 Oct were indistinguishable**, and **neither you nor I could say which came first, or whether they were a second or an hour apart.** ⚠️ **That is not a detail: it is the reason the question could not be answered from your own screen.**
+
+**2. What it does now:** every new stock movement records **the time it was written**, and the card shows it:
+
+> **17 Oct · 14:31** — Stocktake — 0 g to 10 kg
+> **17 Oct · 14:31** — Stocktake — 0 g to 10 kg
+> **17 Oct · 15:42** — Baked extra — 10 × Focaccia
+
+⭐ **Two rows the same minute is a real signal** — it means the same act reached the app twice, not two separate visits. ⚠️ **Two rows an hour apart means something else entirely.** That difference is now visible where it never was.
+
+**3. ⚠️ And your OLD rows are not rewritten.** They have no time, so they show **none** — ⭐ **a blank is the honest answer, and a made-up time would be worse than the row it explains.** ⚠️ The date is untouched, exactly as it was, because the When column is built from it.
+
+**4. ⚠️ The clock is the PHONE's.** ⭐ So the time is a clue about **what happened on that phone**, not a fact about the world — and it is worth knowing that your two phones are not on the same clock.
+
+**5. And your card now balances again, which is worth saying:** the new **"Extra bake corrected — +5 kg"** row is the app putting back what the bake took, so the shelf reads **10 kg** — 0 → 10, then −5, then +5. ⭐ **That one did exactly what it should.**
+
+**6. ⚠️ But the two +10 rows are still not explained, and v543 does not pretend to.** ⭐ It makes the **next** one explainable. ⚠️ **The question I asked is still open: were those two stocktakes done with a reload or a reopen between them?** ⭐ If they were the same minute and nothing was reloaded, then the same press reached the app twice — and **that** is what I would chase next.
+
+**7. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v542, A STOCKTAKE THAT CHANGES NOTHING NOW SAYS SO — "10 kg to 10 kg, +0 kg" (no database step).**
 
