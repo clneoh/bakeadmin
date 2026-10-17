@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v531)
+# Jienluv2bake — change history (v54 → v532)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v532, YOU CAN PUT MISSING ORDERS BACK WITHOUT REWINDING ANYTHING (no database step).**
+
+**Also ported from your other app** (munchies v531).
+
+**1. ⭐ A new press in Backup and safety: "Put back missing orders".** It puts back **only** the orders a saved copy holds that your phone can no longer account for — **not on your list, and not on the Removed list.** ⭐ **It ADDS and never removes:** nothing you still have is changed — no product, no money, no bake day, no Removed row — and **an order you cancelled yourself is never brought back.** It saves a **"Before put-back" copy first**, so the press itself can be undone. ⭐ **And it names the orders before you press it**, so you see what it will do.
+
+**2. ⚠️⚠️ AND THIS IS WHAT "PUT THAT COPY BACK" SHOULD ALWAYS HAVE MEANT.** Restore is a **REWIND** — it takes the whole app back to the day of the copy, here, in your shared data and on your other phone. **That is the right tool for "put everything back to how it was", and the wrong one for one missing order.** ⚠️ **Until now it was the only thing on offer for the second question — and the check itself was recommending it, as though a week-long rewind were a repair.** Restore is unchanged, and its warning is the same.
+
+**3. ⭐ AND THE CHECK'S ADVICE IS FIXED WITH IT.** Where it said *"put that copy back if these are orders you took"*, it now sends you to **Put back missing orders** — and says the thing you need to hear: **leaving them alone costs you nothing.**
+
+**4. ⭐⭐ ONE RULE, TWO CALLERS.** The check that NAMES the missing orders and the press that PUTS THEM BACK now share **one** comparison, so they can never disagree about which orders they mean. ⚠️ **A second copy of that comparison is exactly how the two would come to disagree.**
+
+**5. ⚠️ AND A NAME THAT WAS LYING IS GONE.** The function behind Restore was called `mergeRestore` and **it never merged anything** — it replaces every list with the copy and carries over only the phone's own sign-in, cloud switch and password. ⚠️ **The button's dialog was always honest about that; the NAME was not, and a name is what the next person trusts instead of the body.** It is `rewindTo` now.
+
+**6. ⚠️ THE TEST CARRIES THE TRAP THE OTHER APP PAID FOR.** Their first put-back test **passed with a rewind put in its place**, because it only counted orders. ⭐⭐ **A bite that does not fail is telling you the test is weak** — so this one includes **an order added after the copy was taken** and asserts it survives, which is the one property that separates an add from a rewind. I watched it fail.
+
+**7. Nothing of yours is rewritten here, and there is no database step.** The press only ever runs when you press it.
+
+---
 
 **17 Oct 2026 — engine v531, THE SYNC NO LONGER STOPS AT A THOUSAND RECORDS (no database step).**
 

@@ -538,6 +538,11 @@ export function renderSettings(root, state) {
       el("div", { class: "btn-row", style: "margin:0" },
         button("View", () => viewOne(row), "soft"),
         button("Restore", () => restoreOne(row), "primary"),
+        // ★★★ THE ADDITIVE SIBLING OF RESTORE (v532). ⚠️ **"Put that copy back" meant a full REWIND** — every
+        // list replaced by the copy, here, in the shared data and on her other phone — and the trace check was
+        // recommending it as though it were a repair for one missing order. ⭐ This puts back ONLY the orders
+        // that copy holds and this phone cannot account for, and touches nothing else.
+        button("Put back missing orders", () => putBackOne(row), "soft"),
         button("Download", () => downloadOne(row), "ghost"),
         button("Delete", () => deleteOne(row), "ghost")));
   }
@@ -557,6 +562,25 @@ export function renderSettings(root, state) {
         toast("Restored — reloading…");
         location.reload();
       }, { danger: true, yesLabel: "Restore" });
+  }
+
+  // ⭐ PUT BACK ONLY WHAT IS MISSING (v532) — ⚠️ **counted first with `dryRun`, so the confirmation NAMES the
+  // orders before anything is written**, and it says the two things she needs to hear: nothing she still has is
+  // changed, and a "Before put-back" copy is saved first.
+  function putBackOne(row) {
+    backups.putBackOrders(state, row, { dryRun: true }).then((d) => {
+      if (!d.ok) return toast(String(d.reason || "Couldn't read that copy"));
+      if (!d.count) return toast("Nothing in that copy is missing from this phone.");
+      const codes = d.codes.map((c) => `#${c}`).join(", ");
+      confirmDialog(
+        `${d.count} order${d.count === 1 ? "" : "s"} in "${row.label || "this copy"}" ${d.count === 1 ? "is" : "are"} not on this phone and not on the Removed list: ${codes}. Put ${d.count === 1 ? "it" : "them"} back? Nothing you still have is changed — no product, no money, no bake day, and no Removed row — and a "Before put-back" copy is saved first.`,
+        async () => {
+          const r = await backups.putBackOrders(state, row);
+          if (!r.ok) return toast(String(r.reason || "Couldn't put them back"));
+          toast(`Put back ${r.count} order${r.count === 1 ? "" : "s"} — reloading…`);
+          location.reload();
+        }, { yesLabel: d.count === 1 ? "Put it back" : "Put them back" });
+    }).catch(() => toast("Couldn't read that copy"));
   }
 
   function downloadOne(row) {

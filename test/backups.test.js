@@ -205,7 +205,7 @@ test("exportEnvelope wraps a copy so a downloaded file re-imports via parseImpor
   assert.equal(imported.settings.supabase.email, ""); // creds never in the cloud copy
 });
 
-test("mergeRestore takes the copy's data but keeps this phone's sign-in, cloud switch and lock", () => {
+test("rewindTo takes the copy's data but keeps this phone's sign-in, cloud switch and lock", () => {
   const snap = backups.snapshotState(cloudState()); // no device settings inside
   const live = cloudState();
   live.settings.supabase = { enabled: true, url: "https://y.supabase.co", anonKey: "anon2",
@@ -215,7 +215,7 @@ test("mergeRestore takes the copy's data but keeps this phone's sign-in, cloud s
   live.products = [{ id: "p-live", name: "Something newer", unit: "loaf" }]; // will be replaced
   live.orders = [];
 
-  const merged = backups.mergeRestore(live, snap);
+  const merged = backups.rewindTo(live, snap); // ⚠️ RENAMED at v532: it never merged, and the name said it did
   assert.deepEqual(merged.settings.supabase, live.settings.supabase);
   assert.deepEqual(merged.settings.cloud, live.settings.cloud);
   assert.deepEqual(merged.settings.lock, live.settings.lock);
@@ -390,6 +390,107 @@ test("getBackup fetches the one full copy by id", async () => {
   }
 });
 
+// ── v532: put back ONLY what is missing, and remove NOTHING ─────────────────
+//
+// ⚠️⚠️ THE TEST TRAP, AND IT COST MUNCHIES A ROUND: **the first put-back test PASSED WITH A REWIND PUT IN ITS
+// PLACE**, because it only counted orders. ⭐⭐ **A bite that does not fail is telling you the test is weak.**
+// So this one carries **an order that was added AFTER the copy was taken** and asserts it SURVIVES — that is
+// the one property that separates an add from a rewind.
+
+/** The stubs `putBackOrders` needs: the copy, the sync pull and flush, and the "before" copy's POST. */
+function putBackFetch(row, { onSafety = () => {} } = {}) {
+  return installFetch(async (url, opts) => {
+    const method = (opts && opts.method) || "GET";
+    if (method === "GET" && url.includes("/rest/v1/backup_snapshots?")) return jsonRes([row]);
+    if (method === "GET" && url.includes("/rest/v1/bakery?")) return jsonRes([]);      // paged sync pull
+    if (method === "POST" && url.includes("/rest/v1/bakery?")) return jsonRes({});      // sync flush
+    if (method === "POST" && url.endsWith("/rest/v1/backup_snapshots")) {
+      onSafety(JSON.parse(opts.body)[0]);
+      return jsonRes({});
+    }
+    throw new Error(`unexpected request ${method} ${url}`);
+  });
+}
+
+test("★★★ putBackOrders ADDS the missing order and REMOVES NOTHING — an order added after the copy survives", async () => {
+  const ls = installStorage();
+  seedToken(ls.store);
+  try {
+    const state = cloudState();
+    const snap = backups.snapshotState(state);                        // the copy, as it stood that day
+    // ⚠️ IN THE COPY, NOT ON THE PHONE NOW — the one it is meant to put back.
+    snap.orders.push({ id: "ord_missing1", productId: "p1", qty: 2, deliveryDateId: "d1", status: "paid" });
+    // ⚠️⚠️ AND ON THE PHONE, ADDED AFTER THE COPY — **a rewind would destroy this; a put-back must not.**
+    state.orders.push({ id: "ord_addedAft", productId: "p1", qty: 1, deliveryDateId: "d1", status: "new" });
+
+    let safety = null;
+    const restoreFetch = putBackFetch({ id: 9, data: JSON.stringify(snap) }, { onSafety: (r) => { safety = r; } });
+    try {
+      const r = await backups.putBackOrders(state, { id: 9 });
+      assert.equal(r.ok, true, String(r.reason || "the put-back failed, so nothing below proves anything"));
+      assert.equal(r.count, 1, "★ the missing order was not put back, or more than one was added");
+
+      const ids = state.orders.map((o) => o.id);
+      assert.ok(ids.includes("ord_missing1"), "★ the order the copy holds and this phone did not is still missing");
+      assert.ok(ids.includes("ord_addedAft"),
+        "★ an order added AFTER the copy was REMOVED — **that is a REWIND, not a put-back**, and it is the "
+        + "exact fault this test exists to catch: the first version of this test passed with a rewind in its place");
+      // ⭐ AND WHAT WENT TO THE PHONE IS THE SAME THING.
+      const written = JSON.parse(ls.store.get(LS_KEY));
+      assert.deepEqual(written.orders.map((o) => o.id).sort(), ["o1", "ord_addedAft", "ord_missing1"].sort(),
+        "★ the phone's saved orders are not exactly what it had, plus the one that was missing");
+      // ⚠️ AND IT IS NEVER ONE-WAY: a "before" copy is written first, for the same reason a rewind takes one.
+      assert.ok(safety, "★ no \"Before put-back\" copy was saved, so the press cannot be undone");
+      assert.match(String(safety.label), /Before put-back/);
+    } finally { restoreFetch(); }
+  } finally { ls.restore(); }
+});
+
+test("★★ putBackOrders NEVER resurrects a cancellation — an order on the Removed list is left alone", async () => {
+  const ls = installStorage();
+  seedToken(ls.store);
+  try {
+    const state = cloudState();
+    const snap = backups.snapshotState(state);
+    // ⚠️ THE COPY HOLDS IT, AND SHE CANCELLED IT — it is on this phone's Removed list.
+    // ⚠️ THE FIXTURE'S OWN ORDER STAYS LIVE — ⭐ **emptying the list instead would make a DIFFERENT order
+    // missing, and the test would "fail" for a reason that has nothing to do with cancellation** (it did,
+    // first time round: the count came back 1 for `o1`, not for the cancelled one).
+    const cancelled = { id: "ord_cancel1", productId: "p1", qty: 3, deliveryDateId: "d1", status: "new" };
+    snap.orders.push(cancelled);
+    state.removedOrders = [{ ...cancelled, removedAt: new Date().toISOString() }];
+
+    const restoreFetch = putBackFetch({ id: 9, data: JSON.stringify(snap) });
+    try {
+      const r = await backups.putBackOrders(state, { id: 9 });
+      assert.equal(r.ok, true);
+      assert.equal(r.count, 0, "★ a cancelled order was put back — **the press must not undo a decision she made**");
+      assert.equal(state.orders.some((o) => o.id === "ord_cancel1"), false,
+        "★ the cancelled order is on the live list again");
+    } finally { restoreFetch(); }
+  } finally { ls.restore(); }
+});
+
+test("★★ and a dry run COUNTS without changing anything at all", async () => {
+  const ls = installStorage();
+  seedToken(ls.store);
+  try {
+    const state = cloudState();
+    const snap = backups.snapshotState(state);
+    snap.orders.push({ id: "ord_missing1", productId: "p1", qty: 2, deliveryDateId: "d1", status: "paid" });
+    const before = JSON.stringify(state);
+    const restoreFetch = putBackFetch({ id: 9, data: JSON.stringify(snap) });
+    try {
+      const r = await backups.putBackOrders(state, { id: 9 }, { dryRun: true });
+      assert.equal(r.ok, true);
+      assert.equal(r.count, 1, "the dry run did not count the missing order");
+      assert.deepEqual(r.codes.length, 1);
+      // ⚠️ **A DRY RUN THAT CHANGED SOMETHING WOULD BE THE WORST OF BOTH** — it is what the confirmation uses.
+      assert.equal(JSON.stringify(state), before, "★ a dry run changed the phone");
+    } finally { restoreFetch(); }
+  } finally { ls.restore(); }
+});
+
 test("restoreSnapshot saves a 'Before restore' copy then writes the merged state", async () => {
   const ls = installStorage();
   seedToken(ls.store);
@@ -416,7 +517,7 @@ test("restoreSnapshot saves a 'Before restore' copy then writes the merged state
     assert.equal(safetyData.settings.supabase, undefined); // safety copy is stripped too
     // The phone's localStorage now holds the merged restored state.
     const written = JSON.parse(ls.store.get(LS_KEY));
-    assert.deepEqual(written, backups.mergeRestore(state, snap));
+    assert.deepEqual(written, backups.rewindTo(state, snap));
     assert.equal(written.settings.supabase.password, "pw"); // this phone stays signed in
   } finally {
     restoreFetch();
