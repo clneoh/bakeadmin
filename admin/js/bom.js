@@ -8,7 +8,7 @@
 // recursively, so the shopping list and cost always see the leaf ingredients.
 
 import { byId, round2 } from "./state.js";
-import { chosenSupplier, cookingUnit, belowReserve } from "./purchasing.js";
+import { chosenSupplier, cookingUnit, belowReserve, baseFactorOf } from "./purchasing.js";
 import { shortDate } from "./dates.js";
 // The sell-day rules — one shared root module, the same copy the shop reads, so
 // the day a product sells on and the day it counts toward capacity can never drift.
@@ -379,10 +379,10 @@ function demandMap(state, productId, memo, stack, warnings) {
     const qty = Number(line.qty) || 0;
     if (qty <= 0) continue;
     if (line.ingredientId && !line.productId) {
-      pushDemand(acc, line.ingredientId, qty, line.unit);
+      pushDemand(acc, line.ingredientId, qty, line.unit, state);
     } else if (line.productId) {
       const child = demandMap(state, line.productId, memo, stack, warnings);
-      for (const [ingId, d] of child) pushDemand(acc, ingId, d.qty * qty, d.unit);
+      for (const [ingId, d] of child) pushDemand(acc, ingId, d.qty * qty, d.unit, state);
     }
   }
   stack.delete(productId);
@@ -390,10 +390,23 @@ function demandMap(state, productId, memo, stack, warnings) {
   return acc;
 }
 
-function pushDemand(acc, ingredientId, qty, unit) {
+// ★★★ AND TWO LINES IN DIFFERENT UNITS ARE SUMMED AS THE SAME UNIT — FIXED (v545).
+//
+// ⚠️⚠️ THIS USED TO BE `prev.qty += qty`, WHICH ADDS **500 g AND 1 kg AS 501**. ⭐ **The unit of the first
+// contributor was kept and the other unit's number was simply added to it** — so a product with a direct line
+// and a value-pack line on the same ingredient, in different units, demanded 501 g instead of 1,500 g. ⚠️ **The
+// `unitsOk` flag could not catch it: it compares the already-collapsed single unit**, so the sentence that
+// claimed a safety net described one that was not there.
+// ⭐ **The incoming quantity is now converted INTO the unit already accumulating, within the same family** —
+// the same `baseFactorOf` the shopping list uses, so one rule again.
+function pushDemand(acc, ingredientId, qty, unit, state) {
   const prev = acc.get(ingredientId);
-  if (prev) prev.qty += qty;
-  else acc.set(ingredientId, { qty, unit });
+  if (!prev) { acc.set(ingredientId, { qty, unit }); return; }
+  if (String(prev.unit || "") === String(unit || "")) { prev.qty += qty; return; }
+  const ing = byId((state && state.ingredients) || [], ingredientId);
+  const from = baseFactorOf(state || {}, ing, unit);
+  const to = baseFactorOf(state || {}, ing, prev.unit);
+  prev.qty += qty * (to ? from / to : 1);
 }
 
 function cycleWarningText(state, w) {

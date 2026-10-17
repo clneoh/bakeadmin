@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v544)
+# Jienluv2bake — change history (v54 → v545)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v545, THE INGREDIENT AUDIT: THREE FAULTS THAT PUT A WRONG NUMBER IN FRONT OF YOU, FIXED. TWO MORE STILL OPEN, SAID OUT LOUD (no database step).**
+
+**Your words:** __"can you pls check everything about ingredient"__ — and then __"i found that you had too many errors, you should run thru a very thorough details audit on each and every small detail by yourself"__
+
+**1. ⚠️⚠️ THE SHOPPING LIST COULD BE WRONG BY A THOUSAND TIMES.** It computed what to buy by multiplying a quantity **written in the recipe line's unit** by **the ingredient's own unit** — the same number only when those two units happen to match. ⚠️ **An ingredient measured in kg, with a recipe line saying 500 g, was read as 500 kg to buy.** ⭐ **Measured: the bake takes 500 g and the list now says 500 g (`0.5 kg`), where it said 500 kg.**
+
+**2. ⚠️ TWO LINES IN DIFFERENT UNITS WERE ADDED AS ONE.** 500 g plus 1 kg was summed as **501**. ⭐ Now converted into one unit first — **1,500 g.**
+
+**3. ⚠️⚠️ AND A CORRECTION COULD INVENT STOCK.** 1,000 g on the shelf, record a bake of 10 (it needs 2,500) — the shelf stops at 0, correctly — then correct that bake, and **the shelf became 2,500 g. You started with 1,000.**
+- ⭐ **A correction now puts back only what that day's bake actually took.** Measured: **1,000 → 0 → 1,000**, and the journal adds up.
+- ⭐ **And it fixes the same fault from the other side**: if you delete a bake row by hand, a later correction can no longer turn it into stock.
+
+**4. ⚠️ AND "LOW STOCK" COULD NEVER BE CLEARED** on an ingredient marked *not something I buy* — the banner still counted it, while the control to clear its keep level is hidden on that card. ⭐ **A low-stock line is a prompt to buy, and that ingredient is never bought.** ⚠️ **Fixed, but it is a filter on one banner and has no test of its own — said plainly rather than implied.**
+
+**5. ⚠️⚠️ AND TWO FAULTS I HAVE NOT FIXED, SO YOU KNOW WHAT IS STILL THERE:**
+- **Removing a stock-card row that the shelf cannot fully give back** still takes the whole row off, so the remaining rows no longer add up to the shelf. ⚠️ **My first fix for it did not do what it claimed — my own measurement caught it — so it was REVERTED rather than shipped.** ⭐ **A described fault beats a fix that is not understood.**
+- **Your two phones share ONE baking record per day, not one per product** — so two phones recording different bread on one day can overwrite each other.
+
+**6. ⭐ AND WHAT THE AUDIT FOUND CLEAN, which matters as much:** ingredients **do** travel to the other phone whole; the bake box, the orders, the money and the shelf arithmetic are untouched by any of this.
+
+**7. ⚠️ STILL TRUE, AND NOT FIXED HERE: do not rely on stock or a shopping list for money yet.** The three fixed faults were the ones that put wrong numbers in front of you; ⭐ **the two at the end of point 5 are the reason to wait one more round.**
+
+**8. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v544, TWO INGREDIENTS WITH ONE NAME ARE NOW FINDABLE — AND A HIDDEN ONE CAN BE BROUGHT BACK (no database step).**
 

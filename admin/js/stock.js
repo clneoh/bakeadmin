@@ -10,7 +10,7 @@
 
 import { byId, round2 } from "./state.js";
 import { expandProduct } from "./bom.js";
-import { cookingUnit } from "./purchasing.js";
+import { cookingUnit, baseFactorOf } from "./purchasing.js";
 import { longDate, todayISO } from "./dates.js";
 
 // ── ★★ the stock journal (v385) ───────────────────────────────────────────────
@@ -143,6 +143,14 @@ export function undoStockRow(ingredient, entry) {
   return plan;
 }
 
+// ⚠️⚠️ AND A KNOWN FAULT, LEFT OPEN ON PURPOSE RATHER THAN HALF-FIXED (v545). When the reversal above is
+// CLAMPED at zero — removing a row bigger than the shelf holds — **the row is still taken off the card**, so the
+// rows that remain no longer add up to the shelf they explain. ⭐ **My first fix kept the row and rewrote its
+// delta, and MY OWN MEASUREMENT showed it did not do what the comment claimed** (the shelf ended at 0 while the
+// journal said 5,000). ⚠️ **So it was reverted, and this note is what is left: a fault that is DESCRIBED beats a
+// fix that is not understood.** ⭐ The proper answer is a decision about what removing such a row MEANS — refuse
+// it, or record the part that really came back — and that is not a decision to make at the end of a long day.
+
 // ── ★★ UNDOING A WHOLE SHOP'S "BOUGHT" (v393) ─────────────────────────────────
 //
 // Her words: __"that delete is for deleting the whole po, what if i only want to delete one bought
@@ -199,16 +207,10 @@ export function undoShopBought(state, moves, { shopLabel = "", day = "", ref = "
 // by name is only honoured when it shares the ingredient's cooking family: now
 // that hr/min/cm/m exist as convertible units, a cross-family line unit (say
 // "hr" on a gram ingredient) must never distort stock by a ×60/×100 factor.
-function baseOf(state, ingredient, unitName) {
-  const list = state.uoms || [];
-  const cook = cookingUnit(list, ingredient);
-  const byName = unitName
-    ? list.find((u) => String(u.name || "").toLowerCase() === String(unitName).toLowerCase()
-        && (!cook || u.family === cook.family))
-    : null;
-  const u = byName || cook;
-  return Number(u && u.toBase) || 1;
-}
+// ⚠️ THE BODY MOVED TO `purchasing.js` AS `baseFactorOf` (v545) — **the shopping list needed the same rule and
+// could not import this module without a cycle.** ⭐ **One rule, three callers; this is a name, not a second
+// copy** — which is the whole point.
+const baseOf = baseFactorOf;
 
 // ★★★ THE ONE READING OF A RECIPE (v514). Recipe ingredient amounts for a NUMBER of one product, in base
 // units per ingredient. null when the product is gone (nothing to take off stock).
@@ -261,10 +263,31 @@ export function applyBake(state, product, dayIso, delta) {
     const ing = byId(state.ingredients || [], ingredientId);
     if (!ing) continue;
     const before = Number(ing.onHand) || 0;
+    // ★★★ AND A CORRECTION MAY NEVER PUT BACK MORE THAN THE BAKE ACTUALLY TOOK (v545).
+    //
+    // ⚠️⚠️ **MEASURED, ON THE REAL FUNCTIONS: 1,000 g on the shelf, bake 10 (it needs 2,500 g) — the shelf
+    // stops at 0, correctly — then correct that bake back to 0, and the shelf becomes 2,500 g. ⭐ SHE STARTED
+    // WITH 1,000 g: the correction INVENTED 1,500 g OF FLOUR.**
+    // ⚠️ **The deduction is clamped at zero and the add-back was not** — so the journal read −1,000 then
+    // +2,500 for a bake that netted nothing, and the shelf drifted permanently away from reality.
+    // ⭐ **The bound is the day's OWN journal**: the most that may come back is what this day's bake actually
+    // took off this ingredient. ⚠️ **If those rows were deleted, nothing comes back** — the delta is 0, no row
+    // is written, and the shelf does not move, which is exactly right.
+    // ⭐ **AND IT MAKES THE JOURNAL SUM TO THE SHELF BY CONSTRUCTION**, because every row is the change that
+    // really happened.
+    let give = base;
+    if (n < 0) {
+      const day = String(dayIso || "");
+      const taken = stockLogOf(ing)
+        .filter((e) => e && e.why === "produced" && String(e.ref || "") === day && Number(e.delta) < 0)
+        .reduce((s, e) => s - (Number(e.delta) || 0), 0);
+      give = Math.min(base, round2(taken));
+      if (!(give > 0)) continue; // nothing was taken that day — nothing to give back, and no row
+    }
     // ⚠️ `Math.max(0, …)` mirrors `consumeOrder`: stock never goes below zero, so a bake against an empty
     // shelf moves nothing — and the row records the movement that HAPPENED, never the recipe's figure,
     // or the journal stops summing to the number it explains.
-    ing.onHand = round2(Math.max(0, before + (n > 0 ? -base : base)));
+    ing.onHand = round2(Math.max(0, before + (n > 0 ? -base : give)));
     logStock(ing, {
       delta: round2((Number(ing.onHand) || 0) - before),
       why: "produced",

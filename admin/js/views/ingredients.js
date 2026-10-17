@@ -36,7 +36,13 @@ function renderAll(root, state) {
 
   const form = newIngredientCard(state, root);
 
-  const low = items.filter((ing) => belowReserve(Number(ing.safetyBase) || 0, Number(ing.onHand) || 0));
+  // ⚠️⚠️ AND "NOT SOMETHING I BUY" IS NEVER "LOW" (v545). ⭐ **A low-stock line is a prompt to BUY**, and an
+  // ingredient she has marked *not something I buy* is never bought — ⚠️ **worse, its "Keep at least" control is
+  // HIDDEN on its own card, so a leftover keep level could never be cleared and the banner said "Low stock" for
+  // ever with no way out on that screen.** ⭐ **A warning she cannot clear is one she learns to ignore** — this
+  // file's own rule, applied to its own banner. ⚠️ The not-bought flag already keeps it off every shopping list;
+  // this line keeps it off the list's reminder too.
+  const low = items.filter((ing) => ing.notPurchased !== true && belowReserve(Number(ing.safetyBase) || 0, Number(ing.onHand) || 0));
   const banner = low.length ? el("div", { class: "low-stock-banner" },
     el("p", { class: "low-stock-title" }, "Low stock — below your keep level"),
     ...low.map((ing) => el("p", { class: "low-stock-line" },
