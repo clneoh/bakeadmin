@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v540)
+# Jienluv2bake — change history (v54 → v541)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v541, A PRODUCT WITH NO INGREDIENTS CAN STILL BE RECORDED — AND SAYS IT MOVES NO STOCK (no database step).**
+
+**Your words:** __"why a hidden product dont appear on total baked?"__ — and then __"i dont see them because there is no ingredient with them"__
+
+**1. ⚠️⚠️ WHAT WAS HAPPENING, AND IT WAS NOT A BUG — IT WAS A GATE.** The baked box listed only products **with a recipe**, because a box for a product with no ingredients moves nothing, and this app's rule is that a control which does nothing is a bug. ⚠️ **But the cost was worse than the rule:** **you had baked something and the app would not let you record it**, because a recipe was not set up. ⭐ **Your own rule is "guide, never a gate" — and this was a gate.**
+
+**2. ⭐ SO EVERY PRODUCT IS LISTED NOW, AND THE FACT IS WRITTEN ON THE ROW.** A product with no ingredients carries this line, on its own row and nowhere else:
+
+> **no ingredients on its recipe — this will not change your stock**
+
+**3. ⚠️ Which keeps both rules.** You can **record the bake**, so the day is complete. You are **told plainly that it moved no stock**, so it is not a control that quietly does nothing. ⭐ And the day you add the ingredients, the same box **starts moving stock with nothing else to learn.**
+
+**4. Measured on the real app at phone size, with a hidden product that has no recipe:** a day with **Focaccia (2 ordered)** and **Pandan cake (hidden, no ingredients)** — **both appear**; the note is on the Pandan row and **not** on the Focaccia row · recording **3** of the Pandan cake **recorded the total** and left the flour **exactly where it was**.
+
+**5. ⚠️ And the honest cost:** a hidden product you have stopped making now appears in the box too. ⭐ That is one row more than you need, and **it is a smaller problem than an app refusing to record a bake you actually made.**
+
+**6. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v540, THE GUIDE HAS A "DO THIS, NEVER THAT" PAGE (no database step).**
 
