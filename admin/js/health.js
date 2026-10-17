@@ -21,7 +21,7 @@
 // ⚠️ AND IT NEVER NAMES A CAUSE. It reports what it found and what it means. What removed an order is not
 // knowable from the data that is left — which is the whole reason v444 keeps a copy of it.
 
-import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords } from "./state.js";
+import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, PHONE_STORE_LIMIT, PHONE_STORE_ALERT } from "./state.js";
 import { isCollected } from "./money.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { listFields } from "./sync.js";
@@ -139,6 +139,33 @@ export function localChecks(state) {
         "A row on the Removed list has no date on it, so the list cannot be trusted to say how old it is.",
         "Nothing to do — this one is the app's own bookkeeping and tells us the list was written by an older version.")
       : pass("shelf", "Every removed order says when it came off"));
+  }
+
+  // ── 8 · there is room on this phone for your data (v534) ────────────────
+  //
+  // ⚠️⚠️ WHY THIS IS ON THE PAGE AT ALL. Saving used to fail into a console she never sees, and the ONLY sign
+  // was nothing at all — ⭐ **the same disease as the stuck queue: a promise with nothing behind it, and a
+  // GROWTH fault that only appears once the book is big.** ⭐ **She asked the question this answers: "any risky
+  // system handling that we should eliminate BEFORE the database builds up".**
+  // ⭐ It is a PASS showing the number until the phone is nearly full, and only then a FAIL — **a red X a year
+  // early is the warning she learns to ignore.**
+  {
+    const used = storedBytes(state);
+    if (used == null) {
+      out.push(skipped("room", "There is room on this phone for your data",
+        "This phone's storage could not be measured, so nobody can say how much room is left."));
+    } else {
+      const pct = Math.round((used / PHONE_STORE_LIMIT) * 100);
+      const mb = (n) => `${(n / (1024 * 1024)).toFixed(2)} MB`;
+      const size = `${mb(used)} of about ${mb(PHONE_STORE_LIMIT)} (${pct}%)`;
+      if (used >= PHONE_STORE_LIMIT * PHONE_STORE_ALERT) {
+        out.push(fail("room", "There is room on this phone for your data", [size],
+          `What this phone stores is ${size} full. When a browser's storage fills up, SAVING STOPS — and until v534 that happened silently, so a change could be lost while the screen still looked normal.`,
+          "This needs doing before the phone fills: the oldest cloud copies can be deleted, and a device with more room can take over. Nothing is lost — your shared data and your saved copies still hold everything."));
+      } else {
+        out.push({ ...pass("room", "There is room on this phone for your data"), detail: [size] });
+      }
+    }
   }
 
   return out;
@@ -345,6 +372,22 @@ export function backupChecks(state, copy, when = "") {
       // this job, and says the thing she needs to hear: leaving them alone costs her nothing.
       "Open Backup and safety and press Put back missing orders — it puts back only these, and leaves everything you still have exactly as it is. Leaving them alone costs you nothing, and nothing else on this phone is changed. Or, if one of them is a real order you want back now, search WhatsApp for the number and enter it again by hand.")
     : pass("stable", TITLE)];
+}
+
+// ★★★ AND WHETHER THIS PHONE ACTUALLY SAVED WHAT IT SAID IT SAVED (v534).
+//
+// ⚠️⚠️ `save()` used to catch a full-phone error, write it to the console, and carry on — ⭐ **and the console
+// is something she will never see.** ⚠️ **It then still queued the change, so "it saved" and "the phone is
+// full" were BOTH TRUE, silently.**
+// ⭐ `saveFail` is passed in rather than read from the module, so a test can drive this without leaving a
+// global set for the tests after it.
+export function saveCheck(saveFail) {
+  const TITLE = "Every change is saved on this phone";
+  if (!saveFail || typeof saveFail !== "object") return [pass("saved", TITLE)];
+  const when = String(saveFail.at || "").slice(0, 10);
+  return [fail("saved", TITLE, [saveFail.name || "Save failed"],
+    `This phone could not store your last change${when ? ` (${when})` : ""}: ${saveFail.reason}. The change was still sent to your shared data, so it is not lost — but THIS phone could not keep its own copy of it, and on a reload this phone will take the shared data's version back down.`,
+    "This happens when the browser's storage for the app is full. The oldest cloud copies can be deleted to free room, and nothing is lost — your shared data and the remaining copies still hold everything.")];
 }
 
 // ── the check that asks whether this phone's records REACHED the other one ───
@@ -592,6 +635,7 @@ export function runHealthChecks(state, extra = {}) {
     ...cloudOnlyCheck(state, extra.cloud, extra.local),
     ...contentCheck(state, extra.cloud, extra.payloads, extra.queued),
     ...recordsCheck(extra.count, extra.ceiling),
+    ...saveCheck(extra.saveFail),
     ...waitingCheck(extra.waiting, extra.queued, state, extra.lastFail),
   ];
   return {

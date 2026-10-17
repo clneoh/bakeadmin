@@ -1,8 +1,33 @@
-# Jienluv2bake — change history (v54 → v533)
+# Jienluv2bake — change history (v54 → v535)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v535, A SAVE THAT FAILS NOW SAYS SO, AND THE PAGE SHOWS HOW FULL YOUR PHONE IS (no database step).**
+
+*(Your other app is also on 534 today. The two engines count their own builds, and they happened to meet — so this one moves to 535, and the two can never be mistaken for each other.)*
+
+**You asked the right question:** __"is there a test you should run to detect this systemic problem, or any risky system handling that we should eliminate before the database build up?"__
+
+**1. ⚠️⚠️ AND LOOKING FOR THE ANSWER FOUND THE WORST FAULT IN THE APP.** Saving your data caught a full-phone error, **wrote it to a console you will never see, and carried on.** ⚠️ **It then still sent the change to your shared data, so "it saved" and "this phone is full" could both be true, silently.** ⭐ **Measured, not guessed:** a save into a full phone returns exactly as if it had worked.
+
+**2. ⭐⭐ THAT IS THE SAME DISEASE AS THE STUCK QUEUE, IN A DIFFERENT ORGAN: a promise with nothing behind it.** ⚠️ And it is a **growth** fault — it only appears as the book gets big, which is why it had never been seen in a year of use.
+
+**3. What it does now:** a failed save is **recorded**, and **Check my system fails with a line that says so** — including the one reassuring true thing: **the change still reached your shared data, so it is not lost; this phone just could not keep its own copy.** ⭐ A save that works clears it, so a stale warning never outlives the problem.
+
+**4. ⭐ AND THE PAGE NOW TELLS YOU HOW FULL THE PHONE IS.** A new line — **"There is room on this phone for your data"** — showing **how many MB of about 5 MB** your book takes, as a percentage. ⭐ **It only turns red when the phone is nearly full (85%)**, because a warning a year early is one you learn to ignore. ⭐ **That number is the instrument you asked for: the growth is visible instead of theoretical.**
+
+**5. Where you are today:** about **400 KB of 5 MB — roughly 8%.** ⭐ Measured on the page from now on, not estimated by me.
+
+**6. ⚠️ AND THE ANSWER TO "A TEST FOR THE SYSTEMIC PROBLEM": the class is "the app claims something and nothing measures it".** The tests for that class check the **claims**, not just the behaviour:
+- a save that fails must be **recorded**, not swallowed — and the page must report it
+- the amount of room used must be **measured and shown**, and must fail near the limit
+- every SQL step your guides tell you to run must **exist, be non-empty, and do what the code needs** (added earlier today)
+
+**7. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v533, THE SYNC NOW READS ONLY WHAT HAS CHANGED — and your database step is already done.**
 
