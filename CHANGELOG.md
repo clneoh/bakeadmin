@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v539)
+# Jienluv2bake — change history (v54 → v540)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v540, THE GUIDE HAS A "DO THIS, NEVER THAT" PAGE (no database step).**
+
+**1. ⭐ You asked for the rules, so they are now page 37 of your manual** — not in a chat you would have to scroll back through. **Eleven DOs, eight NEVERS, and what to do if something goes wrong, in order.**
+
+**2. ⚠️ AND THE PAGE SAYS WHERE THEY CAME FROM, because that is the part worth remembering.** Every rule is a fault that actually happened — a queue that said it was syncing and never emptied, a save that said it saved into a full phone, your own Chinese words printing as gaps. ⭐ **None of it was carelessness in your shop. All of it was the app telling you something it had not checked.**
+
+**3. The DOs, in one line each:** open the app on one phone every day or two · keep one phone signed in to shared data · press Save after recording what you baked · type the TOTAL, not the extra · read the numbers on Check my system · use *Put back missing orders* rather than Restore · look at the page before Restore or Import · test on one phone first.
+
+**4. The NEVERS, in one line each:** never sign out of shared data casually · never clear the app data to fix a problem · never use Import to top up or merge · never use Restore to fix one missing order · never assume the paid stage says how the money came in · never mix up the order's Baked stage with the baked box · never delete an order you might need · never trust a number without reading it.
+
+**5. ⭐ AND WHAT TO DO IF SOMETHING GOES WRONG, in four steps:** don't sign out, don't clear anything, don't press Restore · run Check my system · send the failing line word for word · then wait, because **nothing you have is only in one place.**
+
+**6. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v539, AN IMPORT CAN NOW BE UNDONE, AND A RESTORE CANNOT LOSE YOUR RECORDS (no database step).**
 
