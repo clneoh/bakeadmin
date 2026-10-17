@@ -37,7 +37,7 @@ export function stockLogOf(ingredient) {
 // here — grams or kilograms is the display's decision, the same rule the rest of the app follows.
 // `why` is one word so the reason can be told apart without reading the sentence; `what` is the
 // sentence a person reads; `ref` ties a row back to the order or the list that caused it.
-export function logStock(ingredient, { at, delta, why, what, ref, keepZero = false } = {}) {
+export function logStock(ingredient, { at, delta, why, what, ref, productId, keepZero = false } = {}) {
   if (!ingredient) return null;
   const n = Number(delta);
   // ⚠️ A movement of nothing is not a movement — the same rule the price log keeps. (A bake whose
@@ -64,6 +64,10 @@ export function logStock(ingredient, { at, delta, why, what, ref, keepZero = fal
     why: String(why || ""),
     what: String(what || ""),
     ref: String(ref || ""),
+    // ★★ WHICH PRODUCT'S BAKE WROTE THIS (v548). ⚠️ A row written by a bake had only a DAY on it, so a
+    // correction could not tell one product's take from another's — see the bound in `applyBake`. ⭐ Absent
+    // on every row that is not a bake, and on the ones already stored, so nothing existing changes shape.
+    ...(productId ? { productId: String(productId) } : {}),
   };
   ingredient.stockLog.unshift(entry);
   if (ingredient.stockLog.length > STOCK_LOG_CAP) ingredient.stockLog.length = STOCK_LOG_CAP;
@@ -280,11 +284,21 @@ export function applyBake(state, product, dayIso, delta) {
     // is written, and the shelf does not move, which is exactly right.
     // ⭐ **AND IT MAKES THE JOURNAL SUM TO THE SHELF BY CONSTRUCTION**, because every row is the change that
     // really happened.
+    // ⚠️ WHICH PRODUCT THIS ROW BELONGS TO (v548) — read by the bound below and written on the row.
+    const pid = String((product && product.id) || "");
     let give = base;
     if (n < 0) {
       const day = String(dayIso || "");
+      // ⚠️⚠️ AND IT MUST BE THIS PRODUCT'S TAKE, NOT THE WHOLE DAY'S (v548). ⚠️ **MEASURED: the shelf was
+      // 1,000 g, product A's bake took all of it, product B's bake took nothing — and correcting B back to
+      // zero put 1,000 g back.** ⭐ v545 wrote this bound when a baking day was ONE record; v546 made it one
+      // record PER PRODUCT and **this filter was not re-read** — the same shape as the van that went to her
+      // own kitchen: when a thing stops being per-day and becomes per-product, every per-day filter must
+      // be re-read. ⚠️ Rows stored before v548 carry no product id and are still counted, or an old
+      // correction would suddenly refuse to give anything back.
       const taken = stockLogOf(ing)
-        .filter((e) => e && e.why === "produced" && String(e.ref || "") === day && Number(e.delta) < 0)
+        .filter((e) => e && e.why === "produced" && String(e.ref || "") === day && Number(e.delta) < 0
+          && (!e.productId || String(e.productId) === pid))
         .reduce((s, e) => s - (Number(e.delta) || 0), 0);
       give = Math.min(base, round2(taken));
       if (!(give > 0)) continue; // nothing was taken that day — nothing to give back, and no row
@@ -298,6 +312,7 @@ export function applyBake(state, product, dayIso, delta) {
       why: "produced",
       what,
       ref: String(dayIso || ""),
+      productId: pid,
     });
   }
 }

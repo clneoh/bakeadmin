@@ -160,6 +160,27 @@ test("★★★ and an old one-row-for-the-day is SPLIT on load, moving NO stock
   assert.deepEqual(p2.items, { p2: { total: 3, applied: 3 } }, "★ the split lost what she recorded");
 });
 
+// ── 4b · A CORRECTION MAY NOT GIVE BACK ANOTHER PRODUCT'S TAKE (v548) ────
+test("★★★ correcting ONE product's bake does not give back ANOTHER product's flour", () => {
+  // ⚠️⚠️ MEASURED: the shelf was 1,000 g, product A's bake took all of it, product B's bake took nothing —
+  // and correcting B back to zero put 1,000 g back. ⭐ v545 wrote the bound when a baking day was ONE
+  // record; v546 made it one record PER PRODUCT and **this filter was not re-read**. ⚠️ The same shape as
+  // the van that went to her own kitchen: when a thing stops being per-day, every per-day filter must be
+  // re-read.
+  const st = base();
+  st.ingredients = [{ id: "i1", name: "Flour", unit: "g", uomId: "g", onHand: 1000, stockLog: [] }];
+  st.products = [
+    { id: "p1", name: "Focaccia", active: true, unit: "pc", recipe: [{ ingredientId: "i1", qty: 1000, unit: "g" }] },
+    { id: "p2", name: "Sandwich", active: true, unit: "pc", recipe: [{ ingredientId: "i1", qty: 1000, unit: "g" }] },
+  ];
+  setBakedTotal(st, st.products[0], "2026-10-17", 1);
+  assert.equal(st.ingredients[0].onHand, 0, "precondition: A took the whole shelf");
+  setBakedTotal(st, st.products[1], "2026-10-17", 1);   // B can take nothing — the shelf is empty
+  setBakedTotal(st, st.products[1], "2026-10-17", 0);   // …so correcting B must give nothing back
+  assert.equal(st.ingredients[0].onHand, 0,
+    "★ correcting B invented 1,000 g — **B never took anything, and the day's take belonged to A**");
+});
+
 // ── 5 · BOTH SHAPES IN ONE LIST, AND THE DAY MUST NOT DOUBLE (v547) ──────
 test("★★★ a list holding BOTH shapes collapses to ONE row per product — the day is not counted twice", () => {
   // ⚠️⚠️ THE FAULT v546 LEFT BEHIND: the cloud still holds the old one-row-for-the-day records, because

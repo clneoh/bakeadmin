@@ -157,10 +157,15 @@ export function defaultState() {
     uoms: seedUoms(),  // units of measure; g/kg/ml/L/pcs convert within a family
     // ★★ UNITS SHE DELETED ON PURPOSE (v547). ⚠️ The standard units are re-seeded on every load by
     // `ensureCountUnits`/`ensurePlanningUnits`, so without this note a unit she removed came back the
-    // next time the app opened — **a delete that undoes itself**. It lives on the STATE and not in
-    // `settings` because the unit list itself is per device (uoms are not cloud-synced), and a note about
-    // this device's list has no business travelling to another one.
+    // next time the app opened — **a delete that undoes itself**. ⚠️⚠️ AND IT MUST TRAVEL (v548): `uoms`
+    // itself is synced, so a removal kept on one phone was undone by the other phone re-seeding it. It is
+    // registered in `sync.js`'s LISTS as one record per removed name.
     uomsRemoved: [],
+    // ★★ THE ONE TIME THIS PHONE COULD NOT READ ITS OWN COPY (v548). ⚠️ `loadState` used to answer a
+    // damaged save by **coming up empty and saying nothing** — see the note there. This remembers that it
+    // happened so Check my system can say so, and it is device-local on purpose: it is a fact about THIS
+    // phone's storage, not about her book.
+    unreadableSave: null,
     products: [],
     // The shop's categories, a tree of any depth (see js/productCategories.js).
     // A separate list from settings.categories, which is the EXPENSE chart — one
@@ -287,9 +292,34 @@ export function loadState() {
     if (s && s.version === 1) return normalize(s);
     if (s) return migrate(s);
   } catch (err) {
-    console.warn("Corrupt stored data, resetting to defaults", err);
+    // ⚠️⚠️ A DAMAGED SAVE USED TO COME UP EMPTY AND SAY NOTHING (v548). It logged to a console she never
+    // opens and handed back a fresh book — and **the next save wrote that empty book over the only local
+    // copy**, so the damage became permanent without a single word on screen. ⭐ **The unreadable text is
+    // now KEPT under a key of its own, and the fact is remembered in `unreadableSave`**, so Check my system
+    // can report it. ⭐ This is the module's own rule: **a check that could not read must never pass.**
+    const kept = keepUnreadable();
+    console.warn("Corrupt stored data, kept and resetting to defaults", err);
+    const fresh = seedFreshState();
+    if (kept) fresh.unreadableSave = kept;
+    return fresh;
   }
   return seedFreshState();
+}
+
+// Put the unreadable copy aside, under its own key. ⚠️ It keeps the LONGEST copy it has seen: a damaged
+// save is usually a TRUNCATED one, so the longer text holds more of her book. ⚠️ A phone too full to hold
+// even this still resets — the copy is a second chance, never the thing that stops the app opening.
+function keepUnreadable() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const key = `${LS_KEY}.unreadable`;
+    const existing = localStorage.getItem(key);
+    if (!existing || String(existing).length < String(raw).length) localStorage.setItem(key, raw);
+    return { at: new Date().toISOString(), chars: String(raw).length };
+  } catch {
+    return null;
+  }
 }
 
 // First run on a device (no saved state at all) ships preconnected so a fresh
@@ -502,6 +532,18 @@ function normalize(s) {
       cloud: { ...d.settings.cloud, ...((s.settings || {}).cloud || {}) },
       lock: { ...d.settings.lock, ...(((s.settings || {}).lock) || {}) },
       storefront: cleanStorefront((s.settings || {}).storefront),
+      // ⚠️⚠️ A BLANK ENTRY IN THE BAKE-DAY PATTERN IS DROPPED (v548), and an out-of-range one too. ⭐
+      // `Number(null)` is 0 and 0 is SUNDAY, so an imported `[1, null, 3]` made the app say "Mon, Sun and
+      // Wed" about a Sunday she never chose. ⚠️ An emptied pattern falls back to the default rather than
+      // leaving the app with no bake days at all — **a blank is not an answer to "which days do you bake".**
+      deliveryDays: (() => {
+        const raw = Array.isArray((s.settings || {}).deliveryDays)
+          ? s.settings.deliveryDays : d.settings.deliveryDays;
+        const set = [...new Set(raw
+          .filter((x) => x !== null && x !== undefined && x !== "" && typeof x !== "boolean")
+          .map(Number).filter((x) => Number.isInteger(x) && x >= 0 && x <= 6))].sort((a, b) => a - b);
+        return set.length ? set : d.settings.deliveryDays;
+      })(),
       referrals: { ...d.settings.referrals, ...(((s.settings || {}).referrals) || {}) },
       // A hand-edited import must not put an unknown style in: the message builders
       // read exactly one value, and a third one would silently send "plain" while
@@ -531,7 +573,8 @@ function normalize(s) {
     // it without the shape being assumed.
     parcelCouriers: Array.isArray(s.parcelCouriers) ? s.parcelCouriers : [],
     uoms: (Array.isArray(s.uoms) && s.uoms.length) ? s.uoms : seedUoms(),
-    uomsRemoved: Array.isArray(s.uomsRemoved) ? s.uomsRemoved : [],
+    uomsRemoved: normalizeRemovedUnits(s.uomsRemoved),
+    unreadableSave: (s.unreadableSave && typeof s.unreadableSave === "object") ? s.unreadableSave : null,
     products: Array.isArray(s.products) ? s.products : [],
     // The shop's category tree. Guarded like every other list: a phone that has
     // never built one behaves exactly as before, and the cloud merge can land a
@@ -699,17 +742,44 @@ function makeUnit(name, [family, toBase]) {
   return { id: `uom_${rand}`, name, family, toBase: Number(toBase) || 1 };
 }
 
-// Make sure the standard bakery selling units exist. uoms are stored per device
-// (not cloud-synced) and an existing install keeps its own list wholesale, so
+// Make sure the standard bakery selling units exist. ⚠️ `uoms` IS cloud-synced (this comment said "per
+// device" for a long time, and that was stale — it is what let a deleted unit be pushed back), and an
+// existing install keeps its own list wholesale, so
 // this normalize-time step is the only path that reaches an older phone. Never
 // touches a unit that already exists under the same name, whatever its family.
+// ★★ A REMOVED UNIT IS A RECORD, AND IT TRAVELS (v548).
+//
+// ⚠️⚠️ v547 remembered a deletion on the ONE phone that made it — and **`uoms` IS cloud-synced** (the note
+// in this file said "per device", and that note is stale). So the other phone pulled the deleted unit away,
+// **re-seeded it on its next load and pushed it straight back**: ⭐ **the delete came undone on both
+// phones.** ⭐ This is a LIST now, registered in `sync.js` like every other list she owns, so a removal
+// reaches the other phone as its own record instead of living only here.
+// ⚠️ Stored as `{ id, at }` where `id` is the lowercased NAME — a unit has no other stable key.
+export function normalizeRemovedUnits(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  const seen = new Set();
+  const out = [];
+  for (const r of list) {
+    const name = String(r && typeof r === "object" ? (r.id || r.name || "") : r).trim().toLowerCase();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push({ id: name, ...(r && typeof r === "object" && r.at ? { at: r.at } : {}) });
+  }
+  return out;
+}
+
+// The names the seed must not put back.
+export function removedUnitNames(state) {
+  return new Set(normalizeRemovedUnits(state && state.uomsRemoved).map((r) => r.id));
+}
+
 export function ensureCountUnits(state) {
   const have = new Map();
   for (const u of state.uoms || []) have.set(String(u.name || "").toLowerCase(), u);
   // ⚠️ A UNIT SHE DELETED STAYS DELETED (v547). Without this the seed put it straight back on the
   // next load, so "Delete" was a press that undid itself. ⭐ And a unit she later adds with the same
   // name is respected, because `have` is asked first — this list only suppresses the RE-SEED.
-  const gone = new Set((state.uomsRemoved || []).map((n) => String(n).toLowerCase()));
+  const gone = removedUnitNames(state);
   for (const n of BAKERY_COUNT) {
     if (have.has(n) || gone.has(n)) continue;
     const u = { id: `uom_${n}`, name: n, family: "count", toBase: 1 };
@@ -726,7 +796,7 @@ export function ensurePlanningUnits(state) {
   const have = new Map();
   for (const u of state.uoms || []) have.set(String(u.name || "").toLowerCase(), u);
   // ⚠️ The same rule as `ensureCountUnits` (v547): a unit she deleted is not put back.
-  const gone = new Set((state.uomsRemoved || []).map((n) => String(n).toLowerCase()));
+  const gone = removedUnitNames(state);
   for (const [name, family, toBase] of TIME_LENGTH) {
     if (have.has(name) || gone.has(name)) continue;
     const u = { id: `uom_${name}`, name, family, toBase };

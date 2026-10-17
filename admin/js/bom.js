@@ -8,7 +8,7 @@
 // recursively, so the shopping list and cost always see the leaf ingredients.
 
 import { byId, round2 } from "./state.js";
-import { chosenSupplier, cookingUnit, belowReserve, baseFactorOf } from "./purchasing.js";
+import { chosenSupplier, cookingUnit, belowReserve, baseFactorOf, unitInFamily } from "./purchasing.js";
 import { shortDate } from "./dates.js";
 // The sell-day rules — one shared root module, the same copy the shop reads, so
 // the day a product sells on and the day it counts toward capacity can never drift.
@@ -90,8 +90,16 @@ export function explodePicks(state, picks) {
         };
         acc.set(ingredientId, it);
       }
-      it.totalQty += order.qty * d.qty;
-      it.unitsOk = it.unitsOk && d.unit === it.unit;
+      // ★★★ EVERY CONTRIBUTOR IS CONVERTED INTO THE UNIT ALREADY ACCUMULATING (v548).
+      //
+      // ⚠️⚠️ **MEASURED: product A's recipe says 500 g of flour, product B's says 1 kg, and the list said
+      // the need was 501 g.** ⭐ v545 fixed this in `pushDemand` — the accumulator inside ONE product's
+      // recipe — and **left this one, which adds up across products and across orders.** ⚠️ **A fix that
+      // repairs one accumulator and not its twins is the "her rule covers the CLASS" fault, and this is
+      // the second time in two days it has been the same arithmetic.**
+      const ing = byId(state.ingredients, ingredientId);
+      it.totalQty += convertQty(state, ing, order.qty * d.qty, d.unit, it.unit);
+      it.unitsOk = it.unitsOk && unitInFamily(state, ing, d.unit);
       it.lines.push({
         productName: product.name,
         orderQty: order.qty,
@@ -235,8 +243,8 @@ export function dayChangeInfo(state, dateStr, savedFp) {
     const { lines } = expandProduct(state, product, a.qty, []);
     for (const line of lines) {
       let it = acc.get(line.ingredientId);
+      const ing = byId(state.ingredients || [], line.ingredientId);
       if (!it) {
-        const ing = byId(state.ingredients || [], line.ingredientId);
         it = {
           ingredientId: line.ingredientId,
           ingredientName: ing ? ing.name : "(deleted ingredient)",
@@ -248,8 +256,9 @@ export function dayChangeInfo(state, dateStr, savedFp) {
         };
         acc.set(line.ingredientId, it);
       }
-      it.totalQty = round2(it.totalQty + line.qty);
-      it.unitsOk = it.unitsOk && line.unit === it.unit;
+      // ⚠️ Converted into the unit already accumulating (v548) — the third accumulator with this fault.
+      it.totalQty = round2(it.totalQty + convertQty(state, ing, line.qty, line.unit, it.unit));
+      it.unitsOk = it.unitsOk && unitInFamily(state, ing, line.unit);
     }
   }
   const items = [...acc.values()].map((it) => {
@@ -316,10 +325,18 @@ export function explodeBomDates(state, recs) {
         };
         merged.set(it.ingredientId, cur);
       } else {
-        if (it.unit !== cur.unit) crossUnit.add(it.ingredientId);
-        cur.unitsOk = cur.unitsOk && it.unitsOk && it.unit === cur.unit;
+        // ⚠️ A DIFFERENT UNIT IS ONLY WORTH A WARNING WHEN IT COULD NOT BE CONVERTED (v548). ⭐ Mixing g
+        // and kg is now added up correctly, so saying "check units" over a right number is the cry-wolf
+        // this app's checks are written to avoid.
+        if (it.unit !== cur.unit && !unitInFamily(state, byId(state.ingredients, it.ingredientId), it.unit)) {
+          crossUnit.add(it.ingredientId);
+        }
+        // ⚠️ AND A DAY'S TOTAL IS CONVERTED INTO THE UNIT ALREADY ACCUMULATING (v548) — the same rule as
+        // the per-order sum below. ⭐ A day written in g and a day written in kg were added as 500 + 2.
+        cur.unitsOk = cur.unitsOk && it.unitsOk
+          && unitInFamily(state, byId(state.ingredients, it.ingredientId), it.unit);
       }
-      cur.totalQty += it.totalQty;
+      cur.totalQty += convertQty(state, byId(state.ingredients, it.ingredientId), it.totalQty, it.unit, cur.unit);
       cur.lines.push(...it.lines.map((l) => ({ ...l, dateLabel: label })));
     }
   }
@@ -445,13 +462,42 @@ export function costOf(state, product) {
   return round2(costLines(state, product.recipe || [], new Map(), new Set()));
 }
 
+// ★★★ A RECIPE LINE'S QUANTITY IS IN THE LINE'S UNIT, SO THE LINE'S UNIT CONVERTS IT (v548).
+//
+// ⚠️⚠️ **MEASURED, ON THE REAL FUNCTIONS: flour cooking in kg at RM 5 a kg, with a recipe line saying 500 g,
+// cost RM 2,500 a loaf.** ⭐ `effectiveUnitCost` answers in RM per COOKING unit, and the quantity was
+// multiplied into it raw — the same ×1000 fault the shopping list had in v545, in the one place it had not
+// been looked for. ⚠️ **The figure is frozen onto every new order as `unitCost`**, so Profit's cost of sales
+// was wrong by the same factor for every product whose lines are written in another unit from its
+// ingredient's.
+// ⭐ The conversion is `baseFactorOf(line unit) / baseFactorOf(cooking unit)` — **one rule, the same one the
+// shopping list and the bake use** — so a line written in the ingredient's own unit is untouched.
+// ★★ CONVERT A QUANTITY FROM ONE UNIT TO ANOTHER FOR THE SAME INGREDIENT (v548).
+// ⭐ ONE rule for every accumulator in this file, so fixing one cannot leave another behind — the fault
+// this file just had was exactly that: `pushDemand` was fixed in v545 and these three were not.
+function convertQty(state, ingredient, qty, fromUnit, toUnit) {
+  const n = Number(qty) || 0;
+  const from = baseFactorOf(state, ingredient, fromUnit);
+  const to = baseFactorOf(state, ingredient, toUnit);
+  return to > 0 ? n * (from / to) : n;
+}
+
+function costQtyInCookingUnits(state, ingredient, qty, unit) {
+  const cook = cookingUnit(state.uoms || [], ingredient);
+  if (!cook) return qty;                        // nothing to convert against: the typed per-unit cost is all there is
+  const perLine = baseFactorOf(state, ingredient, unit);
+  const perCook = Number(cook.toBase) || 1;
+  return qty * (perLine / perCook);
+}
+
 function costLines(state, lines, memo, stack) {
   let total = 0;
   for (const line of lines) {
     const qty = Number(line.qty) || 0;
     if (qty <= 0) continue;
     if (line.ingredientId && !line.productId) {
-      total += qty * effectiveUnitCost(state, byId(state.ingredients, line.ingredientId));
+      const ing = byId(state.ingredients, line.ingredientId);
+      total += costQtyInCookingUnits(state, ing, qty, line.unit) * effectiveUnitCost(state, ing);
     } else if (line.productId) {
       total += qty * costProduct(state, line.productId, memo, stack);
     }
@@ -483,7 +529,8 @@ export function recipeLineCosts(state, product) {
     const qty = Number(line.qty) || 0;
     if (qty <= 0) return 0;
     if (line.ingredientId && !line.productId) {
-      return qty * effectiveUnitCost(state, byId(state.ingredients, line.ingredientId));
+      const ing = byId(state.ingredients, line.ingredientId);
+      return costQtyInCookingUnits(state, ing, qty, line.unit) * effectiveUnitCost(state, ing);
     }
     if (line.productId) return qty * costProduct(state, line.productId, memo, stack);
     return 0;

@@ -77,10 +77,26 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  assert.equal(res.total, 20, `the check list is no longer twenty checks (it is ${res.total})`);
-  // 16 since v531: the record COUNT joins the page, and it is a pass on a book inside what one read can take.
-  assert.equal(res.passedChecks, 20);
+  assert.equal(res.total, 21, `the check list is no longer twenty-one checks (it is ${res.total})`);
+  // 17 since v548: "This phone could read its saved copy" joins the page.
+  assert.equal(res.passedChecks, 21);
   assert.equal(res.failed, 0);
+});
+
+test("★★★ a damaged saved copy FAILS the check, and a good one passes it", () => {
+  // ⚠️⚠️ v548: a stored book that could not be read used to come up EMPTY and say nothing. ⭐ **The check
+  // must now speak for it — and it must clear itself once the book is readable again**, or a red X would
+  // outlive the damage and become the warning she learns to ignore.
+  const damaged = healthy();
+  damaged.unreadableSave = { at: "2026-10-18T00:07:00.000Z", chars: 4210 };
+  const r = resultOf(runChecks(damaged, { register: REGISTER, copies: COPIES }), "readable");
+  assert.equal(r.status, "fail",
+    "★ this phone could not read its saved copy and the check said nothing — **the reset is silent, which "
+    + "is the fault being fixed**");
+  assert.match(String(r.detail && r.detail[0]), /4,?210/, "★ the check did not say how much was kept");
+
+  const ok = resultOf(runChecks(healthy(), { register: REGISTER, copies: COPIES }), "readable");
+  assert.equal(ok.status, "pass", "★ a book that read cleanly was reported as damaged");
 });
 
 test("★★ a receipt with no order behind it FAILS — the fault that cost her three orders", () => {
@@ -194,7 +210,7 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
     "★ shared data that could not be read was reported as a pass by the reverse check too");
   assert.equal(resultOf(res, "waiting").status, "pass",
     "the waiting count is a local number and does not need the cloud to be readable");
-  assert.equal(res.passedChecks, 12, "a skipped check was counted among the passes");
+  assert.equal(res.passedChecks, 13, "a skipped check was counted among the passes");
   assert.equal(res.skippedChecks, 8, "the skipped checks were not counted separately");
   assert.match(String(resultOf(res, "reached").why || ""), /shared data/i,
     "the skipped check does not say why it could not look");
@@ -268,8 +284,8 @@ test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 20, "the checks did not all run on an empty book");
-  assert.equal(localChecks(bare).length, 10, "the local checks are not ten");
+  assert.equal(res.total, 21, "the checks did not all run on an empty book");
+  assert.equal(localChecks(bare).length, 11, "the local checks are not eleven");
   assert.equal(registerChecks(bare, []).length, 2, "the register checks are not two");
   assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");
 });

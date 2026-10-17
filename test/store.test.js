@@ -687,6 +687,15 @@ test("order click sends one order and shows the success card (regression: no thr
     document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
     document.getElementById("fulfillment")._value = "courier";
+    // ★★★ AND A COURIER ORDER WITH NO ADDRESS MUST NOT POST (v548). ⚠️⚠️ It used to: the shop asked for a
+    // name, a number and the way it travels, and then posted `address: ""` — ⭐ **an order she cannot
+    // deliver, for a fact the page had already shown a box for.** ⭐ The refusal is the phone rule, not a
+    // disabled button: the box is marked and says why, and nothing is sent.
+    await registry["order-btn"].onclick();
+    assert.equal(posted, null,
+      "★ a courier order with NO ADDRESS was posted — **the rider has nowhere to go**");
+    assert.ok(String(document.getElementById("address-input").className || "").includes("bad"),
+      "★ the address box was not marked, so the customer was not told what was missing");
     document.getElementById("address-input").value = "12 Jalan Bunga";
     await registry["order-btn"].onclick();
     await afterOrderNotice(); // ★ the notice follows her one second (v451)
@@ -715,6 +724,79 @@ test("order click sends one order and shows the success card (regression: no thr
       /Your order is in with the bakery/,
       "the line under the missing one is still there, so the check above is not over a blank card");
   } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("★★★ a repaint during the send does not re-open Place order", async () => {
+  // ⚠️⚠️ THE FAULT: the press disabled the button for the send, and the bar set it back to ENABLED on every
+  // repaint. ⭐ **A language tap, a "+", or the 30-second refresh landing during a slow send turned it back
+  // on — and a second press posted the SAME ORDER AGAIN.** ⭐ The one disable the shop keeps is the one that
+  // stops a slow network making him order twice, so it must survive a redraw.
+  const stepperNow = () => registry["menu"].children[0]
+    .children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+
+  tapDay();
+  stepperNow().children[2]._listeners.click[0]();        // "+" — one item in the basket
+  document.getElementById("name-input").value = "Aunty Bee";
+  document.getElementById("whatsapp-input").value = "60123456789";
+  document.getElementById("fulfillment")._value = "courier";
+  document.getElementById("address-input").value = "12 Jalan Bunga";
+
+  let release = null;
+  let posts = 0;
+  const gate = new Promise((r) => { release = r; });
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (opts && opts.method === "POST") { posts += 1; await gate; return { ok: true }; }
+    return { ok: true, json: async () => [] };
+  };
+  try {
+    const flying = registry["order-btn"].onclick();
+    // a repaint while the order is still in flight — the "+" press redraws the bar
+    stepperNow().children[2]._listeners.click[0]();
+    assert.equal(registry["order-btn"].disabled, true,
+      "★ a repaint re-opened Place order while the order was being sent — **a second tap posts the same "
+      + "order twice**");
+    release();
+    await flying;
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(posts, 1, "★ the order was posted more than once");
+  await afterOrderNotice();
+});
+
+test("★★★ a product that leaves the menu takes the basket with it, and the press says why", async () => {
+  // ⚠️⚠️ THE FAULT: the menu is replaced wholesale on the 30-second refresh. A product the bakery renamed
+  // or removed vanished from the page, **the basket kept its name**, and at Place order `lines` came out
+  // empty while step ② still read done — ⭐ **so the press did nothing at all: no order, no message.**
+  const saved = CONFIG.products.slice();
+  const stepperNow = () => registry["menu"].children[0]
+    .children.find((c) => c.className === "card-body")
+    .children.find((c) => c.className === "stepper");
+  let posts = 0;
+  const realFetch = globalThis.fetch;
+  try {
+    tapDay();
+    stepperNow().children[2]._listeners.click[0]();       // one item in the basket
+    const gone = CONFIG.products[0].name;
+    CONFIG.products = CONFIG.products.filter((p) => p.name !== gone);
+
+    globalThis.fetch = async (url, opts) => {
+      if (opts && opts.method === "POST") { posts += 1; return { ok: true }; }
+      return { ok: true, json: async () => [] };
+    };
+    await registry["order-btn"].onclick();
+
+    assert.equal(posts, 0, "★ an order was posted for a product that is no longer on the menu");
+    const said = registry["confirm-msg"].children
+      .map((n) => (n.children[0] || {}).text || "").join(" ");
+    assert.match(said, /no longer on the menu/i,
+      `★ the press did nothing and said nothing — **the customer is stuck with no clue** (said: ${JSON.stringify(said)})`);
+  } finally {
+    CONFIG.products = saved;
     globalThis.fetch = realFetch;
   }
 });

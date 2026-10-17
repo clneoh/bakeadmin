@@ -141,6 +141,16 @@ test("who-filters: all, phone, recent30, gone30 (relative to a 30-day cutoff)", 
   assert.equal(customerList(st, "recent", "recent30", "").length, 3); // no date given → like "all"
 });
 
+test("★★★ an order with no order date is dated by HER day, not the UTC one", () => {
+  // ⚠️⚠️ 2026-10-17T16:30Z is **Sunday 18 Oct, 00:30 in Penang.** The fallback read the first ten
+  // characters of the timestamp, which is the UTC day — so this order was dated Saturday while the
+  // Orders row beside it said "Placed 18 Oct · 00:30", and the week's count missed it.
+  assert.equal(orderDateOf({ createdAt: "2026-10-17T16:30:00Z" }), "2026-10-18",
+    "★ an order placed after midnight was dated YESTERDAY — **the UTC day, while every screen shows hers**");
+  assert.equal(orderDateOf({ orderDate: "2026-10-16", createdAt: "2026-10-17T16:30:00Z" }), "2026-10-16",
+    "precondition: an order that states its day keeps it");
+});
+
 test("★★★ the 30-day window is 30 days in Malaysia, not 31", () => {
   // ⚠️⚠️ THE FAULT (v547): the cutoff was built as local midnight and then read back with
   // `toISOString()`, which is the UTC day — always ONE DAY EARLY in Malaysia. Asking for 30 days before

@@ -130,6 +130,21 @@ export function baseFactorOf(state, ingredient, unitName) {
   return Number(u && u.toBase) || 1;
 }
 
+// ★ IS THIS UNIT NAME ONE WE CAN CONVERT WITH? (v548)
+//
+// ⚠️ `baseFactorOf` falls back to the ingredient's COOKING unit when the name is unknown or belongs to
+// another family — which is the right fallback for a number, and **the wrong answer for a warning**: the
+// quantity then means something nobody wrote. ⭐ So this answers the question the warning is actually about:
+// **can this line's number be trusted as the unit it says it is?** An unknown name is NOT ok either.
+export function unitInFamily(state, ingredient, unitName) {
+  const list = (state && state.uoms) || [];
+  const cook = cookingUnit(list, ingredient);
+  if (!cook) return true;                 // no cooking unit: there is no family to break
+  if (!unitName) return true;             // no unit written: the cooking unit is assumed
+  const u = list.find((x) => String(x.name || "").toLowerCase() === String(unitName).toLowerCase());
+  return !!u && u.family === cook.family;
+}
+
 export function priceItems(state, bomItems, { reserve = true } = {}) {
   return (bomItems || []).map((item) => {
     const ingredient = byId(state.ingredients || [], item.ingredientId);
@@ -160,6 +175,11 @@ export function priceItems(state, bomItems, { reserve = true } = {}) {
     out.openBase = openBase;
     out.haveBase = Math.min(needBase + safety, onHand);
     out.openQty = openBase / cookBase;
+    // ★★ `openQty` IS IN THE INGREDIENT'S COOKING UNIT, SO IT MUST BE LABELLED WITH IT (v548).
+    // ⚠️⚠️ It was printed with the RECIPE LINE's unit: an ingredient cooking in kg, with a 500 g line,
+    // read **"0.5g"** on the shopping list — **the right number under a unit a thousand times too small.**
+    // ⭐ The line's unit is still right for the NEED ("need 500g"); this is the AMOUNT TO BUY.
+    out.openUnit = cook ? cook.name : (item.unit || "");
     // A need is only shown when bakes actually need some — a reserve-only row
     // (below-keep ingredient with no bake need this time) must not read "need 0".
     if (needBase > 0) out.needText = fmtQtyText(item.totalQty, item.unit);

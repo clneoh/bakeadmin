@@ -26,6 +26,7 @@ import { isCollected } from "./money.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { listFields } from "./sync.js";
 import { unaccountedOrders } from "./backups.js";
+import { dayMonth } from "./dates.js";
 
 // The order-level facts every row of ONE order must agree on. ⚠️ DELIBERATELY NOT THE PER-LINE ONES —
 // `qty`, `unitPrice`, `unitCost` and `lineNote` are each row's own business, and a check that flagged
@@ -227,6 +228,23 @@ export function localChecks(state) {
         out.push({ ...pass("room", "There is room on this phone for your data"), detail: [size] });
       }
     }
+  }
+
+  // ── 11 · this phone could read its own saved copy (v548) ────────────────
+  //
+  // ⚠️⚠️ THE FAULT THIS ANSWERS. A damaged stored book used to make the app come up EMPTY and say nothing —
+  // the only trace was a `console.warn`, and the next save wrote the empty book over the only local copy.
+  // ⭐ **The damaged text is now kept under its own key, and this check speaks for it.**
+  // ⭐ **AND IT CLEARS ITSELF** the moment a pull puts records back or a Restore/Import replaces the book —
+  // ⚠️ **so it appears exactly when the cloud did NOT save her**, which is the only case that matters.
+  {
+    const bad = state && state.unreadableSave;
+    out.push(bad
+      ? fail("readable", "This phone could read its saved copy",
+        [`${dayMonth(String(bad.at || "").slice(0, 10))} · ${Number(bad.chars) || 0} characters kept`],
+        "On that opening, this phone's stored book was damaged and could not be read. A copy of the damaged text was kept on this phone, and the app came up with an empty book. Anything that had already reached your shared data is safe; anything that lived only on this phone is in that kept copy.",
+        "Do not clear the app or the browser data. Let your shared data finish a sync (More → Settings) — if it is intact, the book refills and this note clears itself. If it does not refill, restore your newest backup instead.")
+      : pass("readable", "This phone could read its saved copy"));
   }
 
   return out;

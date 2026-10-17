@@ -326,6 +326,8 @@ const en = {
   // heading is plainly a place rather than a warning.
   moreItems: "More items",
   fixSoldOut: "%1 just sold out — removed from your order.",
+  // ⚠️ A PRODUCT THAT LEFT THE MENU (v548) — see `reconcileCart`.
+  fixGone: "%1 is no longer on the menu — removed from your order.",
   fixPoolClamp: "%1: only %2 can fit with the rest of your order now — we changed your %3 to %2.",
   fixClamp: "%1: only %2 left now — we changed your %3 to %2.",
   fixClosed: "%1: %2 — we removed it.",
@@ -341,6 +343,9 @@ const en = {
 
   confirmAddWaTitle: "Please add your WhatsApp number.",
   confirmAddWaBody: "We use it to confirm your order and send your payment QR.",
+  // ⚠️ A RIDER NEEDS A DOOR (v548) — see the gate in store/app.js.
+  confirmAddAddrTitle: "Please add the delivery address.",
+  confirmAddAddrBody: "A rider needs a door to bring it to. Type it above, or pick it on the map.",
   // ★★ THE FIRST THING STILL OUTSTANDING, IN HIS OWN ORDER (v452). Her words: __"if the previous step not
   // completed user should be inform accordingly"__ ⚠️ **A dead button says nothing at all on a phone** — it
   // does not even acknowledge the tap — so the button stays live and ANSWERS instead.
@@ -599,6 +604,7 @@ const zh = {
   noMenuToday: "这一天没有商品在菜单上，请另选一个烘焙日。",
   moreItems: "更多商品",
   fixSoldOut: "%1 刚刚售完 — 已从你的订单中移除。",
+  fixGone: "%1 已不在菜单上 — 已从你的订单中移除。",
   fixPoolClamp: "%1：现在配合订单其余部分只装得下 %2 份 — 已把你的 %3 改为 %2。",
   fixClamp: "%1：现在只剩 %2 份 — 已把你的 %3 改为 %2。",
   fixClosed: "%1：%2 — 已移除。",
@@ -610,6 +616,8 @@ const zh = {
 
   confirmAddWaTitle: "请填写你的 WhatsApp 号码。",
   confirmAddWaBody: "我们会用它确认订单并发送付款二维码。",
+  confirmAddAddrTitle: "请填写送货地址。",
+  confirmAddAddrBody: "送餐员需要一个地址才能送到。请在上方填写，或在地图上选择。",
   needItemTitle: "订单还是空的。",
   needItemBody: "请先从上面的菜单选一样，然后就可以下单了。",
   needDayTitle: "请先选择烘焙日。",
@@ -825,6 +833,7 @@ const ms = {
   noMenuToday: "Tiada apa-apa pada menu untuk hari ini. Sila pilih hari membakar yang lain.",
   moreItems: "Lebih banyak item",
   fixSoldOut: "%1 baru habis — kami keluarkan dari order anda.",
+  fixGone: "%1 tiada lagi dalam menu — kami keluarkan dari order anda.",
   fixPoolClamp: "%1: hanya %2 boleh dimuatkan bersama baki order anda — kami sudah tukar %3 anda kepada %2.",
   fixClamp: "%1: tinggal %2 sahaja sekarang — kami sudah tukar %3 anda kepada %2.",
   fixClosed: "%1: %2 — kami sudah keluarkan.",
@@ -836,6 +845,8 @@ const ms = {
 
   confirmAddWaTitle: "Sila masukkan nombor WhatsApp anda.",
   confirmAddWaBody: "Kami guna untuk sahkan order dan hantar QR pembayaran anda.",
+  confirmAddAddrTitle: "Sila masukkan alamat penghantaran.",
+  confirmAddAddrBody: "Penghantar perlukan alamat untuk sampai. Taip di atas, atau pilih di peta.",
   needItemTitle: "Order masih kosong.",
   needItemBody: "Pilih sesuatu dari menu di atas dahulu — kemudian anda boleh buat order.",
   needDayTitle: "Pilih hari membakar anda dahulu.",
