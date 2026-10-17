@@ -1,8 +1,25 @@
-# Jienluv2bake — change history (v54 → v546)
+# Jienluv2bake — change history (v54 → v547)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v547, THREE MORE FAULTS FROM THE DETAIL AUDIT — ONE OF THEM MINE, PUT THERE BY v546 (no database step).**
+
+**1. ⚠️⚠️ A BAKING DAY COULD BE RECORDED TWICE, AND THIS ONE IS MY FAULT.** v546 made a baking day **one record per product** — but **the old one-row-for-the-day copies are still in your shared data**, because nothing ever deleted them.
+- ⚠️ **What happened:** your phone pulled the old copy back into the list, and the next time the app opened it split it **on top of the per-product rows that were already there**. ⭐ **Measured: one day came back as `_p1`, `_p2`, `_p1`, `_p2` — two copies of the same bread.** A brand-new phone did the same thing.
+- ⭐ **It never took your stock off twice** — the screen reads the first copy. ⚠️ **But the duplicate stayed for ever**, and it is the same "duplicate records from the shared data" shape you reported before.
+- ⭐ **Now the old copy is split AT THE DOOR, before it can enter the list**, and a list that already holds both shapes is **collapsed when it loads**, keeping **the row you have been using** — because that row's recorded amount is the one your shelf agrees with. ⭐ **Measured on the real app: two rows, no duplicates, and the copy with your latest correction won.**
+
+**2. ⚠️ A UNIT YOU DELETED CAME BACK.** ⭐ The eleven selling units and the four time/length units are added on **every** opening, so deleting one removed it for that session and **the next open put it straight back** — a Delete that undid itself, which reads exactly like a button that does nothing. ⭐ **Measured: 19 units, reloaded, 20, `loaf` back.** ⭐ **Now the app remembers that you removed it, and it stays removed — and if you type a unit back in by hand, yours is kept.**
+
+**3. ⚠️ "RECENT 30 DAYS" WAS REALLY 31 DAYS.** ⭐ The cut-off date was worked out on your phone but read back in UTC, so in Malaysia it was **always one day early** — asking for 30 days before 17 Oct gave **16 Sep**. ⚠️ **A customer whose last order was 31 days ago still showed under Recent, and left the quiet list a day late.** ⭐ Now it is exactly 30 days.
+
+**4. ⭐ AND WHAT I CHECKED THAT WAS ALREADY RIGHT.** The whole stock chain — day one, a bake, correcting it up and down, a stocktake, and undoing a line — **added up to the shelf at every step**. And the shopping list, with a kg ingredient and a 25 kg pack, at 500 g, 2 kg, 30 kg and with stock on hand — **correct in all four**.
+
+**5. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v546, THE LAST TWO INGREDIENT FAULTS — AND A REMOVAL THAT CANNOT BE UNDONE NOW SAYS SO (no database step).**
 

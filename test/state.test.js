@@ -371,6 +371,36 @@ test("preload is idempotent and never overwrites a same-name unit", () => {
   assert.equal(second.uoms.length, first.uoms.length, "second normalize adds nothing");
 });
 
+test("★★★ a unit she deleted stays deleted — the seed does not put it back", () => {
+  // ⚠️⚠️ THE FAULT (v547): the seed runs on EVERY load, so deleting a standard unit removed it for one
+  // session and the next open put it straight back — **a delete that undoes itself.** ⭐ The removal is
+  // remembered on the state (`uomsRemoved`), and the seed skips a name that is in it.
+  const out = normalize({
+    version: 1,
+    uoms: OLD_UOMS.map((u) => ({ ...u })),
+    uomsRemoved: ["loaf", "hr"],
+  });
+  const names = out.uoms.map((u) => u.name.toLowerCase());
+  assert.ok(!names.includes("loaf"), "★ 'loaf' came back — the seed re-added a unit she had deleted");
+  assert.ok(!names.includes("hr"), "★ 'hr' came back — the time seed re-added a unit she had deleted");
+  assert.ok(names.includes("box"), "precondition: the other standard units are still seeded");
+  const again = normalize(out);
+  assert.ok(!again.uoms.map((u) => u.name.toLowerCase()).includes("loaf"),
+    "★ a second load put the deleted unit back");
+});
+
+test("★★ and a unit she types back in by hand is kept, even after she deleted one of that name", () => {
+  const mine = { id: "uom_my_loaf", name: "loaf", family: "count", toBase: 1 };
+  const out = normalize({
+    version: 1,
+    uoms: [...OLD_UOMS.map((u) => ({ ...u })), mine],
+    uomsRemoved: ["loaf"],
+  });
+  const loaves = out.uoms.filter((u) => u.name.toLowerCase() === "loaf");
+  assert.equal(loaves.length, 1, "her own unit is not duplicated by the seed");
+  assert.equal(loaves[0].id, "uom_my_loaf", "her own unit is untouched");
+});
+
 test("normalize keeps a stored product uomId and links legacy products by name", () => {
   const products = [
     { id: "p1", name: "Sourdough", unit: "loaf", uomId: "uom_loaf", price: 12 },

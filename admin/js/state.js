@@ -155,6 +155,12 @@ export function defaultState() {
     // usual ones in one press.
     parcelCouriers: [],
     uoms: seedUoms(),  // units of measure; g/kg/ml/L/pcs convert within a family
+    // ★★ UNITS SHE DELETED ON PURPOSE (v547). ⚠️ The standard units are re-seeded on every load by
+    // `ensureCountUnits`/`ensurePlanningUnits`, so without this note a unit she removed came back the
+    // next time the app opened — **a delete that undoes itself**. It lives on the STATE and not in
+    // `settings` because the unit list itself is per device (uoms are not cloud-synced), and a note about
+    // this device's list has no business travelling to another one.
+    uomsRemoved: [],
     products: [],
     // The shop's categories, a tree of any depth (see js/productCategories.js).
     // A separate list from settings.categories, which is the EXPENSE chart — one
@@ -450,6 +456,41 @@ function plainMap(v) {
 
 // Defensive normalization for hand-edited or older imports: guarantees the
 // shape the rest of the app relies on, dropping unknown fields.
+// ★★★ ONE BAKING DAY IS ONE RECORD PER PRODUCT (v546), AND A LIST THAT ALREADY HOLDS BOTH SHAPES IS
+// COLLAPSED HERE (v547).
+//
+// ⚠️⚠️ THE FAULT v546 LEFT BEHIND: the cloud still holds the OLD one-row-for-the-day records, because
+// nothing ever deleted them. A pull puts one back into the list, and the next load splits it into ids
+// that are ALREADY there — so the day ends up recorded twice, and stays that way. ⭐ The split therefore
+// asks what is already in the list: **a row that is already per product always wins over one derived
+// from the old shape**, because the proper row is the one she has been using and its `applied` is what
+// the shelf agrees with.
+export function splitBakedDays(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  const pidsOf = (row) => (row && row.items && typeof row.items === "object" ? Object.keys(row.items) : []);
+  const isPerProduct = (row) =>
+    !!(row && row.date && pidsOf(row).length === 1 && row.id === bakeId(row.date, pidsOf(row)[0]));
+
+  const out = [];
+  const seen = new Set();
+  for (const row of list) {
+    if (!isPerProduct(row) || seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push(row);
+  }
+  for (const row of list) {
+    if (!row || !row.date || isPerProduct(row)) continue;
+    const items = row.items && typeof row.items === "object" ? row.items : {};
+    for (const pid of Object.keys(items)) {
+      const id = bakeId(row.date, pid);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({ ...row, id, items: { [pid]: items[pid] } });
+    }
+  }
+  return out;
+}
+
 function normalize(s) {
   const d = defaultState();
   const out = {
@@ -490,6 +531,7 @@ function normalize(s) {
     // it without the shape being assumed.
     parcelCouriers: Array.isArray(s.parcelCouriers) ? s.parcelCouriers : [],
     uoms: (Array.isArray(s.uoms) && s.uoms.length) ? s.uoms : seedUoms(),
+    uomsRemoved: Array.isArray(s.uomsRemoved) ? s.uomsRemoved : [],
     products: Array.isArray(s.products) ? s.products : [],
     // The shop's category tree. Guarded like every other list: a phone that has
     // never built one behaves exactly as before, and the cloud merge can land a
@@ -507,14 +549,7 @@ function normalize(s) {
     // ⚠️ **AND AN OLD ROW IS SPLIT HERE, KEEPING EVERY `total` AND `applied` EXACTLY**, so **no stock moves** —
     // a shape change only. ⭐ A row already in the new shape is left untouched, so this is safe to run on every
     // load and on a phone that has already been updated.
-    bakedDays: (Array.isArray(s.bakedDays) ? s.bakedDays : []).flatMap((row) => {
-      if (!row || !row.date) return [];
-      const items = row.items && typeof row.items === "object" ? row.items : {};
-      const pids = Object.keys(items);
-      if (!pids.length) return [];                      // a row with nothing in it says nothing
-      if (pids.length === 1 && row.id === bakeId(row.date, pids[0])) return [row]; // already per product
-      return pids.map((pid) => ({ ...row, id: bakeId(row.date, pid), items: { [pid]: items[pid] } }));
-    }),
+    bakedDays: splitBakedDays(s.bakedDays),
     orders: Array.isArray(s.orders)
       ? s.orders.map((o) => (o && typeof o === "object" ? { ...o, status: o.status || "new" } : o))
       : [],
@@ -671,8 +706,12 @@ function makeUnit(name, [family, toBase]) {
 export function ensureCountUnits(state) {
   const have = new Map();
   for (const u of state.uoms || []) have.set(String(u.name || "").toLowerCase(), u);
+  // ⚠️ A UNIT SHE DELETED STAYS DELETED (v547). Without this the seed put it straight back on the
+  // next load, so "Delete" was a press that undid itself. ⭐ And a unit she later adds with the same
+  // name is respected, because `have` is asked first — this list only suppresses the RE-SEED.
+  const gone = new Set((state.uomsRemoved || []).map((n) => String(n).toLowerCase()));
   for (const n of BAKERY_COUNT) {
-    if (have.has(n)) continue;
+    if (have.has(n) || gone.has(n)) continue;
     const u = { id: `uom_${n}`, name: n, family: "count", toBase: 1 };
     state.uoms.push(u);
     have.set(n, u);
@@ -686,8 +725,10 @@ export function ensureCountUnits(state) {
 export function ensurePlanningUnits(state) {
   const have = new Map();
   for (const u of state.uoms || []) have.set(String(u.name || "").toLowerCase(), u);
+  // ⚠️ The same rule as `ensureCountUnits` (v547): a unit she deleted is not put back.
+  const gone = new Set((state.uomsRemoved || []).map((n) => String(n).toLowerCase()));
   for (const [name, family, toBase] of TIME_LENGTH) {
-    if (have.has(name)) continue;
+    if (have.has(name) || gone.has(name)) continue;
     const u = { id: `uom_${name}`, name, family, toBase };
     state.uoms.push(u);
     have.set(name, u);

@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { priceItems, baseFactorOf } from "../admin/js/purchasing.js";
 import { explodePicks } from "../admin/js/bom.js";
 import { productConsumption, setBakedTotal } from "../admin/js/stock.js";
-import { defaultState, loadState } from "../admin/js/state.js";
+import { defaultState, loadState, normalize } from "../admin/js/state.js";
 
 const base = () => {
   const st = defaultState();
@@ -158,4 +158,27 @@ test("★★★ and an old one-row-for-the-day is SPLIT on load, moving NO stock
   const p2 = st.bakedDays.find((r) => r.id === "bake_2026-10-17_p2");
   assert.deepEqual(p1.items, { p1: { total: 10, applied: 10 } }, "★ the split lost what she recorded");
   assert.deepEqual(p2.items, { p2: { total: 3, applied: 3 } }, "★ the split lost what she recorded");
+});
+
+// ── 5 · BOTH SHAPES IN ONE LIST, AND THE DAY MUST NOT DOUBLE (v547) ──────
+test("★★★ a list holding BOTH shapes collapses to ONE row per product — the day is not counted twice", () => {
+  // ⚠️⚠️ THE FAULT v546 LEFT BEHIND: the cloud still holds the old one-row-for-the-day records, because
+  // nothing ever deleted them. A pull put one back into the list, and the next load split it into ids
+  // that were ALREADY there — so every open left another copy of the same bread for that day.
+  const out = normalize({
+    version: 1,
+    bakedDays: [
+      { id: "bake_2026-10-16_p1", date: "2026-10-16", items: { p1: { total: 9, applied: 9 } } },
+      { id: "bake_2026-10-16_p2", date: "2026-10-16", items: { p2: { total: 3, applied: 3 } } },
+      { id: "bake_2026-10-16", date: "2026-10-16",
+        items: { p1: { total: 4, applied: 4 }, p2: { total: 3, applied: 3 } } },
+    ],
+  });
+  const ids = out.bakedDays.map((r) => r.id);
+  assert.deepEqual(ids.sort(), ["bake_2026-10-16_p1", "bake_2026-10-16_p2"],
+    "★ the old one-row-for-the-day was split ON TOP of the rows that were already there — the day is "
+    + "now recorded twice, and a new phone gets the same duplicates");
+  // ⭐ AND THE ROW SHE HAS BEEN USING WINS, because `applied` on it is what her shelf agrees with.
+  assert.equal(out.bakedDays.find((r) => r.id === "bake_2026-10-16_p1").items.p1.total, 9,
+    "★ the split-from-old copy overwrote the record she had been correcting");
 });

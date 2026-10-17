@@ -265,6 +265,29 @@ test("mergeRows: a shop added on one phone appears on the phone that had none", 
   } finally { restore(); }
 });
 
+test("★★★ an old one-row-for-the-day arrives as two records — the retired row never lands", () => {
+  // ⚠️⚠️ THE FAULT (v547): v546 made a baking day one record per product, but the OLD records are still
+  // in the cloud. A pull pushed one back into the list and the next load split it into ids that were
+  // already there, so the day came out recorded twice. ⭐ **This is the door, not the rewind:** the old
+  // row is turned into the records it should have been before it can enter the list.
+  const { store, restore } = installStorage();
+  try {
+    const st = baseState();
+    st.bakedDays = [];
+    seedJournal(store);
+    const old = { id: "bake_2026-10-16", date: "2026-10-16",
+      items: { p1: { total: 4, applied: 4 }, p2: { total: 3, applied: 3 } } };
+    sync.mergeRows(st, [cloudRow("bakedDays", "bake_2026-10-16", old, "2026-10-16T10:00:00.000Z")]);
+
+    assert.deepEqual(st.bakedDays.map((r) => r.id).sort(),
+      ["bake_2026-10-16_p1", "bake_2026-10-16_p2"],
+      "★ the old day-wide row landed as ONE record — the next load splits it on top of the per-product "
+      + "rows, and the day is recorded twice");
+    assert.deepEqual(st.bakedDays.find((r) => r.id === "bake_2026-10-16_p1").items,
+      { p1: { total: 4, applied: 4 } }, "★ the split lost what she recorded");
+  } finally { restore(); }
+});
+
 test("mergeRows: a supplier newly saved on this phone is queued to be pushed", () => {
   const { store, restore } = installStorage();
   try {
