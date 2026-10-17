@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v537)
+# Jienluv2bake — change history (v54 → v538)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v538, THE BACKOFFICE STAYS OUT OF GOOGLE, AND YOUR HOMEPAGE AND SHOP ARE OPEN TO IT (no database step).**
+
+**Your words, which decided it:** __"i want to be ready for business in no time"__ — ⭐ **so nothing was done that works against being found.**
+
+**1. ⚠️⚠️ WHAT WAS WRONG: THREE OF YOUR FIVE PAGES SAID NOTHING AT ALL.** The promo card and the form already said `noindex`. **The homepage, the shop, and the PIN-LOCKED BACKOFFICE said nothing** — so whether they were indexed was whatever a crawler happened to do.
+
+**2. ⭐ AND THE BACKOFFICE IS THE ONE THAT MATTERED.** It is PIN-locked, ⚠️ **but its title — "Jienluv2bake · Bakery Backoffice" — and the fact it exists are public the moment Google crawls it.** Nobody searching for bread should find that. **It now says `noindex, nofollow`.**
+
+**3. ⭐ YOUR HOMEPAGE AND SHOP NOW SAY "index, follow" OUT LOUD.** They were not hidden, and they are not hidden now — ⭐ **but the answer is written on the page instead of left to chance**, so the decision is yours and visible rather than accidental. ⚠️ **If you ever want the shop hidden instead, it is ONE line in that page's `<head>` — and allow a couple of weeks, because a page is not un-indexed instantly.**
+
+**4. ⚠️ AND YOUR WORKING PAPERS ARE NO LONGER OFFERED TO SEARCH ENGINES.** The site publishes every file the repository tracks, so `/test/` served **155 working files**. ⭐ **Nothing secret was in them — every phone number there is an obvious fixture like 60111000001 — but they are your working papers, not your shop.** A new `robots.txt` now tells search engines to leave that folder alone.
+
+**5. ⚠️ AND THE TRAP, RECORDED SO IT IS NOT WALKED INTO:** a `robots.txt` block and a `noindex` tag must never be used on the SAME thing — **a crawler refused the page can never read the tag.** That is why `/admin/` is tagged but deliberately NOT blocked, and `/test/` is blocked because a folder of `.js` files has no tag to read.
+
+**6. ⭐ AND A TEST SO NO PAGE CAN EVER BE SILENT AGAIN.** It asks the smaller question on purpose — **not "is it hidden?" but "is there an answer on the page at all?"** — so it can never work against your own words. ⚠️ **I removed the backoffice's line, removed the shop's line, and removed the `/test/` rule one at a time, and watched each fail by its own message**, then restored every file byte-identically.
+
+**7. Nothing of yours was rewritten. No database step — but this one only takes effect once you push it, because it changes the pages themselves.**
+
+---
 
 **17 Oct 2026 — engine v537, THE PDFS CAN NOW PRINT CHINESE — AND YOUR WORDS WERE PRINTING AS GAPS (no database step).**
 
