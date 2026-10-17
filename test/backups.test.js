@@ -491,6 +491,70 @@ test("★★ and a dry run COUNTS without changing anything at all", async () =>
   } finally { ls.restore(); }
 });
 
+// ── v539: when the whole state is replaced, the read cursor must be forgotten ─
+test("★★★ a restore FORGETS the read cursor — the data has just jumped backwards", async () => {
+  // ⚠️⚠️ THE RISK, AND IT ARRIVED WITH v533'S CURSOR: after a rewind, `lastSeq` still points at where this
+  // phone was BEFORE it. ⚠️ **The next read then asks for `seq > lastSeq`, and every record in the shared data
+  // older than that is never read again** — ⭐ **so a restore that failed to push could never be recovered by
+  // reading**, which is the v444 shape coming back through a new door.
+  const ls = installStorage();
+  seedToken(ls.store);
+  try {
+    const state = cloudState();
+    const snap = backups.snapshotState(state);
+    const row = { id: 5, data: JSON.stringify(snap) };
+    // A phone that has already read the whole book, so it holds a cursor.
+    ls.store.set("bakeadmin.sync", JSON.stringify({ version: 1, pending: {}, snapshot: {}, meta: {},
+      lastPullAt: "2026-01-01T00:00:00.000Z", lastSeq: 500, lastCount: 791 }));
+
+    const restoreFetch = installFetch(async (url, opts) => {
+      const method = (opts && opts.method) || "GET";
+      if (method === "GET" && url.includes("/rest/v1/bakery?")) return jsonRes([]);
+      if (method === "POST" && url.includes("/rest/v1/bakery?")) return jsonRes({});
+      if (method === "POST" && url.endsWith("/rest/v1/backup_snapshots")) return jsonRes({});
+      throw new Error(`unexpected request ${method} ${url}`);
+    });
+    try {
+      const r = await backups.restoreSnapshot(state, row);
+      assert.equal(r.ok, true, String(r.reason || "the restore failed, so nothing below proves anything"));
+      const b = JSON.parse(ls.store.get("bakeadmin.sync"));
+      assert.equal(b.lastSeq, null,
+        "★ the cursor SURVIVED a rewind — **the next read asks for what changed after a number that now "
+        + "belongs to a book this phone no longer has, and the older records are never read again**");
+      assert.equal(b.lastCount, null, "the record count still describes the book from before the rewind");
+    } finally { restoreFetch(); }
+  } finally { ls.restore(); }
+});
+
+test("★★★ and an Import can save the same 'before' copy Restore has always saved", async () => {
+  // ⚠️ **Restore took a safety copy; Import did not** — so importing the wrong file was the one action in the
+  // app with no way back. ⭐ It is the same three lines, so the two cannot drift apart.
+  const ls = installStorage();
+  seedToken(ls.store);
+  try {
+    const state = cloudState();
+    let posted = null;
+    const restoreFetch = installFetch(async (url, opts) => {
+      const method = (opts && opts.method) || "GET";
+      if (method === "POST" && url.endsWith("/rest/v1/backup_snapshots")) {
+        posted = JSON.parse(opts.body)[0];
+        return jsonRes({});
+      }
+      throw new Error(`unexpected request ${method} ${url}`);
+    });
+    try {
+      const r = await backups.saveSafetyCopy(state, "Before import · 17 Oct · 18:02");
+      assert.equal(r.ok, true, String(r.reason || "the safety copy was not saved"));
+      assert.ok(posted, "★ nothing was posted — **so the import would still have no way back**");
+      assert.equal(posted.kind, "manual");
+      assert.equal(posted.label, "Before import · 17 Oct · 18:02", "the copy is not labelled with what it is");
+      // ⚠️ AND IT IS STRIPPED OF THE PHONE'S OWN SECRETS, exactly like Restore's.
+      assert.equal(JSON.parse(posted.data).settings.supabase, undefined,
+        "★ the safety copy carries this phone's sign-in");
+    } finally { restoreFetch(); }
+  } finally { ls.restore(); }
+});
+
 test("restoreSnapshot saves a 'Before restore' copy then writes the merged state", async () => {
   const ls = installStorage();
   seedToken(ls.store);

@@ -1022,6 +1022,23 @@ export async function pull(state) {
 
 // ⭐ THE SIZE OF HER SHARED DATA, AS THE LAST READ FOUND IT — or null when this phone has never read it.
 // ⚠️ **Null is reported as SKIPPED by the check, never as a pass** — the rule this whole file is built on.
+// ★★★ AND WHEN THE WHOLE STATE IS REPLACED, THE CURSOR IS FORGOTTEN (v539).
+//
+// ⚠️⚠️ TWO PRESSES REPLACE EVERYTHING: **Restore** (an older saved copy) and **Import** (a file). ⭐ **After
+// either, this phone's data jumps BACKWARDS — while `lastSeq` still points at where it was before the jump.**
+// ⚠️ **So the next read asks only for `seq > lastSeq`, and any record in the shared data that is OLDER than
+// that is never read again.** ⭐ **A restore that then failed to push could never be recovered by reading** —
+// which is the v444 shape, arriving through v533's cursor.
+// ⭐ The cost of forgetting it is ONE full read. That is the whole trade: **one read, against a class of doubt.**
+// ⚠️ It clears ONLY what the last read saw (`lastSeq`, `lastCount`) — **never `pending`, never the snapshot**,
+// because a queue that is dropped here would lose exactly the unsent changes the whole file protects.
+export function forgetCursor() {
+  const b = readSync();
+  b.lastSeq = null;
+  b.lastCount = null;
+  writeSync(b);
+}
+
 export function lastCloudCount() {
   // ⚠️ `raw == null` FIRST — **`Number(null)` IS 0**, and a "0 records" answer would be a measurement this
   // phone never took. (The v419 lesson, and the same one the read above guards.)

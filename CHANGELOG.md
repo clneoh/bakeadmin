@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v538)
+# Jienluv2bake — change history (v54 → v539)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v539, AN IMPORT CAN NOW BE UNDONE, AND A RESTORE CANNOT LOSE YOUR RECORDS (no database step).**
+
+**Your question found these:** __"any other problem that can happen?"__
+
+**1. ⚠️⚠️ THE FIRST ONE CAME FROM THIS MORNING'S OWN CHANGE.** The sync now reads only what has changed since a number the database stamps. ⚠️ **But Restore and Import both replace the WHOLE book — and the number is not reset.** ⭐ **So after either, the phone's data jumps BACKWARDS while the number still points at where it was: every record older than that is then never read again.** ⚠️ **A restore that then failed to send could never be repaired by reading.**
+- ⭐ **Both presses now forget the number.** The cost is **one full read**. ⚠️ **And it forgets ONLY the number — never the sending queue**, because that queue is exactly the unsent changes this app exists to protect.
+
+**2. ⚠️ AND THE SECOND: IMPORT WAS THE ONE DOOR WITH NO WAY BACK.** Restore has always saved a *"Before restore"* copy first. **Import did not** — its dialog honestly said *"This cannot be undone"*, which is a warning, not a way back.
+- ⭐ **It now saves a "Before import" copy first**, taken from your data **before** the file is written over it.
+- ⚠️ **AND ONLY WHEN THERE IS A CLOUD TO PUT IT IN** — because **importing a file is how a new phone is set up, and refusing that offline would break the very thing Import exists for.** ⚠️ When the cloud *is* on and the copy fails, **nothing is imported** — the same discipline as Restore.
+
+**3. Measured:** after a restore the read cursor reads **empty**, not the old number · forgetting the cursor leaves the sending queue **untouched** · and the import copy is posted, labelled **"Before import"**, with your sign-in **stripped out** of it.
+
+**4. ⚠️ THE HONEST NOTE — this is a narrow door, not a whole fault fixed.** It protects the two presses that replace everything. ⭐ **If a phone ever loses its stored data some other way, the cloud still holds the book, and a fresh read picks it up.**
+
+**5. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v538, THE BACKOFFICE STAYS OUT OF GOOGLE, AND YOUR HOMEPAGE AND SHOP ARE OPEN TO IT (no database step).**
 

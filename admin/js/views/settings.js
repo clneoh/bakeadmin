@@ -504,9 +504,25 @@ export function renderSettings(root, state) {
       try { data = parseImport(text); }
       catch (err) { toast(err.message); return; }
       const counts = `${data.products.length} products · ${data.ingredients.length} ingredients · ${data.orders.length} orders`;
-      confirmDialog(`Replace ALL current data with this backup? (${counts})`,
-        () => {
+      // ★★★ AND IT IS NO LONGER A ONE-WAY DOOR (v539). ⚠️ **Restore has always saved a "Before restore" copy;
+      // Import did not, so importing the wrong file was the ONE action in the app with no way back** — the
+      // dialog said so, which was honest but not much help after the fact. ⭐ It takes the same copy now.
+      // ⚠️ THE ORDER: the copy is taken from THIS phone's data BEFORE the file is written over it.
+      // ⚠️ AND ONLY WHEN THERE IS A CLOUD TO PUT IT IN: ⭐ **an import with the cloud off is how a new phone is
+      // set up from a file, and refusing that would break the very case Import exists for.** ⚠️ But when the
+      // cloud IS ready and the copy fails, nothing is imported — the same discipline as Restore.
+      const cloudReady = backups.ready(state);
+      confirmDialog(`Replace ALL current data with this backup? (${counts})`
+          + (cloudReady ? " A \"Before import\" copy is saved first, so you can undo this." : ""),
+        async () => {
+          if (cloudReady) {
+            const safe = await backups.saveSafetyCopy(state, `Before import · ${backups.localWhen()}`);
+            if (!safe.ok) return toast(`Couldn't save a "before" copy first: ${safe.reason}. Nothing was imported.`);
+          }
           localStorage.setItem(LS_KEY, JSON.stringify(data));
+          // ⚠️⚠️ AND THE READ CURSOR IS FORGOTTEN: the whole book has just jumped, so `lastSeq` no longer
+          // describes it — **and a read that asked "after that number" would never see the older records again.**
+          sync.forgetCursor();
           location.reload();
         }, { danger: true, yesLabel: "Replace" });
     }).catch(() => toast("Couldn't read that file"));

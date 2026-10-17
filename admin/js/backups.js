@@ -568,5 +568,18 @@ export async function restoreSnapshot(state, row) {
   } catch (err) {
     return { ok: false, reason: `Couldn't write to this phone: ${netErr(err)}` };
   }
+  // ★★★ AND THE READ CURSOR IS FORGOTTEN, BECAUSE THE DATA JUST JUMPED BACKWARDS (v539).
+  // ⚠️⚠️ **`lastSeq` still points at where this phone was BEFORE the rewind**, so the next read would ask for
+  // "everything after that" — **and every record in the shared data older than that would never be read
+  // again.** ⭐ One full read costs one request; not doing it costs a class of doubt in the one press that
+  // exists to undo a mistake.
+  sync.forgetCursor();
   return { ok: true, at: safe.at };
+}
+
+// ⭐ A SAFETY COPY, FOR ANY PRESS THAT REPLACES HER DATA (v539). ⚠️ Restore has always taken one; **Import did
+// not**, and importing by mistake was the one action in the app with no way back. ⭐ Same three lines, so the
+// two cannot drift apart.
+export async function saveSafetyCopy(state, label) {
+  return postSnapshot(state, "manual", label, snapshotState(state));
 }

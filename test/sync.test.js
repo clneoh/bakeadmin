@@ -2262,6 +2262,38 @@ test("★★★ a cursor read must NOT overwrite the record count with the few r
   } finally { restore(); }
 });
 
+// ── v539: forgetting the cursor must not cost her the queue ──────────────────
+test("★★★ forgetCursor clears what the last read saw, and NOTHING else (v539)", async () => {
+  // ⚠️⚠️ IT IS CALLED FROM THE TWO PRESSES THAT REPLACE EVERYTHING — Restore and Import. ⭐ **The one thing it
+  // must never touch is `pending`:** a queue dropped here would lose exactly the unsent changes this whole file
+  // exists to protect, in the same press that is meant to be the safe way back.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.orders = [{ id: "o1", productId: "p1", qty: 1 }];
+    seedToken(store);
+    sync.markDirty(st, "2026-01-01T00:00:00.000Z");
+    // A phone that has read the whole book, and is still holding two changes.
+    const b = JSON.parse(store.get("bakeadmin.sync"));
+    b.lastSeq = 41;
+    b.lastCount = 791;
+    b.pending = { "orders:o1": { kind: "orders", id: "o1", updated_at: "2026-01-01T00:00:00.000Z", data: { id: "o1" }, _deleted: false } };
+    store.set("bakeadmin.sync", JSON.stringify(b));
+    const queuedBefore = Object.keys(b.pending).length;
+
+    sync.forgetCursor();
+
+    const after = JSON.parse(store.get("bakeadmin.sync"));
+    assert.equal(after.lastSeq, null, "★ the cursor survived — the next read asks \"after\" a book this phone no longer holds");
+    assert.equal(after.lastCount, null, "the count still describes the book from before");
+    assert.equal(Object.keys(after.pending).length, queuedBefore,
+      "★ forgetting the cursor DROPPED THE QUEUE — **that loses the unsent changes the queue exists to protect, "
+      + "in the very press that is meant to be the safe way back**");
+    assert.ok(after.snapshot && Object.keys(after.snapshot).length,
+      "★ the snapshot was cleared too — **without it, nothing knows what this phone already handed over**");
+  } finally { restore(); }
+});
+
 // ── v475: a queue holding ONLY an un-sendable record ─────────────────────────
 test("★★★ flush: a queue holding only a record that can never be sent is swept, and still reports ok", async () => {
   // ⚠️⚠️ HER REPORT, IN TWO LINES: __"after sync now, the phone still say 1 changes waiting to be send"__
