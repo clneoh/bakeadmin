@@ -276,7 +276,7 @@ for (const id of ["step1", "step2", "step3", ...STEP_FIELD_IDS]) {
 // module-level render() doesn't hit the network during tests.
 globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 
-const { buildMessage, mergeStorefront, upcomingDates, daySpecs, dateKey, fmtDay, windowTitle, trackOrder, isOpen, waNumber, phoneText, parseVia, render } = await import("../store/app.js");
+const { buildMessage, mergeStorefront, upcomingDates, daySpecs, dateKey, fmtDay, windowTitle, trackOrder, isOpen, todayStillOpen, waNumber, phoneText, parseVia, render } = await import("../store/app.js");
 const { strictestCancelDays } = await import("../store/pool.js");
 const { CONFIG } = await import("../store/config.js");
 // v270: the shop's own line and its refusals, kept as pure functions so they are
@@ -402,6 +402,21 @@ test("isOpen blocks a delivery day once its cutoff has passed the day before", (
   assert.equal(isOpen(cfg, wed, new Date(2026, 8, 1, 17, 59)), true, "open right before 6pm the day before");
   assert.equal(isOpen(cfg, wed, new Date(2026, 8, 1, 18, 0)), false, "closed exactly at 6pm the day before");
   assert.equal(isOpen(cfg, wed, new Date(2026, 8, 2, 9, 0)), false, "still closed on the delivery day itself");
+});
+
+test("★★★ today's bake is only 'closed' when she actually bakes today", () => {
+  // ⚠️⚠️ THE FAULT (v549): the heading asked "is it still before the deadline for a bake TODAY?" — and that
+  // deadline is YESTERDAY at 18:00, so it was false every day of the year. ⭐ The shop said **"Today's bake
+  // has closed"** on a Sunday the bakery never bakes, and **"You're in time" could never appear at all.**
+  const cfg = { cutoff: "18:00", deliveryDays: [1, 3, 5] };
+  // Sunday 18 Oct 2026, 00:08 — not one of her days.
+  assert.equal(todayStillOpen(cfg, new Date(2026, 9, 18, 0, 8)), true,
+    "★ a day she does not bake was reported as a bake that has closed — **there is no bake to close**");
+  // Monday 19 Oct 2026, 10:00 — a bake day, and its cut-off was Sunday 18:00.
+  assert.equal(todayStillOpen(cfg, new Date(2026, 9, 19, 10, 0)), false,
+    "precondition: once the bake day arrives, ordering for it has closed");
+  assert.equal(todayStillOpen({ cutoff: "" , deliveryDays: [1, 3, 5] }, new Date(2026, 9, 19, 10, 0)), true,
+    "with no cut-off at all there is nothing to have closed");
 });
 
 test("isOpen keeps a later day open and treats a missing cutoff as always open", () => {
@@ -709,6 +724,16 @@ test("order click sends one order and shows the success card (regression: no thr
     assert.equal(payload.address, "12 Jalan Bunga");
     const title = registry["confirm-msg"].children[0].children[0]; // .text, not textContent, in the shim
     assert.equal(title.text, "🎉 Order received!");
+    // ★★★ AND THE MENU CARDS GO BACK TO ZERO WITH THE BASKET (v549). ⚠️⚠️ The reset emptied the basket
+    // and left every card's stepper showing the last customer's number: the bar read "0 items / RM0.00"
+    // while the card beside it still said 1. ⭐ Two things on one screen saying different numbers is the
+    // fault this shop has fixed more than any other.
+    const stepperAfter = registry["menu"].children[0]
+      .children.find((c) => c.className === "card-body")
+      .children.find((c) => c.className === "stepper");
+    assert.equal(String(stepperAfter.children[1].value), "0",
+      "★ the menu still shows the last customer's quantity while the bar says 0 items — **the next "
+      + "customer would order from a number he did not choose**");
     // THE WORD THAT WAS PRINTED ON HER RECEIPT. The cancellation note is only added when
     // a product on the order states a window, and the shop's own products state none — so
     // an order placed against her live storefront carried a null in that card, and the DOM

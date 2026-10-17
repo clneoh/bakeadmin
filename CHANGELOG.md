@@ -1,8 +1,40 @@
-# Jienluv2bake — change history (v54 → v548)
+# Jienluv2bake — change history (v54 → v549)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v549, THE LAST SIX FROM THE AUDIT — ALL FIXED (no database step).**
+
+**Your words:** __"fix the six open ones."__ These are the six the previous entry left open, and one of them was left open only because it changes what your books mean — **you have decided, so here it is.**
+
+**1. ⚠️⚠️ A REFUND AFTER EDITING AN ORDER DOWN WAS TAKEN OFF TWICE.** Measured: an order of RM30 is paid, edited down to RM15, you accept "Refund RM15?" — and **the order's takings read RM0, although you kept RM15.**
+- ⭐ **Why:** the edit had ALREADY taken the RM15 out of your takings — that is what the save dialog says, __"Saving takes RM15 out of your accounts — your hand will not change"__ — so subtracting the refund as well counted one event twice.
+- ⭐ **Now:** the refund is still recorded on the order (your receipt register still says the money went back), but it does **not** move the takings a second time. The order reads **RM15** — the money in your hand.
+- ⚠️ **An ordinary refund — the Refund button on an order you have not edited — is unchanged and still comes off your takings in full.**
+
+**2. ⚠️ A DISCOUNT BIGGER THAN THE GOODS BROKE EVERY PRINTED TOTAL.** Measured: a RM500 code on RM30 of bread printed invoice lines summing to **−RM470** under a Total of **RM0.00**, and Profit's journal row disagreed with its own Sales line.
+- ⭐ The Total was always floored at nothing; **the discount was not.** ⭐ Now a discount is capped at what there is to take off, so the lines add up to the Total beneath them on the invoice, the message, the journal and the takings.
+
+**3. ⚠️ THE REFUND BOX OFFERED A CASH-ON-DELIVERY CHARGE YOU NEVER RECEIVED.** Measured: a RM16 order with an RM8 COD charge read **"Ticked so far RM24.00"** beside **"up to RM16.00"** — and then refused your own press.
+- ⭐ A COD fee goes to the courier at the door; it never passed through your hands. ⭐ It is no longer offered, so the ticked total can no longer exceed the cap.
+
+**4. ⚠️ THE NOTE / TRACKING POPUP DID NOT RE-PRICE A DELIVERY-TYPE CODE.** Change the delivery charge in that box and its Total disagreed with the saved order, its message and its invoice.
+- ⭐ It now re-values the code against the charge in the box, the same way the Edit popup already did.
+
+**5. ⚠️ TWO SHOP PROMO FAULTS.**
+- A **`?promo=` link on a printed card** was judged at the moment the page opened, **before the codes had arrived**, so a perfectly good code was refused and never looked at again. ⭐ Now a code the page has judged is judged again when the basket changes or the codes land.
+- A code's **"add RM14 more"** stayed on screen after the customer had added the RM14, and the code they then qualified for was never applied. ⭐ Same fix: the refused code is re-judged, not just the applied one.
+
+**6. ⚠️ TWO SHOP DISPLAY FAULTS.**
+- **The menu kept the last customer's quantities after an order:** the bar read "0 items / RM0.00" while the card still showed 1. ⭐ The cards are rebuilt from the emptied basket now, like the bar.
+- **"Today's bake has closed" showed on a day the bakery does not bake**, so "You're in time" could never appear at all. ⭐ The heading now asks whether today is one of your bake days: a day you do not bake has no bake to have closed, and a day you do bake is open until its own cut-off the day before.
+
+**7. ⚠️ AND ONE PLACE I COULD NOT TEST THE WAY I WANTED — SAID PLAINLY.** Every fix above has a test that was watched to fail by its own message, **except the shop's promo re-judging (#5) and the Note popup's re-pricing (#4)**: both live inside screens this test harness cannot drive to that point. They are small changes and they run the same judgement the rest of the shop already uses, but **they are verified by reading, not by a red test** — and that is the difference worth knowing about.
+
+**8. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v548, THE FULL DETAIL AUDIT: SIXTEEN FAULTS FOUND BY READING EVERY SCREEN, AND SIXTEEN FIXED (no database step).**
 

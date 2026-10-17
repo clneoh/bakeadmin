@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "548";
+export const SHOP_BUILD = "549";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -599,6 +599,21 @@ export function isOpen(cfg, d, now = new Date()) {
   return now.getTime() < deadline.getTime();
 }
 
+// ★★★ IS TODAY'S BAKE STILL CATCHABLE? (v549)
+//
+// ⚠️⚠️ THE FAULT: the heading asked `isOpen(cfg, today)` — "is it still before the deadline for a bake
+// TODAY?" — and that deadline is **yesterday at 18:00**, so the answer was false on every day of the year.
+// ⭐ The page said **"Today's bake has closed"** on a Sunday the bakery never bakes, and **"You're in
+// time" could never appear at all.**
+// ⭐ Two truths, and the heading follows them:
+//   • a day she does not bake has no bake to have closed → he is in time for the next one;
+//   • a day she does bake is open only until its own cut-off (the day before).
+export function todayStillOpen(cfg, now = new Date()) {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const bakesToday = Array.isArray(cfg && cfg.deliveryDays) && cfg.deliveryDays.includes(start.getDay());
+  return !bakesToday || isOpen(cfg, start, now);
+}
+
 // ★★ "6PM", NOT "18:00" (v405). ⚠️ A stranger reads a clock the way they speak. 18:00 is the form the
 // baker's admin stores and it is right THERE; on the customer's page it is a small puzzle, and the
 // whole finding of this version is that small puzzles are where a nervous customer goes wrong.
@@ -655,7 +670,12 @@ function paintDayAnswer(cfg, cutoffSay) {
   // ⚠️ "TODAY'S BAKE HAS CLOSED" IS ONLY TRUE WHEN TODAY IS NOT ONE OF HER DAYS, and it is the case he
   // hit — but a page that says it on a Tuesday when the bakery bakes Tuesday would be wrong. So the
   // heading follows the fact, not the clock.
-  const todayOpen = isOpen(cfg, new Date(new Date().setHours(0, 0, 0, 0)));
+  // ⚠️⚠️ AND "TODAY'S BAKE" ONLY EXISTS ON A DAY SHE BAKES (v549). ⭐ `isOpen(cfg, today)` asks "is it
+  // still before the deadline for a bake TODAY?" — and that deadline is **yesterday at 18:00**, so it was
+  // false on every day of the year: the heading read "Today's bake has closed" on a Sunday the bakery
+  // never bakes, and **"You're in time" could never appear at all.** ⭐ A day she does not bake has no
+  // bake to have closed; and a day she does bake is open until its own cut-off.
+  const todayOpen = todayStillOpen(cfg);
   box.hidden = false;
   box.classList.toggle("ok", todayOpen);
   document.getElementById("answer-kicker").textContent = t(todayOpen ? "ansInTime" : "ansClosed");
@@ -2318,6 +2338,21 @@ function clearFieldMarks() {
     // A code the customer has already used on this phone, or one that is for first
     // orders only, comes back "soft" here for the same reason it did when it was
     // typed: it is on the order, with its caveat.
+    // ★★★ A CODE THE PAGE HAS ALREADY JUDGED IS JUDGED AGAIN (v549).
+    //
+    // ⚠️⚠️ The refusal was stored ONCE and reprinted on every repaint, with the shortfall frozen into
+    // it — ⭐ **so "Add RM14.00 more to use it" stayed on screen after the customer had added the RM14**,
+    // and the code they qualified for was never applied. ⚠️ And a **`?promo=` link** is judged at boot,
+    // before the codes have arrived, so a perfectly good code was refused and **never looked at again**
+    // even when the codes landed a second later. ⭐ The applied code has always been re-judged here; the
+    // REFUSED one was not, which is the same rule applied to half the page.
+    const boxed = promoInput ? tidyCode(promoInput.value) : "";
+    if (promoRefusal && boxed) {
+      const again = judge(boxed, total);
+      if (again.kind === "no") promoRefusal = again;
+      else { promoApplied = again.code; promoRefusal = null; }
+    }
+
     let got = null;
     if (promoApplied) {
       const j = judge(promoApplied, total);
@@ -3826,6 +3861,12 @@ function clearFieldMarks() {
       forgetVia();
       sending = false;       // the order landed — the next customer may order (v548)
       cart.clear();
+      // ★★★ AND THE MENU IS REBUILT, NOT JUST THE BAR (v549). ⚠️⚠️ The reset emptied the basket and left
+      // every card's stepper reading the last customer's number: the bar said **"0 items / RM0.00"** while
+      // the Focaccia card still showed **1**. ⭐ Two things on one screen saying different numbers is the
+      // fault this shop has fixed more times than any other, and the steppers are built from `cart`, so
+      // they are rebuilt from it here.
+      renderMenu();
       // …and with it every note typed against it, or the next customer's first
       // look at the menu would open with the last person's words sitting in the
       // boxes. Nothing else on this page is carried over; neither is this.
