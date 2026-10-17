@@ -37,12 +37,18 @@ export function stockLogOf(ingredient) {
 // here — grams or kilograms is the display's decision, the same rule the rest of the app follows.
 // `why` is one word so the reason can be told apart without reading the sentence; `what` is the
 // sentence a person reads; `ref` ties a row back to the order or the list that caused it.
-export function logStock(ingredient, { at, delta, why, what, ref } = {}) {
+export function logStock(ingredient, { at, delta, why, what, ref, keepZero = false } = {}) {
   if (!ingredient) return null;
   const n = Number(delta);
   // ⚠️ A movement of nothing is not a movement — the same rule the price log keeps. (A bake whose
   // recipe no longer resolves an ingredient must not write a row saying it moved none of it.)
-  if (!Number.isFinite(n) || n === 0) return null;
+  // ★★★ BUT AN ACT SHE PERFORMED IS STILL AN ACT (v542). ⚠️⚠️ Her instruction, looking at two
+  // "0 g to 10 kg" rows on one phone: __"the 2nd one should label from 10kg to 10kgs"__ and __"and also +0kgs
+  // for the 2nd"__. ⭐ **A stocktake that changes nothing must still say so, honestly** — because a count she
+  // took is a fact about that day, and the only thing worse than showing it is showing a false one.
+  // ⚠️ `keepZero` IS OPT-IN AND ONLY `setStock` PASSES IT: the rule above still holds for a BAKE, where a
+  // zero is an ingredient its recipe no longer resolves — that must never write a row.
+  if (!Number.isFinite(n) || (n === 0 && !keepZero)) return null;
   if (!Array.isArray(ingredient.stockLog)) ingredient.stockLog = [];
   const entry = {
     at: at || todayISO(),
@@ -72,7 +78,10 @@ export function setStock(ingredient, base, { why, label, at } = {}) {
   const now = round2(Math.max(0, Number(base) || 0));
   ingredient.onHand = now;
   const delta = round2(now - was);
-  logStock(ingredient, { at, delta, why, what: typeof label === "function" ? label(was, now) : "" });
+  // ⚠️ `keepZero: true` — **this is an absolute correction, so setting the amount it already was is a real
+  // answer she gave, and the row says "10 kg to 10 kg" with a change of 0.** ⭐ The bake path below never passes
+  // it, so a recipe that resolves nothing still writes no row.
+  logStock(ingredient, { at, delta, why, what: typeof label === "function" ? label(was, now) : "", keepZero: true });
   return { was, now, delta };
 }
 

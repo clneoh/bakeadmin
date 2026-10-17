@@ -351,13 +351,40 @@ test("★ a stocktake DOWN is recorded as a negative move", () => {
   assert.equal(stockLogOf(ing)[0].delta, -500, "a correction downwards recorded as an increase");
 });
 
-test("⚠️ a stocktake that sets the SAME number writes NOTHING", () => {
-  // ⚠️ A correction that changes nothing is not a movement — the same rule the price log keeps. Without
-  // this a card she opens and saves would fill its own journal with rows saying nothing happened.
+// ★★★ v542 — SHE CHANGED THIS RULE, AND SHE IS RIGHT.
+//
+// ⚠️ The old rule was "a correction that changes nothing is not a movement", and it was sound. ⚠️⚠️ **But she
+// was looking at two identical "0 g to 10 kg" rows on ONE phone and said what the second should have been:**
+// __"the 2nd one should label from 10kg to 10kgs"__ — and __"and also +0kgs for the 2nd"__.
+// ⭐⭐ **A count she took is a fact about that day, and the only thing worse than showing it is showing a FALSE
+// one.** ⚠️ **So a stocktake that changes nothing now writes the truth — "10 kg to 10 kg", a change of 0** — and
+// the press says so out loud instead of leaving a row to be found later.
+//
+// ⚠️ THE OLD RULE STILL HOLDS WHERE IT WAS AIMED: a **bake** whose recipe resolves no ingredient must write NO
+// row at all — a zero there means "this recipe does not touch this ingredient", not "she counted it". That is
+// the assertion under this one.
+test("★★ a stocktake that sets the SAME number now says so — 10 kg to 10 kg, +0", () => {
   const ing = flour(1500);
-  setStock(ing, 1500, { why: "stocktake", label: () => "Stocktake — no change" });
-  assert.equal(stockLogOf(ing).length, 0, "a no-op correction wrote a row");
-  assert.equal(ing.onHand, 1500);
+  const r = setStock(ing, 1500, { why: "stocktake", label: (was, now) => `Stocktake — ${was} to ${now}` });
+  assert.equal(ing.onHand, 1500, "the shelf was moved by a correction that sets the same amount");
+  assert.equal(r.delta, 0, "a correction that changed nothing reports a change");
+  const log = stockLogOf(ing);
+  assert.equal(log.length, 1,
+    "★ a stocktake that changed nothing wrote NO row — **she asked for exactly this row, and without it the "
+    + "count she took is invisible**");
+  assert.equal(log[0].delta, 0, "★ the row claims a movement the shelf did not make — **a false row is worse "
+    + "than no row**");
+  assert.equal(log[0].what, "Stocktake — 1500 to 1500", "the row does not name both figures");
+});
+
+test("⚠️ but a BAKE that resolves no ingredient still writes NOTHING", () => {
+  // ⚠️ THE RULE ABOVE IS OPT-IN, AND THIS IS WHY: a zero from a recipe means "this bake does not touch this
+  // ingredient", which is not something she did — it is something the app could not find.
+  const ing = flour(1500);
+  assert.equal(logStock(ing, { delta: 0, why: "produced", what: "Baked extra — 0 × Focaccia" }), null,
+    "★ a bake wrote a row saying it moved none of an ingredient — **a movement of nothing is not a movement, "
+    + "and a row saying otherwise would fill her journal with noise no one performed**");
+  assert.equal(stockLogOf(ing).length, 0);
 });
 
 test("⚠️ an impossible amount is floored at nothing, and the row says what really moved", () => {

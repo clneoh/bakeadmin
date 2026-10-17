@@ -513,6 +513,15 @@ export function stockCardSheet(state, ing, refresh = null) {
 // TYPOGRAPHIC ONE (U+2212), the same glyph the money journals use, so a printed column lines up.
 function stockDeltaText(state, ing, delta) {
   const n = Number(delta) || 0;
+  // ★★★ A CHANGE OF NOTHING READS IN THE UNIT THE AMOUNT ABOVE IT IS SHOWN IN (v542). ⚠️ **`fmtStockAmount`
+  // picks the unit from the SIZE of the number**, so a zero came out as "+0 g" beside "10 kg to 10 kg" — ⭐ **her
+  // words: __"and also +0kgs for the 2nd"__. ⚠️ **Zero has no size to choose a unit by**, so the honest answer is
+  // the unit of the figure it belongs to, falling back to no unit at all rather than inventing one.
+  if (n === 0) {
+    const onHand = fmtStockAmount(state, ing, Math.abs(Number(ing && ing.onHand) || 0));
+    const unit = String(onHand).replace(/^[−\-+0-9.,]+\s*/, "").trim();
+    return unit ? `+0 ${unit}` : "+0";
+  }
   return `${n < 0 ? "−" : "+"}${fmtStockAmount(state, ing, Math.abs(n))}`;
 }
 
@@ -626,11 +635,16 @@ function openAmountPopup(state, ing, root, kind) {
         // figures — "1.5 kg to 2 kg" — because a stocktake is a correction, and the only useful thing
         // about it later is what she changed it FROM. ⚠️ The setting-and-logging rule itself lives in
         // `setStock` (stock.js), where it is tested, rather than in this callback.
-        setStock(ing, base, {
+        const moved = setStock(ing, base, {
           why: "stocktake",
           label: (was, now) => `Stocktake — ${fmtStockAmount(state, ing, was)} to ${fmtStockAmount(state, ing, now)}`,
         });
-        toast(`${ing.name}: on hand ${fmtStockAmount(state, ing, base)}`);
+        // ⭐ AND IF NOTHING MOVED, SAY SO OUT LOUD (v542) — otherwise a press that changed nothing looks exactly
+        // like one that worked, and the row it leaves behind is the only clue. ⚠️ Her words: __"and also +0kgs
+        // for the 2nd"__ — ⭐ **the shelf is unchanged and she is told, rather than left to find a row later.**
+        toast(moved && moved.delta === 0
+          ? `${ing.name}: already ${fmtStockAmount(state, ing, base)} — nothing changed`
+          : `${ing.name}: on hand ${fmtStockAmount(state, ing, base)}`);
       } else if (base <= 0) {
         clearLevel(close);
         return;

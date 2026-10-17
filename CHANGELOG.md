@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v541)
+# Jienluv2bake — change history (v54 → v542)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v542, A STOCKTAKE THAT CHANGES NOTHING NOW SAYS SO — "10 kg to 10 kg, +0 kg" (no database step).**
+
+**Your words:** __"the 2nd one should label from 10kg to 10kgs"__ · __"and also +0kgs for the 2nd"__
+
+**1. ⚠️⚠️ THE OLD RULE WAS "a movement of nothing is not a movement", AND IT HID A COUNT YOU TOOK.** ⭐ **You counted the shelf. That is a fact about that day** — and a journal that leaves it out (or, worse, prints a false one) is not a record of what you did.
+
+**2. What it does now:** a stocktake that sets **the amount already on the shelf** writes its own row — **"Stocktake — 10 kg to 10 kg"**, with a change of **+0 kg** — ⭐ **in the unit the amount above it is shown in**, because zero has no size to pick a unit by.
+
+**3. ⭐ And the press tells you at the time**, so a row is never the only clue: *"Aroma: already 10 kg — nothing changed."*
+
+**4. ⚠️ AND THE OLD RULE STILL HOLDS WHERE IT WAS AIMED — a bake.** A bake whose recipe no longer resolves an ingredient still writes **no row at all**, because a zero there means *"this recipe does not touch this ingredient"*, not *"she counted it"*. ⭐ That distinction is now a test of its own.
+
+**5. ⚠️ AND THE HONEST PART: this does not explain your two rows.** ⭐ I reproduced the obvious suspect — a stocktake, then a sync pull carrying an older cloud copy, then a second stocktake — and **the local figure wins; it does not happen.** ⚠️ **So the second press genuinely believed the shelf was 0**, which on one phone means the first 10 was not in the saved data it read — **most likely the app was reloaded or reopened between them, or the save failed silently, which is the fault v535 only just fixed.** ⭐ **If it happens again the app will now say so at the moment you press.**
+
+**6. Measured on the real app at phone size:** a shelf of **10 kg**, a stocktake of **10** → the toast said *"already 10 kg — nothing changed"*, the shelf stayed **10 kg**, and the card reads **"Stocktake — 10 kg to 10 kg · +0 kg"**.
+
+**7. Nothing else on your shelf moved, and there is no database step.**
+
+---
 
 **17 Oct 2026 — engine v541, A PRODUCT WITH NO INGREDIENTS CAN STILL BE RECORDED — AND SAYS IT MOVES NO STOCK (no database step).**
 
