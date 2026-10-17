@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v530)
+# Jienluv2bake — change history (v54 → v531)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**17 Oct 2026 — engine v531, THE SYNC NO LONGER STOPS AT A THOUSAND RECORDS (no database step).**
+
+**This one came from your other app.** The munchies session had found and fixed it first, at your asking — your words there: __"what is the value of a system that can handle 1000 records only?"__ — and I have ported it here.
+
+**1. ⚠️⚠️ WHAT WAS WRONG, AND IT MAY BE THE WHOLE OF THIS WEEK.** Your phone read its shared data in **ONE request, capped at 1,000 records.** **Anything past that never arrived** — silently, on every screen. ⚠️ **And the read had no order at all, so WHICH thousand you got was arbitrary, and could be a different thousand the next time.** ⭐ **That is a record showing on one phone and not on the other, with nothing saying why.**
+
+**2. ⚠️ AND THE NUMBER IS EASIER TO REACH THAN IT SOUNDS. An order is one record per ITEM, not one per order, and nothing ever removes an old order** — so a working bakery passes a thousand in months. ⭐ **A cap on a business's records is not a capacity, it is an expiry date.**
+
+**3. THE FIX: it reads a page at a time and keeps going until the data runs out.** A thousand is now a **page size, not a limit**, and the read is **sorted**, so pages cannot skip or repeat a record between them. **Every record reaches every phone, whatever the size of your book.**
+
+**4. ⭐ AND YOUR SYSTEM PAGE NOW SHOWS THE SIZE OF THE BOOK.** A new line on Check my system says **how many records your shared data holds** — information, not a warning — and it reads its number from the same limit the read itself uses, so the two can never disagree. **It fails only at 100,000 records in one pass**, which is far past anything real; at that point it says so plainly instead of pretending the read was complete.
+
+**5. ⚠️ AND A READ THAT HITS THAT CEILING IS REPORTED, NEVER TREATED AS WHOLE.** ⭐ **A phone that thinks it has the whole book would push on a view it knows is short** — so it refuses, says why, and changes nothing.
+
+**6. Nothing of yours was rewritten**, and there is **no database step** — pushing this is the whole of it. ⚠️ **One honest note: a big book now takes several requests per sync** instead of one. The other app's next version makes that fast by asking only for what has changed, ⚠️ **and that one does need a SQL paste, so I have left it out of this.**
+
+---
 
 **17 Oct 2026 — engine v530, THE REMOVED LIST NOW KEEPS A REMOVED ORDER FOR 30 DAYS, ON YOUR WORD (no database step).**
 

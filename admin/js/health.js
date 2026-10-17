@@ -519,6 +519,34 @@ export function contentCheck(state, cloud, payloads, pending) {
 // ★ AND WHAT IS STILL WAITING TO LEAVE (v466). ⚠️ **THIS IS THE NUMBER THAT DECIDED WHETHER THE PAGE ABOVE
 // IS A FAULT OR A PHOTOGRAPH OF A PHONE MID-SEND** — and until now nothing could show it at all. ⭐ It needs
 // no network: it is a local count.
+// ★★★ HOW BIG HER SHARED DATA IS — INFORMATION, NOT A WARNING (v531).
+//
+// ⚠️⚠️ WHY IT IS ON THE PAGE AT ALL. The read used to be ONE request capped at 1,000 rows, and **`which`
+// thousand could differ from one read to the next** — so records arrived and then did not, on two devices that
+// never agreed, with nothing saying why. ⭐ **A cap on a business's records is not a capacity, it is an expiry
+// date**, and an order is one record per ITEM, so a working bakery reaches it in months.
+// ⭐ **She asked to see the number: __"you asked to see the count first"__.** It is a PASS when the book is
+// inside what one read can take, and it FAILS only at the ceiling — the one point where a record could still
+// fail to arrive. ⚠️ **Unknown is SKIPPED, never a pass**, and ⚠️ **`Number(null)` IS 0**, so an unmeasured
+// count must never be printed as "0 records".
+export function recordsCheck(count, ceiling) {
+  const TITLE = "How many records your shared data holds";
+  if (count == null || !Number.isFinite(Number(count))) {
+    return [skipped("records", TITLE, "This phone has not read your shared data yet, so it has no count to give. Sign in to shared data and run this again.")];
+  }
+  const n = Math.max(0, Math.floor(Number(count)));
+  const cap = Number.isFinite(Number(ceiling)) ? Number(ceiling) : 0;
+  const words = `${n.toLocaleString("en")} record${n === 1 ? "" : "s"}`;
+  if (!cap || n < cap) {
+    // ⚠️ A PASS RENDERS THE TITLE AND ITS DETAIL AND NOTHING ELSE — so the detail carries the number, and the
+    // sentence underneath it is the reassurance that the read no longer stops at a thousand.
+    return [{ ...pass("records", TITLE), detail: [`${words} — and every one of them reaches every phone, because the sync reads them a page at a time instead of stopping at a thousand`] }];
+  }
+  return [fail("records", TITLE, [words],
+    `Your shared data holds ${words}, which is at the limit of what one read can take. Past this a record can still fail to arrive — and it would not be lost, but it would not show on this phone either.`,
+    "Tell the person who looks after the app: the read's page limit needs raising. Nothing on this phone will fix it, and no record has been changed.")];
+}
+
 export function waitingCheck(waiting = 0, queued = null, state = null, lastFail = null) {
   const TITLE = "Nothing on this phone is still waiting to be sent";
   const n = Number.isFinite(Number(waiting)) ? Math.max(0, Math.floor(Number(waiting))) : 0;
@@ -601,6 +629,7 @@ export function runHealthChecks(state, extra = {}) {
     ...reachedCloudCheck(state, extra.cloud, extra.local),
     ...cloudOnlyCheck(state, extra.cloud, extra.local),
     ...contentCheck(state, extra.cloud, extra.payloads, extra.queued),
+    ...recordsCheck(extra.count, extra.ceiling),
     ...waitingCheck(extra.waiting, extra.queued, state, extra.lastFail),
   ];
   return {

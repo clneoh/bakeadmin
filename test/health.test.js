@@ -57,6 +57,12 @@ const runChecks = (state, extra = {}) => runHealthChecks(state, {
   payloads: sync.localPayloads(state),
   queued: new Set(),
   waiting: 0,
+  // ⭐ AND HOW BIG THE BOOK IS (v531) — the count the last read would have found. ⚠️ **Without it the new
+  // check SKIPS, and a skipped check is invisible to this file's own "every check actually RAN" assertion**,
+  // which is exactly the trap the comment above records for the two cloud checks. ⭐ Taken from the state
+  // rather than typed, so it cannot drift from the fixture.
+  count: sync.localKeys(state).length,
+  ceiling: sync.PULL_CEILING,
 });
 
 test("★★ a healthy book passes every check — and every check actually RAN", () => {
@@ -68,8 +74,9 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  assert.equal(res.total, 15, `the check list is no longer fifteen checks (it is ${res.total})`);
-  assert.equal(res.passedChecks, 15);
+  assert.equal(res.total, 16, `the check list is no longer sixteen checks (it is ${res.total})`);
+  // 16 since v531: the record COUNT joins the page, and it is a pass on a book inside what one read can take.
+  assert.equal(res.passedChecks, 16);
   assert.equal(res.failed, 0);
 });
 
@@ -185,7 +192,7 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
   assert.equal(resultOf(res, "waiting").status, "pass",
     "the waiting count is a local number and does not need the cloud to be readable");
   assert.equal(res.passedChecks, 8, "a skipped check was counted among the passes");
-  assert.equal(res.skippedChecks, 7, "the skipped checks were not counted separately");
+  assert.equal(res.skippedChecks, 8, "the skipped checks were not counted separately");
   assert.match(String(resultOf(res, "reached").why || ""), /shared data/i,
     "the skipped check does not say why it could not look");
   // ⚠️ AND A SKIP SAYS WHY — the same discipline the register screen follows.
@@ -258,7 +265,7 @@ test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 15, "the checks did not all run on an empty book");
+  assert.equal(res.total, 16, "the checks did not all run on an empty book");
   assert.equal(localChecks(bare).length, 7, "the local checks are not seven");
   assert.equal(registerChecks(bare, []).length, 2, "the register checks are not two");
   assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");

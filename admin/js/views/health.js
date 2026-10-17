@@ -132,6 +132,9 @@ export function renderHealth(root, state) {
       cloud, local: sync.localKeys(state), waiting: sync.pendingCount(),
       // ⭐ WHY THE QUEUE DID NOT EMPTY (v528) — the reason `refresh` used to return once and forget.
       lastFail: sync.lastFailure(),
+      // ⭐ HOW BIG THE BOOK IS (v531) — what the last complete read found, and the ceiling the read loop
+      // itself uses, so the sentence and the loop can never disagree about the number.
+      count: sync.lastCloudCount(), ceiling: sync.PULL_CEILING,
       // ⭐ AND THE DEEPEST PAIR (v471): what this phone holds, and what it has queued — the same single
       // read of the shared data answers both, so this costs no extra round trip.
       payloads: sync.localPayloads(state), queued: sync.pendingKeys(),

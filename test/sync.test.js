@@ -2105,6 +2105,77 @@ test("★★ the reason a hand-over did not complete is KEPT, and cleared by the
   } finally { restore(); }
 });
 
+// ── v531: a thousand records is a PAGE, not a cap ────────────────────────────
+//
+// ⚠️⚠️ HER WORDS, TO THE OTHER APP: __"what is the value of a system that can handle 1000 records only?"__
+// ⭐ **The read was ONE request with `limit=1000` and NO `order=`** — so a phone saw an arbitrary thousand and
+// silently never saw the rest, **and WHICH thousand could differ from one read to the next.** ⭐ **A cap on a
+// business's records is not a capacity, it is an expiry date: an order is one record per ITEM, and nothing
+// removes old orders.**
+test("★★★ pull: reads EVERY page — a thousand is a page size, not a cap (v531)", async () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    seedToken(store);
+    const urls = [];
+    const row = (i) => ({ kind: "uoms", id: `u_${i}`, data: "{}", updated_at: "2026-01-01T00:00:00.000Z", _deleted: false });
+    const restoreFetch = installFetch(async (url) => {
+      urls.push(url);
+      const offset = Number(new URL(url).searchParams.get("offset") || 0);
+      // ⭐ A FULL page, then a SHORT one — the ordinary way this stops, and the only one that means "all of it".
+      const n = offset === 0 ? sync.PULL_PAGE : 250;
+      return { ok: true, json: async () => Array.from({ length: n }, (_, i) => row(offset + i)) };
+    });
+    try {
+      const r = await sync.pull(st);
+      // ⚠️ THE PAGES FIRST, and only then whether it succeeded — **the property this test is about is that it
+      // KEEPS READING.** Asserting `ok` first made a one-page read fail on a different sentence entirely, and
+      // a test that fails for the wrong reason reads like the right one passing.
+      assert.equal(urls.length, 2, "★ the read stopped after ONE page — **anything past a thousand rows is "
+        + "silently never seen, and it is not lost, it simply never arrives**");
+      assert.equal(r.ok, true, "the read itself failed, so nothing below proves anything");
+      // ⚠️ THE ORDER IS NOT COSMETIC: without it `offset` paging can repeat a row on one page and skip one
+      // between pages — the same silent loss in a new dress.
+      assert.match(urls[0], /order=kind,id/,
+        "★ the read carries no ORDER, so paging can skip and repeat rows between pages");
+      assert.equal(sync.lastCloudCount(), sync.PULL_PAGE + 250,
+        "★ the count does not describe every row the read fetched — **the number on her screen would be the "
+        + "page, not the book**");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("★★★ and a book past the ceiling is REPORTED, never merged as though it were whole (v531)", async () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    seedToken(store);
+    // ⭐ Every page is FULL, so the only way out is the hard stop.
+    const restoreFetch = installFetch(async () => ({
+      ok: true,
+      json: async () => Array.from({ length: sync.PULL_PAGE }, (_, i) => ({
+        kind: "uoms", id: `u_${i}`, data: "{}", updated_at: "2026-01-01T00:00:00.000Z", _deleted: false,
+      })),
+    }));
+    try {
+      const r = await sync.pull(st);
+      assert.equal(r.ok, false, "★ a read that hit the ceiling was reported as a successful one — **and a "
+        + "phone that thinks it has the whole book will PUSH on a view it knows is short**");
+      assert.match(r.reason, /records/, "the refusal does not say what happened");
+      assert.equal(sync.lastCloudCount(), null,
+        "★ a PARTIAL read recorded a count as though it had seen the whole book");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("★★ an unread count is null, never 0 — `Number(null)` IS 0 (v531)", () => {
+  const { restore } = installStorage();
+  try {
+    assert.equal(sync.lastCloudCount(), null,
+      "★ a phone that has never read reported a count of 0 — **a measurement it never took, shown as a fact**");
+  } finally { restore(); }
+});
+
 // ── v475: a queue holding ONLY an un-sendable record ─────────────────────────
 test("★★★ flush: a queue holding only a record that can never be sent is swept, and still reports ok", async () => {
   // ⚠️⚠️ HER REPORT, IN TWO LINES: __"after sync now, the phone still say 1 changes waiting to be send"__

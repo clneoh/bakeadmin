@@ -504,7 +504,7 @@ function canonical(value) {
 // ── journal (bakeadmin.sync) ──────────────────────────────────────────────
 
 function emptyBlob() {
-  return { version: 1, pending: {}, snapshot: {}, meta: {}, lastPullAt: null, lastFail: null };
+  return { version: 1, pending: {}, snapshot: {}, meta: {}, lastPullAt: null, lastFail: null, lastCount: null };
 }
 
 function readSync() {
@@ -521,6 +521,11 @@ function readSync() {
           lastPullAt: typeof b.lastPullAt === "string" ? b.lastPullAt : null,
           // ⚠️ THE ONE THING THE APP USED TO THROW AWAY (v528) — see `lastFailure`.
           lastFail: b.lastFail && typeof b.lastFail === "object" ? b.lastFail : null,
+          // ⭐ HOW MANY RECORDS THE LAST COMPLETE READ FOUND (v531) — see `lastCloudCount`.
+          // ⚠️⚠️ `b.lastCount != null` FIRST, AND IT IS NOT DEFENSIVE PADDING: **`Number(null)` IS 0**, so a
+          // phone that has never read would report "0 records" as a fact — the v419 fault exactly ("a missing
+          // `days` means EVERY DAY"). ⭐ A count nobody has measured is null, and null is SKIPPED, not 0.
+          lastCount: b.lastCount != null && Number.isFinite(Number(b.lastCount)) ? Number(b.lastCount) : null,
         };
       }
     }
@@ -901,29 +906,76 @@ export function mergeRows(state, rows) {
 
 // ── pull ──────────────────────────────────────────────────────────────────
 
+// ⭐⭐ `PULL_PAGE` IS A PAGE SIZE, NOT A CAP (v531). ⚠️⚠️ It used to be a cap — `limit=1000` in ONE request,
+// with no `order=` at all — which meant **a phone saw an arbitrary thousand rows and silently never saw the
+// rest, and WHICH thousand could differ from one pull to the next.**
+// ⭐ **A cap on a business's records is not a capacity, it is an expiry date. An order is one record per
+// ITEM, not one per order, and nothing removes old orders — so a working bakery reaches a thousand in
+// months.** ⭐ **Munchies found and fixed this first (their v532) at her asking: __"what is the value of a
+// system that can handle 1000 records only?"__**
+//
+// ⚠️ `PULL_MAX_PAGES` is a hard stop so a runaway can never spin, and `PULL_CEILING` is therefore the real
+// limit — exported so the count on Check my system is read from the SAME number the loop uses, and the two
+// can never disagree.
+export const PULL_PAGE = 1000;
+export const PULL_MAX_PAGES = 100;
+export const PULL_CEILING = PULL_PAGE * PULL_MAX_PAGES;
+
+// Read EVERY row of the shared data, a page at a time.
+// ⚠️⚠️ `order=` IS REQUIRED, NOT COSMETIC: without a stable order, `offset` paging can repeat a row on one
+// page and skip another between pages — which is the same silent loss in a new dress.
+// ⚠️ `complete: false` means the ceiling was reached, and **the caller must not pretend it read everything.**
+async function readAllRows(base, query, headers, order = "kind,id") {
+  const rows = [];
+  for (let page = 0; page < PULL_MAX_PAGES; page++) {
+    let res;
+    try {
+      res = await fetch(`${base}/rest/v1/bakery?${query}&order=${order}&offset=${page * PULL_PAGE}&limit=${PULL_PAGE}`,
+        { headers });
+    } catch {
+      return { ok: false, offline: true, rows };
+    }
+    if (!res || !res.ok) return { ok: false, status: res && res.status, rows };
+    const chunk = await res.json().catch(() => null);
+    if (!Array.isArray(chunk)) return { ok: false, badBody: true, rows };
+    for (const r of chunk) rows.push(r);
+    // ⭐ A SHORT PAGE IS THE END — the ordinary way this stops, and the only one that means "all of it".
+    if (chunk.length < PULL_PAGE) return { ok: true, rows, complete: true };
+  }
+  return { ok: true, rows, complete: false };
+}
+
 export async function pull(state) {
   const c = cloudCfg(state);
   if (!c.on) return { ok: false, changed: false, reason: "Shared data is off" };
   const token = cachedToken();
   if (!token) return { ok: false, changed: false, reason: "Not signed in" };
 
-  let res;
-  try {
-    res = await fetch(`${c.url}/rest/v1/bakery?select=kind,id,data,updated_at,_deleted&limit=1000`, {
-      headers: { apikey: c.anonKey, Authorization: `Bearer ${token}` },
-    });
-  } catch {
-    return { ok: false, changed: false, reason: "Offline — will retry" };
+  const read = await readAllRows(
+    c.url, "select=kind,id,data,updated_at,_deleted",
+    { apikey: c.anonKey, Authorization: `Bearer ${token}` });
+  if (!read.ok) {
+    return { ok: false, changed: false,
+      reason: read.offline ? "Offline — will retry"
+        : read.badBody ? "Bad response"
+          : `Pull failed (HTTP ${read.status || "?"})` };
   }
-  if (!res.ok) return { ok: false, changed: false, reason: `Pull failed (HTTP ${res.status})` };
-
-  let rows;
-  try { rows = await res.json(); } catch { return { ok: false, changed: false, reason: "Bad response" }; }
+  // ⚠️⚠️ AND A READ THAT HIT THE CEILING IS NOT A SUCCESS. ⭐ **Merging a part of the book and reporting
+  // "ok" would let this phone PUSH on a view it knows is short** — the same class of fault as everything
+  // else on this page. It is reported instead, and the count below is how she sees it coming.
+  if (!read.complete) {
+    return { ok: false, changed: false,
+      reason: `Your shared data holds more than ${PULL_CEILING.toLocaleString("en")} records, which is more than one read can take. Nothing was changed.` };
+  }
+  const rows = read.rows;
 
   const b = readSync();
   const first = !b.lastPullAt;
   const { changed } = mergeCloudRows(state, rows, b);
   b.lastPullAt = new Date().toISOString();
+  // ⭐ HOW BIG THE BOOK IS, KEPT FOR THE COUNT ON CHECK MY SYSTEM (v531) — no second request, because this
+  // read has just fetched every row anyway.
+  b.lastCount = rows.length;
   writeSync(b);
 
   // On the first pull (or when rows changed), save so the save-hook queues any
@@ -931,6 +983,17 @@ export async function pull(state) {
   // uploads existing local data on first sign-in.
   if (changed || first) save(state);
   return { ok: true, changed: changed || first };
+}
+
+// ⭐ THE SIZE OF HER SHARED DATA, AS THE LAST READ FOUND IT — or null when this phone has never read it.
+// ⚠️ **Null is reported as SKIPPED by the check, never as a pass** — the rule this whole file is built on.
+export function lastCloudCount() {
+  // ⚠️ `raw == null` FIRST — **`Number(null)` IS 0**, and a "0 records" answer would be a measurement this
+  // phone never took. (The v419 lesson, and the same one the read above guards.)
+  const raw = readSync().lastCount;
+  if (raw == null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 // ── flush ─────────────────────────────────────────────────────────────────
