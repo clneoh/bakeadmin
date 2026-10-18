@@ -556,7 +556,7 @@ export function isPoolablePack(state, product) {
 // Pieces of a pool base still free for a delivery date = base.limit minus every
 // order's qty × how many base pieces that product consumes (a pack of 4 takes
 // 4). Returns {limit, booked, remaining}, or null when the base has no limit.
-export function poolRemaining(state, deliveryDateId, baseId) {
+export function poolRemaining(state, deliveryDateId, baseId, excludeOrderId = null) {
   const base = byId(state.products, baseId);
   if (!base || !(Number(base.limit) > 0)) return null; // unlimited → no shared pool
   const rec = byId(state.deliveryDates, deliveryDateId);
@@ -565,6 +565,8 @@ export function poolRemaining(state, deliveryDateId, baseId) {
   let booked = 0;
   for (const o of state.orders) {
     if (o.deliveryDateId !== deliveryDateId) continue;
+    // ⚠️ AN ORDER BEING EDITED DOES NOT COUNT AGAINST ITSELF (v580) — the picker passes its own id.
+    if (excludeOrderId && o.id === excludeOrderId) continue;
     const qty = Number(o.qty) || 0;
     if (qty <= 0) continue;
     booked += qty * baseUnitsOf(state, baseId, o.productId, memo, new Set());
@@ -788,10 +790,9 @@ export function totalUnitsOnDate(state, deliveryDateId) {
 export function productRemaining(state, deliveryDateId, productId, excludeOrderId = null) {
   const product = byId(state.products, productId);
   if (!product || !(Number(product.limit) > 0)) return null; // unlimited → no count shown
-  const rec = byId(state.deliveryDates, deliveryDateId);
-  const limit = effectiveLimit(state, rec && rec.date, productId) ?? 0;
-  const booked = state.orders
-    .filter((o) => o.deliveryDateId === deliveryDateId && o.productId === productId && o.id !== excludeOrderId)
-    .reduce((s, o) => s + o.qty, 0);
-  return { limit, booked, remaining: limit - booked };
+  // ★★★ A VALUE PACK COMES OUT OF THE SAME POOL (v580). ⭐ This counted only orders placed for the BASE —
+  // ⚠️ **measured: limit 12 with one 4-pack ordered twice, and the backoffice picker said "12 left" while
+  // the shop had already published 4.** ⭐ There is one pool count (`poolRemaining`) and this is it, so the
+  // guide she sells from and the figure the customer is held to cannot disagree.
+  return poolRemaining(state, deliveryDateId, productId, excludeOrderId);
 }

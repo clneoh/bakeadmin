@@ -98,7 +98,7 @@ class MockDate extends RealDate {
 }
 globalThis.Date = MockDate;
 
-import { renderProducts } from "../admin/js/views/products.js";
+import { removeDay, renderProducts } from "../admin/js/views/products.js";
 
 // A state with just enough to render the editor: a count unit to pick, and no
 // products yet (the always-visible New product card).
@@ -250,6 +250,28 @@ test("an older product's from–to window opens in the card as one mark, and a s
   assert.deepEqual(saved.sellRules, [{ days: [], from: "2026-12-01", to: "2026-12-24" }]);
   assert.equal(saved.validFrom, undefined, "the old pair is dropped — its period survives as a mark");
   assert.equal(saved.validTo, undefined);
+});
+
+test("★★★ removing one day from an OPEN mark keeps the side that has no end (v580)", () => {
+  // ⚠️⚠️ MEASURED: a mark "until 31 Oct" minus 31 Oct left NO rule at all — ⚠️ **so the product went on
+  // selling every day from November** — and a mark "Mondays from 1 Oct" minus its first Monday put **every
+  // later Monday off sale.** ⭐ A blank end means "no end", so both halves exist unless the day sits exactly
+  // on that end.
+  assert.deepEqual(removeDay([{ days: [], from: "", to: "2026-10-31" }], "2026-10-31"),
+    [{ days: [], from: "", to: "2026-10-30" }],
+    "★ removing the last day of a mark that runs from the beginning deleted the whole mark");
+  assert.deepEqual(removeDay([{ days: [], from: "2026-10-01", to: "" }], "2026-10-20"),
+    [{ days: [], from: "2026-10-01", to: "2026-10-19" },
+      { days: [], from: "2026-10-21", to: "" }],
+    "★ removing a day from a mark with no end dropped every day after it");
+  assert.deepEqual(removeDay([{ days: [1], from: "2026-10-05", to: "" }], "2026-10-05"),
+    [{ days: [1], from: "2026-10-06", to: "" }],
+    "★ removing the first Monday of an open Monday mark put every later Monday off sale");
+  // And the two ends that ARE set still split the mark in the middle, as they always did.
+  assert.deepEqual(removeDay([{ days: [], from: "2026-10-01", to: "2026-10-31" }], "2026-10-15"),
+    [{ days: [], from: "2026-10-01", to: "2026-10-14" },
+      { days: [], from: "2026-10-16", to: "2026-10-31" }],
+    "a mark with both ends stopped splitting around the day");
 });
 
 test("a backwards pair is swapped rather than refused — a drag may go either way", () => {

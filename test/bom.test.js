@@ -306,7 +306,10 @@ test("isPoolablePack: only a single-line, own-cap-less, active-limited base coun
   assert.equal(isPoolablePack(st2, { id: "prd_y", name: "Y", recipe: [{ productId: "prd_gone", qty: 1, unit: "" }] }), null, "missing base");
 });
 
-test("poolRemaining counts set sales into the base pool; productRemaining only sees singles", () => {
+test("★★★ productRemaining IS the pool count — a set sale is counted in both (v580)", () => {
+  // ⚠️⚠️ THIS TEST USED TO PIN THE OPPOSITE, and the contradiction it recorded was the fault: the shop
+  // published 4 left while the backoffice picker said 12, ⚠️ **so she sold from a figure the customer's
+  // own page had already beaten.** ⭐ One pool count, used by both.
   const st = fixtureState();
   st.orders = [
     { id: "ord_1", deliveryDateId: "del_a", productId: "prd_f", qty: 2 }, // singles
@@ -316,7 +319,11 @@ test("poolRemaining counts set sales into the base pool; productRemaining only s
   assert.deepEqual(pool, { limit: 12, booked: 6, remaining: 6 }, "2 singles + 4 from the set");
 
   const own = productRemaining(st, "del_a", "prd_f");
-  assert.deepEqual(own, { limit: 12, booked: 2, remaining: 10 }, "old per-product count sees only singles");
+  assert.deepEqual(own, pool, "★ the picker's count and the shop's count disagree about the same day");
+
+  // And the order being edited does not count against itself.
+  assert.deepEqual(productRemaining(st, "del_a", "prd_f", "ord_2"),
+    { limit: 12, booked: 2, remaining: 10 }, "★ the order being edited was counted against its own limit");
 
   // a pack itself has no limit → null from both helpers
   assert.equal(poolRemaining(st, "del_a", "prd_p"), null);

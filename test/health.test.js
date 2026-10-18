@@ -14,7 +14,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { runHealthChecks, localChecks, registerChecks, copyChecks, backupChecks } = await import("../admin/js/health.js");
+const { hideSparesBlocked, runHealthChecks, localChecks, registerChecks, copyChecks, backupChecks } = await import("../admin/js/health.js");
 const sync = await import("../admin/js/sync.js");
 // ⭐ The phone's own storage limit, read from the SAME constant the check uses — so the test cannot pass
 // against a number the app does not actually hold itself to.
@@ -794,6 +794,17 @@ test("★★★ two ingredients sharing a NAME are named — the fault that made
   assert.equal(plan.length, 1);
   assert.equal(plan[0].hide.id, "i2", "★ the press picked the card her recipe DOES use");
   assert.equal(plan[0].keep.id, "i1");
+  // ⚠️⚠️ AND IT MAY NOT TAKE 1.142 kg OFF THE LISTS WITHOUT A WORD (v580). ⚠️ The measured case: the card
+  // a recipe uses holds 70 g, the spare holds 1.142 kg — ⭐ **and the press hid the 1.142 kg card, naming no
+  // amount.** ⭐ It now refuses, names the stock, and says the two stocktakes that settle it.
+  assert.match(hideSparesBlocked(withRecipe, plan), /instant yeast \(the spare\) holds 1\.142 kg/i,
+    "★ the card holding the stock is hidden and nothing says how much stock that takes off the lists");
+  assert.match(hideSparesBlocked(withRecipe, plan), /Count Instant yeast, the card your recipes use/i,
+    "★ it names no way to settle the stock");
+  const empty = JSON.parse(JSON.stringify(withRecipe));
+  empty.ingredients[1].onHand = 0;
+  assert.equal(hideSparesBlocked(empty, duplicateIngredientPlan(empty)), "",
+    "★ a spare holding nothing is refused too — the press that should work on a clean pair stopped working");
 
   // ⚠️⚠️ AND A HIDDEN CARD IS NOT A LIVE DUPLICATE (v564). ⭐ Hiding the spare is the resolution this
   // check recommends, so counting hidden records left the line red after its own press had run.

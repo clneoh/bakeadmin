@@ -164,6 +164,19 @@ function buildIngredientEditor(state, ingredient) {
   function makeRow(draft) {
     const family = cookingFamilyOf(list, unitSel.value);
     const cookingUnit = byId(list, unitSel.value);
+    // ⚠️⚠️ A PACK RECORDED IN ANOTHER FAMILY IS NOT RE-READ AS THE NEW ONE (v580). ⚠️ MEASURED: a pack
+    // "30 pcs = RM10" whose cooking unit is later changed to kg opened as **"30 g"** and SAVED as
+    // **"30 kg for RM10"** — ⚠️ **a number nobody typed, at a price per kilo she never paid, which the
+    // purchase order then actually used.** ⭐ The number and the unit it was typed against are kept
+    // together: the row asks to be entered again (or dropped with ✕) instead of being reinterpreted.
+    const storedU = draft.uomId ? byId(list, draft.uomId) : null;
+    if (storedU && storedU.family !== family && !draft.staleUnit) {
+      draft.staleQty = String(draft.qty ?? "");
+      draft.stalePrice = String(draft.price ?? "");
+      draft.staleUnit = storedU.name;
+      draft.qty = "";
+      draft.price = "";
+    }
     const packDefault = () => {
       if (draft.uomId && byId(list, draft.uomId)?.family === family) return draft.uomId;
       if (cookingUnit?.family === family) return cookingUnit.id;
@@ -187,6 +200,15 @@ function buildIngredientEditor(state, ingredient) {
         draft.price = price.value;
       },
       read() {
+        // ⚠️ THE STALE ROW IS ANSWERED FIRST, before any other rule can speak about it (v580, seen live):
+        // ⚠️ with a supplier still chosen the generic "add the pack size" error won, ⭐ **so the one
+        // sentence that says what the pack WAS — 30 pcs — never reached her.**
+        if (draft.staleUnit && qty.value.trim() === "") {
+          return { error: `${supplierName()}: this pack was recorded as ${draft.staleQty} ${draft.staleUnit}`
+            + `${draft.stalePrice !== "" ? ` for RM${draft.stalePrice}` : ""}, and the cooking unit is now `
+            + `${cookingUnit?.name || "a different unit"}. Enter the pack again in ${cookingUnit?.name || "the new unit"}, `
+            + `or press ✕ on the row to drop it` };
+        }
         const filled = supplierSel.value || qty.value.trim() !== "" || price.value.trim() !== "";
         if (!filled) return null;
         const s = supplierSel.value;
@@ -223,7 +245,14 @@ function buildIngredientEditor(state, ingredient) {
       del.classList.add("price-del");
       del.setAttribute("aria-label", "Remove this supplier price");
       return el("div", { class: "price-row" },
-        el("div", { class: "price-grid" }, r.supplierSel, r.qty, r.packSel, r.price, del));
+        el("div", { class: "price-grid" }, r.supplierSel, r.qty, r.packSel, r.price, del),
+        draft.staleUnit
+          ? el("p", { class: "hint", style: "margin:4px 0 0" },
+              `This pack was recorded as ${draft.staleQty} ${draft.staleUnit}`
+              + `${draft.stalePrice !== "" ? ` for RM${draft.stalePrice}` : ""} — the cooking unit is now `
+              + `${byId(list, unitSel.value)?.name || "different"}. Enter the pack again in the new unit, or `
+              + `press ✕ to drop it.`)
+          : null);
     });
     const hint = hasSuppliers ? null
       : el("p", { class: "warn", style: "margin:0 0 8px" },

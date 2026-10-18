@@ -252,7 +252,14 @@ function tidyRules(list) {
 // goes; any other mark covering it is split into the part before and the part
 // after, so the day itself stops selling while the rest of the mark is untouched.
 // (Splitting is why a mark is stored as a span rather than as "the month".)
-function removeDay(list, iso) {
+//
+// ⚠️⚠️ AN OPEN END IS AN END, AND IT WAS TREATED AS NO MARK AT ALL (v580). ⭐ Both parts used to be
+// written only when the mark had THAT end set, so removing any day from a mark still running ("Mondays
+// from 1 Oct", or "until 31 Oct") wrote the part BEFORE the day and silently dropped the part AFTER it —
+// ⚠️ **measured: one day removed from an open mark put every later day back on sale; removing the first
+// Monday of "Mondays from 1 Oct" put EVERY later Monday off sale.** ⭐ A missing `to` means "no end", so
+// the after-part always exists; likewise a missing `from` means "from the beginning".
+export function removeDay(list, iso) {
   const out = [];
   for (const r of list) {
     if (!ruleOpen(r, iso)) { out.push(r); continue; }
@@ -261,8 +268,13 @@ function removeDay(list, iso) {
       out.push({ days: r.days, from: shiftKey(iso, 1), to: "" });
       continue;
     }
-    if (r.from && iso > r.from) out.push({ days: r.days, from: r.from, to: shiftKey(iso, -1) });
-    if (r.to && iso < r.to) out.push({ days: r.days, from: shiftKey(iso, 1), to: r.to });
+    // ⚠️ BOTH SIDES ARE JUDGED THE SAME WAY: a blank `from` means "from the beginning", so there IS a
+    // part before the day; a blank `to` means "no end", so there IS a part after it. ⭐ Only a day that
+    // sits exactly ON an end loses that side.
+    const hasBefore = !r.from || iso > r.from;
+    const hasAfter = !r.to || iso < r.to;
+    if (hasBefore) out.push({ days: r.days, from: r.from || "", to: shiftKey(iso, -1) });
+    if (hasAfter) out.push({ days: r.days, from: shiftKey(iso, 1), to: r.to || "" });
   }
   return out;
 }

@@ -273,6 +273,49 @@ test("unticking the switch on an edit takes the flag back off the ingredient", (
   assert.equal(state.ingredients[0].notPurchased, undefined, "the key goes, rather than being saved as false");
 });
 
+test("★★★ a pack in another unit family is NOT re-read as the new unit (v580)", () => {
+  // ⚠️⚠️ MEASURED: a pack "30 pcs = RM10" whose cooking unit was later changed to kg opened as **"30 g"**
+  // and SAVED as **"30 kg for RM10"** — ⚠️ **a number nobody typed, at a price per kilo she never paid,
+  // which the purchase order then actually used.** ⭐ The row now asks to be entered again, or dropped
+  // deliberately; nothing is reinterpreted and nothing is silently lost.
+  const state = freshState();
+  state.uoms.push({ id: "u_pcs", name: "pcs", family: "count", toBase: 1 });
+  state.suppliers = [{ id: "s1", name: "Mydin", active: true }];
+  state.ingredients.push({ id: "ing_salt", name: "Sea salt", unit: "pcs", uomId: "u_pcs", costPerUnit: 0.3,
+    supplierPrices: [{ supplierId: "s1", qty: 30, uomId: "u_pcs", price: 10 }] });
+  const root = render(state);
+  // New ingredient card is first; the Sea salt card carries the Edit press.
+  const card = walk(root).find((n) => String(n.className).includes("card")
+    && !String(n.className).includes("popup") && textOf(n).includes("Sea salt"));
+  fire(walk(card).find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Edit"));
+  const layer = registry["popup-layer"];
+
+  const cooking = walk(layer).find((n) => n.tagName === "SELECT");
+  cooking.value = "u_kg";                              // measured in kilos now
+  change(cooking);
+
+  const qty = walk(layer).find((n) => n.tagName === "INPUT" && n.attrs.placeholder === "Pack size");
+  assert.equal(qty.value, "", "★ the old 30 is shown against the new unit — the number has been reinterpreted");
+  assert.match(textOf(layer), /recorded as 30 pcs/,
+    "★ the row does not say the pack was recorded in another unit");
+
+  // Pressing Update must not rewrite it.
+  fire(walk(layer).find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Update ingredient"));
+  assert.equal(state.ingredients[0].uomId, "u_pcs", "★ the ingredient was saved under the new unit anyway");
+  assert.deepEqual(state.ingredients[0].supplierPrices,
+    [{ supplierId: "s1", qty: 30, uomId: "u_pcs", price: 10 }],
+    "★ the pack was rewritten into the new unit on save");
+  assert.match(textOf(doc.body), /this pack was recorded as 30 pcs/,
+    "★ nothing told her why it was not saved");
+
+  // And the deliberate way out: drop the row, then Update.
+  const del = walk(layer).find((n) => n.tagName === "BUTTON" && n.attrs["aria-label"] === "Remove this supplier price");
+  fire(del);
+  fire(walk(layer).find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Update ingredient"));
+  assert.equal(state.ingredients[0].uomId, "u_kg", "★ dropping the row did not let the change save");
+  assert.equal(state.ingredients[0].supplierPrices, undefined, "★ the dropped pack stayed on the ingredient");
+});
+
 // ── v285: the ingredient's own price journal ────────────────────────────────
 // *"ingredient price journaled … So an ingredient need a journals."*
 

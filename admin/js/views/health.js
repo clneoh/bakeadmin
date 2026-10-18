@@ -13,11 +13,12 @@
 // register follows for an unreadable run.
 
 import { el, button, confirmDialog, toast } from "../ui.js";
-import { runHealthChecks } from "../health.js";
+import { hideSparesBlocked, runHealthChecks } from "../health.js";
 import { pullReceiptRegister, maybeSync } from "../supabase.js";
 import * as backups from "../backups.js";
 import * as sync from "../sync.js";
 import { save, saveFailure, duplicateIngredientPlan } from "../state.js";
+import { fmtStockAmount } from "../purchasing.js";
 import { reconcileCards } from "../stock.js";
 
 const MARK = { pass: "✓", fail: "✗", skipped: "—" };
@@ -130,8 +131,11 @@ export function renderHealth(root, state) {
   function hideSpares() {
     const plan = duplicateIngredientPlan(state);
     if (!plan.length) return toast("Nothing to hide — the pairs are not decided by your recipes");
-    const names = plan.map((p) => `${p.hide.name} — ${p.keep.name} is used in your recipes, the other is not`)
-      .join(". ");
+    // ⚠️⚠️ A CARD THAT HOLDS STOCK IS NOT HIDDEN (v580): the amount is named, and the press stops.
+    const blocked = hideSparesBlocked(state, plan);
+    if (blocked) return confirmDialog(blocked, () => {}, { yesLabel: "Got it" });
+    const names = plan.map((p) => `${p.hide.name} (holds ${fmtStockAmount(state, p.hide, Number(p.hide.onHand) || 0)})`
+      + ` — ${p.keep.name} is used in your recipes, the other is not`).join(". ");
     confirmDialog(
       `Hide ${plan.length === 1 ? "this card" : `these ${plan.length} cards`}? ${names}. Hiding keeps the stock card and its history, takes the card off your list, and can be undone with Unhide. Nothing is deleted.`,
       () => {

@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v579)
+# Jienluv2bake — change history (v54 → v580)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v580, STOCK AND SALES THE PAPER COULD NOT SEE (no database step).**
+
+**Your words:** __"go on with stock and sales"__ — group 3 of the complete audit.
+
+**1. ⚠️⚠️ TAKING ONE DAY OFF A MARK WITH NO END DELETED THE REST OF THE MARK.** ⚠️ **Measured:** a mark "until 31 Oct" minus 31 Oct left **no rule at all, so the product sold every day again** — and a mark "Mondays from 1 Oct" minus its first Monday put **every later Monday off sale.** ⭐ A blank end means no end: the day is lifted out, and everything before and after it stays exactly as it was.
+
+**2. ⚠️⚠️ A PACK RECORDED IN PIECES WAS SAVED AS KILOS.** ⚠️ **Measured: "30 pcs = RM10" whose cooking unit was changed to kg opened as "30 g" and saved as "30 kg for RM10"** — ⚠️ **a number nobody typed, at a price per kilo you never paid, which the purchase order then actually used.** ⭐ The pack now keeps its own number and unit together: the row says **"This pack was recorded as 30 pcs for RM10 — the cooking unit is now kg"**, asks you to enter it again, and refuses to save until you do or press ✕ to drop it. ⭐ Seen on the real screen.
+
+**3. ⚠️ "HIDE THE SPARE" COULD HIDE THE CARD THAT HOLDS YOUR STOCK.** ⚠️ **Measured: one Salt used by a recipe with 0 on hand beside an unused one with 6 kg — the press hid the 6 kg card**, ⚠️ **so that stock left every list and the confirmation named no amount.** ⭐ It now names the stock and stops: it tells you which card holds it and the two stock cards to count so it lands on the card your recipes use. A pair whose spare is empty still hides in one press, and the confirmation now says "holds 0".
+
+**4. ⚠️⚠️ THE ORDER PICKER AND THE SHOP COUNTED A PACK DIFFERENTLY.** ⚠️ **Measured: a base limited to 12 with one 4-pack ordered twice — the shop published 4 left and the backoffice picker said "12 left".** ⭐ There is one pool count now, so the picker reads **"Focaccia — 4 left"** (seen live), the figure the customer's own page already holds you to.
+
+**5. Nothing of yours was rewritten, and there is no database step. ⭐ 3,641 tests green; every rule above has a test that fails without it.**
+
+---
 
 **19 Oct 2026 — engine v579, PAYING AN ACCOUNT BACK SETTLES A DEBT, IT IS NOT A WITHDRAWAL (no database step).**
 

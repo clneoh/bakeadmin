@@ -865,6 +865,21 @@ export function waitingCheck(waiting = 0, queued = null, state = null, lastFail 
 
 // ⚠️ `register`, `copies` and `copy` absent = SKIPPED, and a skipped check is counted ON ITS OWN, never
 // folded into the passes. The headline the screen draws is built from these three numbers and nothing else.
+// ⚠️⚠️ A CARD THAT HOLDS STOCK MUST NEVER BE THE ONE THAT IS HIDDEN SILENTLY (v580). ⭐ The duplicate plan
+// picks the card to hide by which one a RECIPE uses — and the measured case was one "Salt" used by a recipe
+// with **0 on hand** beside an unused one with **6 kg**: the press hid the 6 kg card, ⚠️ **so that stock left
+// every list and the confirmation named no amount.** ⭐ The stock is real; moving or counting it is a decision
+// she makes on the stock cards, so the press names it and stops rather than taking it away.
+export function hideSparesBlocked(state, plan) {
+  const stocked = (Array.isArray(plan) ? plan : [])
+    .filter((p) => p && p.hide && (Number(p.hide.onHand) || 0) > 0);
+  if (!stocked.length) return "";
+  return stocked.map((p) => `${String(p.hide.name || "").trim()} (the spare) holds `
+    + `${fmtStockAmount(state, p.hide, Number(p.hide.onHand) || 0)} — hiding it would take that stock off `
+    + `every list. Count ${String(p.keep.name || "").trim()}, the card your recipes use, up to that amount, and this one down to 0 `
+    + `on their stock cards — then hide it.`).join(" ");
+}
+
 export function runHealthChecks(state, extra = {}) {
   const results = [
     ...localChecks(state),
