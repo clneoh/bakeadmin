@@ -278,6 +278,8 @@ const en = {
   soldOut: "Sold out",
   onlyLeft: "Only %1 left",
   qtyAria: "How many",
+  langAria: "Language",
+  journeyAria: "Order status journey",
   noDates: "No upcoming bake days right now — check back soon.",
   noOpenDates: "All upcoming bake days are full right now — check back soon.",
   calChosen: "Your chosen bake day: %1",
@@ -348,6 +350,7 @@ const en = {
 
   confirmAddWaTitle: "Please add your WhatsApp number.",
   confirmAddWaBody: "We use it to confirm your order and send your payment QR.",
+  confirmAddWaShape: "That does not look like a complete phone number — please check it, and add the country code if you are outside Malaysia.",
   // ⚠️ A RIDER NEEDS A DOOR (v548) — see the gate in store/app.js.
   confirmAddAddrTitle: "Please add the delivery address.",
   confirmAddAddrBody: "A rider needs a door to bring it to. Type it above, or pick it on the map.",
@@ -590,6 +593,8 @@ const zh = {
   soldOut: "已售完",
   onlyLeft: "仅剩 %1 份",
   qtyAria: "数量",
+  langAria: "语言",
+  journeyAria: "订单进度",
   noDates: "目前没有可预订的烘焙日 — 请稍后再来。",
   noOpenDates: "所有近期的烘焙日都已满 — 请稍后再来。",
   calChosen: "你选择的烘焙日：%1",
@@ -626,6 +631,7 @@ const zh = {
 
   confirmAddWaTitle: "请填写你的 WhatsApp 号码。",
   confirmAddWaBody: "我们会用它确认订单并发送付款二维码。",
+  confirmAddWaShape: "这个号码看起来不完整，请检查一下；马来西亚以外的号码请加上国家代码。",
   confirmAddAddrTitle: "请填写送货地址。",
   confirmAddAddrBody: "送餐员需要一个地址才能送到。请在上方填写，或在地图上选择。",
   needItemTitle: "订单还是空的。",
@@ -825,6 +831,8 @@ const ms = {
   soldOut: "Habis",
   onlyLeft: "Tinggal %1 sahaja",
   qtyAria: "Berapa banyak",
+  langAria: "Bahasa",
+  journeyAria: "Perjalanan status order",
   noDates: "Tiada hari membakar buat masa ini — sila datang lagi nanti.",
   noOpenDates: "Semua hari membakar akan datang penuh buat masa ini — sila datang lagi nanti.",
   calChosen: "Hari membakar pilihan anda: %1",
@@ -860,6 +868,7 @@ const ms = {
 
   confirmAddWaTitle: "Sila masukkan nombor WhatsApp anda.",
   confirmAddWaBody: "Kami guna untuk sahkan order dan hantar QR pembayaran anda.",
+  confirmAddWaShape: "Nombor ini nampak tidak lengkap — sila semak, dan sertakan kod negara jika anda di luar Malaysia.",
   confirmAddAddrTitle: "Sila masukkan alamat penghantaran.",
   confirmAddAddrBody: "Penghantar perlukan alamat untuk sampai. Taip di atas, atau pilih di peta.",
   needItemTitle: "Order masih kosong.",

@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "564";
+export const SHOP_BUILD = "565";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -281,6 +281,22 @@ export function waNumber(n) {
   return digits.startsWith("0") ? `60${digits.slice(1)}` : digits;
 }
 
+// ★★★ A NUMBER NOBODY CAN ANSWER IS NOT A NUMBER (v565).
+//
+// ⚠️⚠️ THE FAULT: the box accepted ANY digit string, so a customer could order with **"1"** as their
+// WhatsApp number. ⭐ The order then goes out with a number the bakery cannot confirm on, the payment QR
+// never reaches them, **and the tracking card — which since v558 needs the phone it was ordered with —
+// can never be opened by the customer at all.** ⚠️ One digit is not an opinion about how to spell a
+// number; it is a typo, and the shop should say so at the box rather than take the order.
+//
+// ⭐ The bounds are E.164's own: at least 9 digits (a Malaysian mobile normalises to 11) and at most 15.
+// ⚠️ This is the same KIND of check the name and the delivery address already get — it answers at the
+// box, in the customer's language, and the Place order button is never disabled.
+export function waPlausible(n) {
+  const digits = waNumber(n);
+  return digits.length >= 9 && digits.length <= 15;
+}
+
 // The same number, written the way a person reads it: +60 16-960 1268 (v348).
 // Used by the shop's privacy notice, which has to print contact details rather
 // than only build a link. The Malaysian mobile grouping — country code, then the
@@ -313,7 +329,12 @@ function revealCalendar() {
 // stamped with who referred it. The shop never reads order history or discounts —
 // the stamp just tells the bakery who to thank/credit.
 export function parseVia(search) {
-  return waNumber(new URLSearchParams(String(search || "")).get("via"));
+  const n = waNumber(new URLSearchParams(String(search || "")).get("via"));
+  // ★★★ A TRUNCATED LINK IS NOT A REFERRAL (v565). ⚠️ `/store/?via=123` used to show **"You were
+  // referred — you have a welcome discount on your first order"** and stamp `referredBy: "123"` on the
+  // order. ⭐ A promise of a discount the customer was never given is the one thing the shop must not
+  // say by accident, so an implausible number is treated as no referral at all.
+  return waPlausible(n) ? n : "";
 }
 
 // ★★ THE FRIEND'S NUMBER COMES OFF THE ADDRESS ONCE THE ORDER IS PLACED (v325).
@@ -3716,6 +3737,14 @@ function clearFieldMarks() {
       markField(waInput, "confirmAddWaTitle", "confirmAddWaBody");
       return;
     }
+    // ⚠️⚠️ AND A NUMBER THAT CANNOT BE ANSWERED IS REFUSED AT THE SAME BOX (v565). ⭐ Her rule that the
+    // press is never disabled holds — it answers, in the same red edge and the same blink, because a
+    // one-digit number is a typo the customer can fix in a second, and the order is useless without it.
+    if (!waPlausible(whatsapp)) {
+      clearFieldMarks();
+      markField(waInput, "confirmAddWaShape");
+      return;
+    }
     // ★★ AND HE CANNOT ORDER WITHOUT SAYING HOW HE GETS IT (v416). ⚠️⚠️ THE ONE THING AN ORDER MUST
     // CARRY IS WHETHER A RIDER IS COMING OR THE BREAD IS TO BE KEPT BACK — so with neither card
     // picked there is no honest default to fall back on, which is exactly why she asked for it.
@@ -4132,7 +4161,8 @@ function journeyEl(row) {
     if (i === PAID_AT) return paidDone;          // Paid: after the Paid button
     return true;                                 // Baked/Packed/Delivered: on selection
   });
-  const root = el("div", { class: "tj", "aria-label": "Order status journey" });
+  // ⚠️ English only until v565 — the dictionary carries it in all three languages now.
+  const root = el("div", { class: "tj", "aria-label": t("journeyAria") });
   let live = false; // the first step still to do is the one that flashes
   JOURNEY.forEach(([id, labelKey], i) => {
     const skipped = i === PAID_AT && paidSkipped;

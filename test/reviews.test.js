@@ -90,14 +90,21 @@ test("loadApproved fetches published reviews newest first with the anon key", as
   }
 });
 
-test("loadApproved quietly returns [] on an error or a bad body", async () => {
+test("★★★ a fetch that failed is NULL, not an empty bakery (v565)", async () => {
+  // ⚠️⚠️ It used to return [] for every failure, and the grid printed "No reviews yet — be the first!" —
+  // ⭐ **a bakery with a page of good reviews told every visitor it had none**, in airplane mode or after
+  // one bad minute. ⭐ "I could not look" and "there are none" are different answers.
   globalThis.fetch = async () => ({ ok: false, json: async () => [] });
-  try { assert.deepEqual(await loadApproved(), []); } finally { globalThis.fetch = realFetch; }
+  try { assert.equal(await loadApproved(), null); } finally { globalThis.fetch = realFetch; }
 
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ not: "an array" }) });
-  try { assert.deepEqual(await loadApproved(), []); } finally { globalThis.fetch = realFetch; }
+  try { assert.equal(await loadApproved(), null); } finally { globalThis.fetch = realFetch; }
 
   globalThis.fetch = async () => { throw new Error("offline"); };
+  try { assert.equal(await loadApproved(), null); } finally { globalThis.fetch = realFetch; }
+
+  // ⭐ AND A REAL EMPTY ANSWER IS STILL AN EMPTY LIST.
+  globalThis.fetch = async () => ({ ok: true, json: async () => [] });
   try { assert.deepEqual(await loadApproved(), []); } finally { globalThis.fetch = realFetch; }
 });
 

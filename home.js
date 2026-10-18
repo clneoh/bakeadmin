@@ -72,7 +72,39 @@ async function loadDevConfig() {
       : [];
     const wa = typeof cfg.developerWhatsapp === "string" ? cfg.developerWhatsapp.trim() : "";
     devConfig = { name, emails, wa };
+    // ★★★ AND THE BAKERY'S OWN NUMBER FOLLOWS SETTINGS TOO (v565).
+    // ⚠️⚠️ THE FAULT: the footer's WhatsApp link was TYPED INTO index.html, while the shop reads the
+    // number from the published settings. ⭐ So changing it once in the app moved the shop and left the
+    // homepage sending people to the old number — ⭐ **a customer's first tap on the wrong link is a sale
+    // that never happens.** ⚠️ The typed number stays as the fallback: if the fetch fails or nothing is
+    // published, the page is exactly as it was.
+    const shopWa = typeof cfg.whatsapp === "string" ? cfg.whatsapp.trim() : "";
+    if (shopWa) setFooterNumber(shopWa);
   } catch { /* offline — the credit line simply stays hidden */ }
+}
+
+// The shop's own spelling of a number: digits only, a local leading 0 becomes +60.
+function waDigits(n) {
+  const d = String(n || "").replace(/[^0-9]/g, "");
+  if (!d) return "";
+  return d.startsWith("0") ? `60${d.slice(1)}` : d;
+}
+
+// The way the footer has always written it: +60 16-960 1268 for a Malaysian mobile, a plain
+// +digits for anything else. ⚠️ Only ever called with a number that has already passed the shop's own
+// plausibility check, so it cannot print half a phone number.
+function footerPhoneText(d) {
+  return /^60\d{9,10}$/.test(d) ? `+60 ${d.slice(2, 4)}-${d.slice(4, 7)} ${d.slice(7)}` : `+${d}`;
+}
+
+function setFooterNumber(number) {
+  const digits = waDigits(number);
+  if (digits.length < 9 || digits.length > 15) return;
+  const link = byId("footer-wa");
+  if (!link) return;
+  link.href = `https://wa.me/${digits}`;
+  const strong = link.querySelector("strong");
+  if (strong) strong.textContent = footerPhoneText(digits);
 }
 
 function mailHref(emails) {

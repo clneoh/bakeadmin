@@ -30,7 +30,7 @@ header{padding:26px 0 10px;background:linear-gradient(180deg,#fbf7ef 0%,var(--cr
 .navlinks a{text-decoration:none}
 .navlinks a:hover{color:var(--green)}
 .lang-switch{display:flex;align-items:center;gap:4px;margin-left:18px;flex:none}
-.lang-pill{border:1px solid var(--green);background:none;color:var(--green);font-family:Arial,sans-serif;font-size:12px;font-weight:800;border-radius:999px;padding:6px 11px;cursor:pointer;line-height:1}
+.lang-pill{border:1px solid var(--green);background:none;color:var(--green);font-family:Arial,sans-serif;font-size:12px;font-weight:800;border-radius:999px;padding:6px 11px;cursor:pointer;line-height:1;min-height:36px;display:inline-flex;align-items:center}
 .lang-pill.is-on{background:var(--green);color:#fff}
 .hero{padding:42px 0 70px}
 .hero-grid{display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:55px}
@@ -94,6 +94,8 @@ footer a{text-decoration:none}
   .hero-grid,.products,.notice-grid,.info-grid,.footer-grid{grid-template-columns:1fr}
   .hero-photo{order:-1}
   .hero-photo img{aspect-ratio:16/10}
+  /* ⚠️⚠️ MATURED: the badge hung 20px outside the photo, and the photo spans a 94vw container — at 375px that put its left edge at about -9px (about -12px once the -5deg rotation is added), so the HOMEPAGE SCROLLED SIDEWAYS. On a phone it now sits inside. */
+  .hero-badge{left:10px;bottom:14px}
   .footer-cred{font-size:12px;letter-spacing:.1em}
   .product-card,.feature .product-card{grid-template-columns:1fr}
   .product-photo{height:260px}
@@ -122,8 +124,12 @@ footer a{text-decoration:none}
 .r-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--green);background:var(--paper);color:var(--green);font-size:20px;line-height:1;cursor:pointer;font-family:Arial,sans-serif;padding:0}
 .r-btn:hover{background:var(--green);color:#fff}
 .r-dots{display:flex;gap:8px}
-.r-dot{width:10px;height:10px;border-radius:50%;border:none;background:#d6c09e;padding:0;cursor:pointer}
-.r-dot.is-on{background:var(--green)}
+/* ⚠️ A 10px dot is a 10px tap target. The BUTTON is 36px and the dot is drawn inside it, so the
+   look is unchanged and the target meets the app's own 36px floor. */
+.r-dot{width:36px;height:36px;border:none;background:transparent;padding:0;cursor:pointer;position:relative;border-radius:50%}
+.r-dot::after{content:"";position:absolute;inset:13px;border-radius:50%;background:#d6c09e}
+.r-dot.is-on::after{background:var(--green)}
+
 .r-live{border:0;clip:rect(0 0 0 0);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute;width:1px}
 .review-card{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:22px 20px;box-shadow:0 8px 24px rgba(73,43,25,.05);display:flex;flex-direction:column}
 .review-card-photo{display:block;max-width:100%;max-height:340px;width:auto;height:auto;margin:0 auto 14px;border-radius:8px}
@@ -186,7 +192,7 @@ if ("serviceWorker" in navigator) {
       <a href="#reviews" data-i18n="navReviews">REVIEWS</a>
       <a href="#contact" data-i18n="navContact">CONTACT</a>
     </nav>
-    <div class="lang-switch" id="lang-switch" role="group" aria-label="Site language">
+    <div class="lang-switch" id="lang-switch" role="group" aria-label="Site language" data-i18n-aria="langAria">
       <button type="button" class="lang-pill is-on" data-lang="en">EN</button>
       <button type="button" class="lang-pill" data-lang="zh">中文</button>
       <button type="button" class="lang-pill" data-lang="ms">BM</button>
@@ -381,7 +387,7 @@ if ("serviceWorker" in navigator) {
     </div>
     <div>
       <h3 data-i18n="fWhatsappTitle">WHATSAPP / ORDER</h3>
-      <p><a href="https://wa.me/60169601268" target="_blank" rel="noopener"><strong>+6016 960 1268</strong></a></p>
+      <p><a id="footer-wa" href="https://wa.me/60169601268" target="_blank" rel="noopener"><strong>+6016 960 1268</strong></a></p>
     </div>
     <div>
       <h3 data-i18n="fInstaTitle">FOLLOW US ON INSTAGRAM</h3>

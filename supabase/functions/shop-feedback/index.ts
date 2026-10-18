@@ -28,6 +28,8 @@
 // domain `wish-mail` already runs on. Deploy with:
 //   supabase functions deploy shop-feedback
 
+import { callerKey, overLimit } from "./limit.ts";
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -55,6 +57,11 @@ function stamp(d = new Date()) {
   return `${at("year")}-${at("month")}-${at("day")} ${at("hour")}:${at("minute")}`;
 }
 
+// ⚠️⚠️ ONE CALLER, A HANDFUL OF NOTES (v565). ⭐ Every accepted note sends up to five emails on her Resend
+// account, and this endpoint is open by design — see limit.ts for why the cap is loose and why it is
+// per-instance. ⚠️ A refused caller is told plainly and nothing is sent; an ordinary visitor never meets it.
+const hits = new Map<string, { n: number; resetAt: number }>();
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -73,6 +80,10 @@ Deno.serve(async (req) => {
   if (!resendKey) {
     console.error("[shop-feedback] RESEND_API_KEY secret is not visible to the function");
     return json({ error: "RESEND_API_KEY is not set — deploy with the secret first" }, 500);
+  }
+
+  if (overLimit(hits, callerKey(req.headers), Date.now())) {
+    return json({ error: "Too many messages from this connection — please try again later." }, 429);
   }
 
   let payload;

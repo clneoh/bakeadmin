@@ -157,18 +157,23 @@ export async function shrinkReviewPhoto(file) {
   return blob || null;
 }
 
-// Approved reviews for the homepage grid, newest first. Any failure quietly
-// returns [] so an offline page never shows an error — just the empty state.
+// Approved reviews for the homepage grid, newest first.
+//
+// ★★★ "COULD NOT LOAD" IS NOT "THERE ARE NONE" (v565). ⚠️⚠️ A failed or offline fetch used to return `[]`,
+// and the grid then printed **"No reviews yet — be the first!"** — ⭐ **so a bakery with a page of good
+// reviews told every visitor, in airplane mode or after one bad minute, that it had none.** ⭐ This now
+// answers `null` for "I could not look", and the grid says that instead. ⚠️ An empty list is still an
+// empty list: the customer is told the truth either way, which is the whole difference.
 export async function loadApproved() {
   try {
     const res = await fetch(
       `${BASE}/rest/v1/reviews?select=name,stars,message,lang,photo,created_at&published=eq.true&order=created_at.desc`,
       { headers: { apikey: SUPABASE.anonKey } });
-    if (!res.ok) return [];
-    const rows = await res.json().catch(() => []);
-    return Array.isArray(rows) ? rows : [];
+    if (!res.ok) return null;
+    const rows = await res.json().catch(() => null);
+    return Array.isArray(rows) ? rows : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -271,6 +276,11 @@ function drawGrid() {
   if (!grid) return;
   if (stopCarousel) { stopCarousel(); stopCarousel = null; }
   grid.replaceChildren();
+  if (rowsCache === null) {
+    // ⭐ the fetch failed — say so, rather than claiming the bakery has no reviews.
+    grid.appendChild(emptyNote(tHome("rvUnavailable")));
+    return;
+  }
   const rows = rowsCache || [];
   if (!rows.length) {
     grid.appendChild(emptyNote(tHome("rvEmpty")));
@@ -323,7 +333,8 @@ function reviewCard(row) {
   }
   const starsEl = document.createElement("div");
   starsEl.className = "review-card-stars";
-  starsEl.setAttribute("aria-label", `${Number(row.stars) || 0} out of 5 stars`);
+  // ⚠️ THE ONE LABEL A SCREEN READER READS ON EVERY CARD WAS ENGLISH ONLY (v565).
+  starsEl.setAttribute("aria-label", tHome("rvStarsOf").replace("{n}", String(Number(row.stars) || 0)));
   starsEl.textContent = stars(row.stars);
   card.appendChild(starsEl);
 
@@ -424,11 +435,11 @@ function buildCarousel(rows) {
   function clearTimer() {
     if (timer) { clearInterval(timer); timer = null; }
   }
-  function restart() {
-    clearTimer();
-    if (document.hidden || hovered) return;
-    timer = setInterval(() => { i = carouselStep(n, i, 1); move(); }, 6000);
-  }
+  // ★★★ AND IT DOES NOT ADVANCE ITSELF (v565). ⚠️⚠️ It moved every six seconds on a timer, and the only
+  // pauses were hover and a momentary touch — ⭐ **on a phone that means a review slides away while it is
+  // being read**, and it is against this project's own standing carousel rule. ⭐ Arrows, dots and swipe
+  // are the whole of the movement now; nothing changes without the customer's own hand.
+  function restart() { clearTimer(); }
   const onVis = () => { if (document.hidden) clearTimer(); else restart(); };
 
   prev.addEventListener("click", () => { go(i - 1); restart(); });
@@ -476,7 +487,11 @@ function initReviews() {
   const submitBtn = byId("rv-submit");
   const langBtns = Array.from(form.querySelectorAll(".rv-lang"));
 
-  let rating = 5;
+  // ⚠️⚠️ NO STAR IS PAINTED UNTIL THE CUSTOMER TAPS ONE (v565). ⭐ The rating defaulted to 5 with all five
+  // stars already pressed, so **a one-star complaint could be posted as five stars by someone who never
+  // touched a star at all.** `reviewOk` already refuses 0, so an untapped rating is asked for, not assumed.
+  let rating = 0;
+  void 5;
   let lang = "en";
   let chosenFile = null;
 
@@ -594,7 +609,7 @@ function initReviews() {
     form.reset();
     if (nameInput) nameInput.value = "";
     if (message) message.value = "";
-    rating = 5;
+    rating = 0;
     paintStars();
     lang = "en";
     langBtns.forEach((x) => x.classList.toggle("is-on", x.dataset.lang === "en"));

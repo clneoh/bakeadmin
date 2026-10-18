@@ -276,7 +276,7 @@ for (const id of ["step1", "step2", "step3", ...STEP_FIELD_IDS]) {
 // module-level render() doesn't hit the network during tests.
 globalThis.fetch = async () => ({ ok: true, json: async () => [] });
 
-const { buildMessage, mergeStorefront, upcomingDates, daySpecs, dateKey, fmtDay, windowTitle, trackOrder, isOpen, todayStillOpen, waNumber, phoneText, parseVia, render } = await import("../store/app.js");
+const { buildMessage, mergeStorefront, upcomingDates, daySpecs, dateKey, fmtDay, windowTitle, trackOrder, isOpen, todayStillOpen, waNumber, phoneText, parseVia, waPlausible, render } = await import("../store/app.js");
 const { strictestCancelDays } = await import("../store/pool.js");
 const { CONFIG } = await import("../store/config.js");
 // v270: the shop's own line and its refusals, kept as pure functions so they are
@@ -904,6 +904,32 @@ test("the receipt carries the strictest change/cancel window of the whole basket
       assert.ok(!confirmLines().some((t) => /change or cancel/i.test(t)),
         "no product states a window → the receipt says nothing");
     });
+});
+
+test("★★★ a truncated referral link is NOT a referral (v565)", () => {
+  // ⚠️⚠️ `/store/?via=123` used to show "You were referred — you have a welcome discount on your first
+  // order" and stamp referredBy "123" on the order. ⭐ A discount promised and never given is the one
+  // thing the shop must not say by accident.
+  assert.equal(parseVia("?via=123"), "", "★ a three-digit link claims a referral and a discount");
+  assert.equal(parseVia("?via=1"), "");
+  assert.equal(parseVia("?via=601234"), "");
+  // ⭐ A real number still works, in every spelling.
+  assert.equal(parseVia("?via=60123456789"), "60123456789");
+});
+
+test("★★★ a WhatsApp number a person cannot answer is not accepted (v565)", () => {
+  // ⚠️⚠️ THE FAULT: the box accepted any digit string, so an order could carry "1" — the bakery cannot
+  // confirm on it, the payment QR never arrives, and the tracking card (v558) can never be opened.
+  assert.equal(waPlausible("1"), false, "★ one digit was accepted as a phone number");
+  assert.equal(waPlausible("12345678"), false, "★ eight digits is under the 9-digit floor");
+  assert.equal(waPlausible(""), false);
+  assert.equal(waPlausible("abc"), false);
+  // ⭐ And a real Malaysian number passes in every spelling a customer types.
+  assert.equal(waPlausible("012-345 6789"), true);
+  assert.equal(waPlausible("+60 12-345 6789"), true);
+  assert.equal(waPlausible("60123456789"), true);
+  assert.equal(waPlausible("601234567890123"), true, "a long international number is still a number");
+  assert.equal(waPlausible("6012345678901234"), false, "past E.164's 15 digits is not a number");
 });
 
 test("parseVia normalises the ?via= digits on a referral link", () => {

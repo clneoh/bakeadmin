@@ -1,8 +1,31 @@
-# Jienluv2bake — change history (v54 → v564)
+# Jienluv2bake — change history (v54 → v565)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v565, THE SHOP THAT COULD TAKE AN ORDER NOBODY CAN CONFIRM — AND ELEVEN FAULTS IN YOUR OTHER GUIDES (database step: re-run the slots file you already use; then deploy `shop-feedback`).**
+
+**Your words:** __"go ahead, fix the rest"__ — the three audits, fixed.
+
+**1. ⚠️⚠️ A ONE-DIGIT WHATSAPP NUMBER PLACED AN ORDER.** The box accepted any digits, so **"1"** could order: the bakery cannot confirm on it, the payment QR never reaches the customer, and since v558 the tracking card needs the number it was ordered with — ⭐ **so that customer could never open their own order again.** ⭐ It now asks at the same box, in the customer's language: *"That does not look like a complete phone number — please check it…"*. ⚠️ The Place order button is still never disabled.
+- ⭐ **And a truncated referral link is no longer a referral.** `/store/?via=123` used to say *"You were referred — you have a welcome discount"* and stamp `123` on the order. ⭐ A promise of a discount nobody gave is the one thing the shop must not say by accident.
+
+**2. ⭐ THE HOMEPAGE'S WHATSAPP NUMBER NOW FOLLOWS SETTINGS.** It was typed into the page while the shop read it from your settings — ⭐ **change it once and the homepage kept sending customers to the old number.** It reads the published number now, and the typed one stays as the fallback if that read fails.
+
+**3. ⚠️ THREE ACCESSIBILITY FAULTS, MEASURED.** The shop's white banner text measured **3.75:1, 3.62:1 and 3.58:1** against the 4.5:1 a small white line needs — ⭐ **now 4.61:1 at the worst point and 6.3:1 on the language pills**, using the same hues one step deeper, with the cream highlight at a quarter of its strength and the frosted pills turned dark. ⚠️ **The homepage's badge hung 20px outside its photo and made the page scroll sideways at 375px** — it sits inside on a phone now. ⚠️ **And the review dots were 10×10 pixels**; the button is 36px with the dot drawn inside it, so it looks the same and can be hit.
+
+**4. ⚠️ AND THE REVIEWS SECTION TOLD LIES WHEN IT COULD NOT LOOK.** A failed or offline fetch printed **"No reviews yet — be the first!"** — ⭐ **a bakery with a page of good reviews told every visitor it had none.** It now says it could not load them. ⭐ **The carousel no longer advances itself** (six seconds on a timer, with no pause on a phone — against your own rule); arrows, dots and swipe are the whole of the movement. ⚠️ **And no star is painted until the customer taps one**: the rating used to default to 5, so a complaint could be posted as five stars by someone who never touched a star. ⭐ Two screen-reader labels were English-only; they are translated now.
+
+**5. ⚠️⚠️ ELEVEN FAULTS IN YOUR OTHER GUIDES — the documents you read.** Backticks printing in the money guide; asterisks printing in the friend-get-friend plan; **two "see Scenario C/D" pointers naming the wrong scenario**; a table citing *"the packaging in step 1"* when no step bought any; **a journal dated 16 Sep in a scenario set on Friday 18 September**; *"Six statements, five are ordinary"* when four are; **"Munchies is nine versions behind, at v259" when it is fifteen behind, at v549** — ⭐ that sentence now reads both apps' own version numbers, so it cannot go stale again; Lalamove's guide claiming the app *"reads v225"*; a quoted phrase that lost its quotation marks; and **two documents saying "you have no customers yet"** while the business plan says it trades. ⭐ All eleven re-read from the rebuilt PDFs.
+
+**6. ⭐ TWO MORE SECURITY FIXES.** ⚠️ **The receipt functions could be called with only the public key** (v563's SQL, included in your last commit). ⚠️ **A scripted order with quantity 1,000,000,000 zeroed a whole bake day** for every customer — ⭐ the slot counts now ignore a line above 999 (the order still saves; this is a count, not a gate). ⚠️ **And the shop's feedback mail had no limit** — every note sends up to five emails on your Resend account; one address may now send five in ten minutes.
+
+**7. ⭐ 3,583 tests green (was 3,577). Every new rule was put back to its fault and seen to fail by its own message.**
+
+**8. ⚠️ WHAT YOU MUST DO: re-run the slots file your project already uses (`supabase/shared_pool_slots.sql`), then deploy `shop-feedback`. Pushing does not deploy a function, and it does not run SQL.**
+
+---
 
 **18 Oct 2026 — engine v564, THE TWO STRONG FLOURS — AND THE TWO YEASTS (no database step).**
 
