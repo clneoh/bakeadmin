@@ -369,15 +369,27 @@ function rememberTook(took, ing, ingredientId, day, pid) {
   return fromJournal;
 }
 
-export function applyBake(state, product, dayIso, delta, took = null) {
+export function applyBake(state, product, dayIso, delta, took = null, appliedBefore = 0) {
   const n = Number(delta) || 0;
   if (!n) return;
   const amounts = productConsumption(state, product, Math.abs(n));
   if (!amounts) return;
+  // ⚠️⚠️ A CORRECTION IS MEASURED AGAINST WHAT THE BAKE **TOOK**, NOT AGAINST TODAY'S RECIPE (v576).
+  // ⭐ The recipe can change between baking and correcting. ⚠️ **Measured:** 800 g on the shelf, bake 5 pans ×
+  // 100 g (took 500, shelf 300); the recipe is then changed to 20 g/pan and the bake cleared → the shelf rose
+  // to **400, not 800**; with the flour line removed from the recipe it did not move at all. ⭐ So a correction
+  // gives back the SHARE of what was taken — `|delta| / pans applied` — and an ingredient the recipe no longer
+  // names is still visited from the memory.
+  const targets = new Map(amounts);
+  if (n < 0 && took) {
+    for (const id of Object.keys(took)) {
+      if (!targets.has(id) && byId(state.ingredients || [], id)) targets.set(id, 0);
+    }
+  }
   const pans = Math.abs(n);
   const name = String((product && product.name) || "baked goods");
   const what = n > 0 ? `Baked extra — ${pans} × ${name}` : `Extra bake corrected — ${pans} × ${name}`;
-  for (const [ingredientId, base] of amounts) {
+  for (const [ingredientId, base] of targets) {
     const ing = byId(state.ingredients || [], ingredientId);
     if (!ing) continue;
     const before = Number(ing.onHand) || 0;
@@ -414,7 +426,13 @@ export function applyBake(state, product, dayIso, delta, took = null) {
       // ⚠️ A caller with no memory at all (a direct `applyBake`, or a row this build has never touched) still
       // gets the journal's answer — the rule before v570, kept for those two callers (v572).
       const available = remembered != null ? Math.max(0, remembered) : (!took ? journalTake(ing, day, pid) : 0);
-      give = Math.min(base, round2(available));
+      // ⭐ The share of the day's take this correction undoes. With the recipe unchanged it is exactly what
+      // the recipe says; with a changed recipe it is the only honest answer, because the shelf moved by the
+      // OLD recipe. ⚠️ With nothing recorded as applied, fall back to the old recipe-bounded figure.
+      const share = Number(appliedBefore) > 0 ? (Number(n) < 0 ? Math.abs(Number(n)) : 0) / Number(appliedBefore) : 1;
+      give = appliedBefore > 0
+        ? Math.min(round2(available * Math.min(1, share)), round2(available))
+        : Math.min(base, round2(available));
       if (!(give > 0)) continue; // nothing was taken that day — nothing to give back, and no row
       if (remembered != null && took) took[ingredientId] = round2(Math.max(0, remembered - give));
     }
@@ -514,7 +532,8 @@ export function setBakedTotal(state, product, dayIso, total) {
   // ⭐ The bake row carries what each ingredient's bake actually took, so a correction does not depend on a
   // journal that keeps only its newest rows (v570).
   if (!entry.took || typeof entry.took !== "object") entry.took = {};
-  applyBake(state, product, day, delta, entry.took);   // ⭐ a delta of 0 is refused inside, so nothing is journalled
+  // ⚠️ `entry.applied` BEFORE the change is what the correction is measured against (v576).
+  applyBake(state, product, day, delta, entry.took, Number(entry.applied) || 0);   // ⭐ a delta of 0 is refused inside
   entry.total = Number(total) || 0;
   entry.applied = wanted;
 

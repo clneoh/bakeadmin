@@ -46,7 +46,10 @@ test("the PDF builders are still valid Python", { skip }, (t) => {
   for (const f of BUILDERS) {
     if (!present(f)) continue;
     try {
-      pythonCanParse(f);
+      // ⚠️ AN ABSOLUTE PATH, so the guard does not depend on the directory the suite was started from (v576).
+      // ⭐ It failed from `marketing/` with "No such file" and reported it as "not valid Python" — a guard
+      // whose answer changes with the shell is a guard that lies.
+      pythonCanParse(here(f).pathname);
     } catch (e) {
       const said = String((e && e.stderr) || (e && e.message) || "");
       const line = (/line (\d+)/.exec(said) || [])[1];

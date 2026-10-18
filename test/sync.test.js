@@ -2643,3 +2643,72 @@ test("★★★ cloudKeys reads EVERY page, and says when it could not", async (
     h.restore();
   }
 });
+
+// ── ★★★ a NEW PHONE must not overwrite her settings (v576) ─────────────────
+test("★★★ a phone still on the shipped defaults adopts the cloud's settings, and never pushes its own", () => {
+  // ⚠️⚠️ HER REAL RISK: a brand-new (or re-set-up) phone queues its own `settings` BEFORE it pulls, and it wins
+  // the one settings row — so `deliveryDays`, `cutoff`, `defaultCapacity`, `currency` and `referrals` were
+  // overwritten with factory defaults. ⚠️ Probed before the fix: a cloud holding [2,4,6] / 17:30 / 20 was
+  // replaced by [1,3,5] / 18:00 / 12.
+  const { store, restore } = installStorage();
+  try {
+    const d = sync.defaultStateForTest ? null : null; void d;
+    const st = cloudOn(baseState());
+    // The phone is exactly as it was set up: the shipped numbers, nothing chosen.
+    st.settings.deliveryDays = [1, 3, 5];
+    st.settings.cutoff = "18:00";
+    st.settings.defaultCapacity = 12;
+    st.settings.currency = "RM";
+    st.settings.referrals = { ...st.settings.referrals, enabled: true, friendRM: 5, referrerRM: 5, validDays: 90 };
+    // …no: that is an opinion. Put it back to the shipped shape for this test.
+    st.settings.referrals = { enabled: false, friendRM: 3, referrerRM: 3, validDays: 90 };
+    // ⭐ The real sequence this protects: a fresh phone queues its settings BEFORE it pulls.
+    seedJournal(store, {
+      pending: {
+        "settings:default": {
+          kind: "settings", id: "default", updated_at: "2026-09-25T00:00:00.000Z", _deleted: false,
+          data: { deliveryDays: [1, 3, 5], cutoff: "18:00", defaultCapacity: 12, currency: "RM",
+            referrals: { enabled: false, friendRM: 3, referrerRM: 3, validDays: 90 } },
+        },
+      },
+      // ⚠️ THE PHONE IS NEWER — that is the fault: it stamped its factory settings "now" before pulling, so
+      // the LOCAL-WINS branch runs. (With the cloud newer, the cloud simply wins and the guard is never asked.)
+      meta: { "settings:default": "2026-09-25T00:00:00.000Z" },
+    });
+
+    sync.mergeRows(st, [cloudRow("settings", "default", {
+      deliveryDays: [2, 4, 6], cutoff: "17:30", defaultCapacity: 20, currency: "RM",
+      referrals: { enabled: false, friendRM: 5, referrerRM: 5, validDays: 90 },
+    }, "2026-09-20T00:00:00.000Z")]);
+
+    assert.deepEqual(st.settings.deliveryDays, [2, 4, 6],
+      "★ the phone kept its factory bake days over hers — **a new phone has just changed when she bakes**");
+    assert.equal(st.settings.cutoff, "17:30", "★ her cut-off was overwritten by the default 18:00");
+    assert.equal(st.settings.defaultCapacity, 20, "★ her capacity was overwritten by the default 12");
+    assert.equal(st.settings.referrals.friendRM, 5, "★ her scheme numbers were overwritten by the defaults");
+
+    // ⭐ And nothing is left queued that would put the factory numbers back. (A merge where the cloud is
+    // newer may DROP the phone's queued settings row — that is the cloud winning, which is the point — so the
+    // assertion is about what any remaining row CARRIES, not that a row exists.)
+    const p = queuedSettings(store);
+    if (p) {
+      assert.deepEqual(p.data.deliveryDays, [2, 4, 6],
+        "★★ the queued publish carries the factory bake days — **it would overwrite her other phone**");
+    }
+  } finally { restore(); }
+});
+
+test("★★★ clearing this phone's data forgets the journal, so no tombstone is ever pushed (v576)", () => {
+  // ⚠️⚠️ THE FAULT: "Delete all data" removed only `bakeadmin.v1`. The journal survived with its `snapshot` of
+  // every record, so the next save wrote a deletion for all of them and pushed the tombstones — ⭐ **the shared
+  // book was emptied and the other phone followed.** ⭐ A deliberate reset has to forget what it resets.
+  const { store, restore } = installStorage();
+  try {
+    seedJournal(store, { pending: { "orders:o1": { kind: "orders", id: "o1", data: {}, _deleted: false } },
+      snapshot: { "orders:o1": "{}" }, meta: { "orders:o1": "2026-09-01T00:00:00.000Z" } });
+    sync.clearJournal();
+    assert.equal(store.has("bakeadmin.sync"), false,
+      "★ the journal survived the reset — **its snapshot would tombstone every record on the next save**");
+    assert.equal(sync.pendingCount(), 0);
+  } finally { restore(); }
+});

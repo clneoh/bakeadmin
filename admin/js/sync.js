@@ -17,7 +17,7 @@
 // Pure helpers run under Node for tests; fetch/localStorage are guarded.
 
 import { login as loginSupabase, cachedToken } from "./supabase.js";
-import { removeOrders, dropStaleShelfRows, save, STOCK_PRODUCTION, bakeId } from "./state.js";
+import { removeOrders, dropStaleShelfRows, save, STOCK_PRODUCTION, bakeId, defaultState } from "./state.js";
 import { mergeWeekCheck } from "./weekly.js";
 // The one answer to "is this a place" — see placeForSync below for why the courier
 // module's own rule is asked rather than a copy of it written here.
@@ -348,6 +348,24 @@ function recordPayload(kind, rec) {
 // had them, rule 3 must put them back up when a phone that never had them
 // happened to stamp the row newest, and rule 1 must let her EMPTY the four that
 // can be emptied without that reading as ignorance.
+// ⚠️⚠️ THE FIVE SETTINGS EVERY PHONE STARTS WITH (v576). ⭐ `deliveryDays`, `cutoff`, `defaultCapacity`,
+// `currency` and `referrals` were carried in EVERY payload, so **a brand-new phone always looked like it had an
+// opinion about them** — and it won the one settings row with its factory defaults: bake days [1,3,5], 18:00,
+// capacity 12. ⚠️ Probed: a cloud holding [2,4,6] / 17:30 / 20 was replaced by those. ⭐ They are now treated
+// as `production` is: a phone still holding the shipped numbers has NO opinion, so it neither pushes them nor
+// keeps them over the cloud's. ⚠️ The values are READ FROM `defaultState()` — one source, so a change to the
+// shipped defaults can never leave this copy behind.
+const STOCK_SETTING_KEYS = ["deliveryDays", "cutoff", "defaultCapacity", "currency", "referrals"];
+let stockSettingsCache = null;
+function stockSetting(k) {
+  if (!stockSettingsCache) {
+    const d = defaultState().settings;
+    stockSettingsCache = { deliveryDays: d.deliveryDays, cutoff: d.cutoff, defaultCapacity: d.defaultCapacity, currency: d.currency, referrals: d.referrals };
+  }
+  return stockSettingsCache[k];
+}
+const isStockSetting = (k, v) => JSON.stringify(v) === JSON.stringify(stockSetting(k));
+
 const GUARDED = ["scenario", "scenarios", "tasks", "wishList", "boardAcks", "developer", "pickupPlace",
   "categories", "payMethods", "sources", "mailingAddress", "personNames", "personCalls", "messageStyle"];
 
@@ -434,6 +452,10 @@ function planIsStock(plan) {
 // directions, which is what v182 exists to close.
 function hasOpinion(k, src) {
   if (k === "production") return !planIsStock(src && src.production);
+  // ⭐ The five a phone is born holding: present is not the same as chosen (v576).
+  if (STOCK_SETTING_KEYS.includes(k)) {
+    return has(src, k) && !isStockSetting(k, src[k]);
+  }
   return has(src, k);
 }
 
@@ -567,6 +589,14 @@ function writeSync(b) {
 // this phone. ⚠️ **Neither of them writes anything, anywhere.**
 
 // How many changes are waiting to be sent. ⚠️ Read from the journal, so it counts what would be lost.
+// ★★★ AND THE WHOLE JOURNAL CAN BE FORGOTTEN (v576). ⚠️⚠️ "Delete all data" used to remove only the book: the
+// journal survived **with its `snapshot` of every record**, so the next save tombstoned them all and pushed the
+// tombstones — ⭐ **the shared book was emptied and the other phone followed.** ⭐ A deliberate reset has to
+// forget what it is resetting, or the reset becomes a deletion everywhere.
+export function clearJournal() {
+  try { localStorage.removeItem(SYNC_KEY); } catch { /* no storage */ }
+}
+
 export function pendingCount() {
   return Object.keys(readSync().pending || {}).length;
 }
@@ -828,7 +858,10 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
           ? pending.data
           : recordPayload("settings", state.settings);
         let next = null;
-        for (const k of GUARDED_ALL) {
+        // ⚠️ AND THE FIVE EVERY PHONE IS BORN HOLDING ARE ADOPTED HERE TOO (v576) — from the cloud INTO this
+        // phone, never republished by this loop: rule 3's "put it back up" is for keys the cloud LOST, and a
+        // settings row written before these existed is not a loss.
+        for (const k of [...GUARDED_ALL, ...STOCK_SETTING_KEYS]) {
           if (hasOpinion(k, phoneOwn) || !hasOpinion(k, payload)) continue;
           if (emptiedObject(payload[k])) continue; // an emptied board is an answer, not content
           next = next || { ...state.settings };

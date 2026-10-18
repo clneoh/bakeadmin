@@ -681,3 +681,46 @@ test("★★★ the ✕ is REFUSED on a bake correction, so the day's pans and t
   setBakedTotal(st, p, "2026-10-17", 0);
   assert.equal(st.ingredients[0].onHand, 10000);
 });
+
+// ── ★★★ a correction is measured against what the bake TOOK (v576) ─────────
+test("★★★ clearing a bake gives back what it took, even after the RECIPE changed", () => {
+  // ⚠️⚠️ MEASURED BEFORE THE FIX: 800 g on the shelf, bake 5 pans × 100 g (took 500, shelf 300); the recipe is
+  // then changed to 20 g/pan and the bake cleared → the shelf rose to **400, not 800**. ⭐ A correction is the
+  // share of what the day's bake actually took, not a re-reading of today's recipe.
+  const st = baseState([], []);
+  st.ingredients = [{ id: "i1", name: "Flour", unit: "g", uomId: "g", onHand: 800, stockLog: [] }];
+  const p = { id: "p1", name: "Focaccia", active: true, unit: "pc", recipe: [{ ingredientId: "i1", qty: 100, unit: "g" }] };
+  st.products = [p];
+  setBakedTotal(st, p, "2026-10-17", 5);
+  assert.equal(st.ingredients[0].onHand, 300, "precondition: the bake took 500 g");
+  p.recipe = [{ ingredientId: "i1", qty: 20, unit: "g" }];   // she edits the recipe afterwards
+  setBakedTotal(st, p, "2026-10-17", 0);
+  assert.equal(st.ingredients[0].onHand, 800,
+    "★★ a correction after a recipe change gave back only what TODAY's recipe says — **the shelf ends short**");
+});
+
+test("★★★ and an ingredient REMOVED from the recipe is still given back", () => {
+  // ⚠️ The recipe no longer names the flour at all; without the memory it would never be visited and the shelf
+  // would stay down with no row to explain it.
+  const st = baseState([], []);
+  st.ingredients = [{ id: "i1", name: "Flour", unit: "g", uomId: "g", onHand: 800, stockLog: [] }];
+  const p = { id: "p1", name: "Focaccia", active: true, unit: "pc", recipe: [{ ingredientId: "i1", qty: 100, unit: "g" }] };
+  st.products = [p];
+  setBakedTotal(st, p, "2026-10-17", 5);
+  assert.equal(st.ingredients[0].onHand, 300, "precondition");
+  p.recipe = [];
+  setBakedTotal(st, p, "2026-10-17", 0);
+  assert.equal(st.ingredients[0].onHand, 800,
+    "★★ an ingredient taken out of the recipe was never given back — **the shelf stays short, silently**");
+});
+
+test("★★★ a PARTIAL correction gives back its share, not the whole take", () => {
+  const st = baseState([], []);
+  st.ingredients = [{ id: "i1", name: "Flour", unit: "g", uomId: "g", onHand: 2000, stockLog: [] }];
+  const p = { id: "p1", name: "Focaccia", active: true, unit: "pc", recipe: [{ ingredientId: "i1", qty: 100, unit: "g" }] };
+  st.products = [p];
+  setBakedTotal(st, p, "2026-10-17", 10);          // took 1,000
+  assert.equal(st.ingredients[0].onHand, 1000);
+  setBakedTotal(st, p, "2026-10-17", 6);           // four pans back = 400
+  assert.equal(st.ingredients[0].onHand, 1400, "★ a partial correction did not give back its own share");
+});

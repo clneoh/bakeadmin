@@ -36,3 +36,13 @@ test("★★★ the vendor's own refusal stays in the log, not in the reply", ()
     "★ the vendor's error body is returned to the caller again — **it names addresses and quota figures "
     + "that are not the caller's to read**");
 });
+
+test("★★★ the settings column is TEXT, and is read as text (v576)", () => {
+  // ⚠️⚠️ THE FAULT: `storefront_config.data` is a text column holding JSON (`storefront.sql:12`), and the
+  // helper accepted only an object — ⭐ **so it always found no recipient and every wish-list email was refused
+  // with "no developer email is set".** ⚠️ The source cannot be imported here (`jsr:` + `Deno.serve`), so this
+  // is a source check, and it is labelled as one.
+  assert.match(SRC, /typeof raw === "string"/,
+    "★ the wish-mail does not read a text settings row — **every send is refused with 'no developer email is set'**");
+  assert.match(SRC, /JSON\.parse\(raw\)/, "and it does not parse the JSON a text row holds");
+});

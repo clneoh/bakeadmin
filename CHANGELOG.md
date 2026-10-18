@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v575)
+# Jienluv2bake — change history (v54 → v576)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v576, THE SIX THAT COULD DESTROY YOUR RECORDS (no database step; the `wish-mail` function must be deployed again).**
+
+**Your words:** __"go ahead, start with the six"__ — the first group of the complete audit. All 100 findings are in `marketing/AUDIT-COMPLETE-2026-10-18.md`.
+
+**1. ⚠️⚠️ A BRAND-NEW PHONE COULD OVERWRITE YOUR SETTINGS WITH THE FACTORY ONES.** ⭐ A phone queues its own settings **before** it pulls, and the five it is born holding — **bake days, cut-off, capacity, currency and your bring-a-friend numbers** — were outside the list the app protects. ⚠️ **Measured: a cloud holding Mon/Wed/Fri's neighbour [2,4,6], 17:30 and capacity 20 was replaced by [1,3,5], 18:00 and 12.** ⭐ **A phone still holding the shipped numbers now has no opinion**: it takes yours from the cloud and never pushes its own.
+
+**2. ⚠️⚠️ "DELETE ALL DATA" COULD WIPE YOUR SHARED BOOK AND YOUR OTHER PHONE.** It removed only this phone's book and left the sync journal, ⚠️ **whose snapshot then wrote a deletion for every record and pushed them.** ⭐ **It clears THIS PHONE now**: the journal is forgotten, the phone signs out, and a **"Before delete" copy** is saved first when the cloud is ready. ⭐ Your shared data still holds your book, and it comes back when this phone signs in again.
+
+**3. ⚠️ THE SAME BUTTON TURNED THE APP PASSWORD BACK TO THE SHIPPED 8899 AND SIGNED YOU OUT, silently.** ⭐ The dialog says both now, before it does anything.
+
+**4. ⚠️ AN IMPORT WITH SHARED DATA OFF HAD NO WAY BACK AND DID NOT SAY SO.** The sentence about the "Before import" copy simply vanished. ⭐ It says, in the same breath, that no copy can be saved and **this cannot be undone.**
+
+**5. ⚠️⚠️ CORRECTING A BAKE AFTER YOU CHANGED THE RECIPE TOOK STOCK IT SHOULD NOT.** The correction re-read **today's** recipe. ⚠️ **Measured: 800 g on the shelf, bake 5 pans, recipe then changed — clearing the bake left the shelf at 400 g instead of 800 g**; with the flour line removed from the recipe it did not move at all. ⭐ A correction is now the **share of what that day's bake actually took**, and an ingredient the recipe no longer names is still given back.
+
+**6. ⚠️⚠️ THE WISH-LIST EMAIL HAS NEVER SENT.** Since I moved its recipients server-side, it looked for the settings as an **object** — ⚠️ **the column holds text, so it always found none and refused every send with "no developer email is set".** ⭐ It reads both shapes now. ⚠️ **The `wish-mail` function must be deployed again.**
+
+**7. ⭐ AND ONE GUARD OF MY OWN REPAIRED.** The builders' "is this still valid Python" check used a **relative path**, so it reported a false fault when the suite was started from `marketing/`. ⭐ It resolves its own path now.
+
+**8. Nothing of yours was rewritten, and there is no database step. ⭐ 3,625 tests green (was 3,616); every fix has a test that fails without it.**
+
+---
 
 **18 Oct 2026 — engine v575, THE LABELS NOW PRINT ON YOUR OWN PAPER: 100 × 150 mm (no database step).**
 

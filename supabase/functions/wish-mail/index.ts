@@ -124,8 +124,20 @@ async function developerEmails(supabaseUrl: string, supabaseAnon: string): Promi
     if (!res.ok) return [];
     const rows = await res.json().catch(() => null);
     const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
-    const data = row && row.data && typeof row.data === "object" ? row.data : null;
-    const list = data && Array.isArray(data.developerEmails) ? data.developerEmails : [];
+    // ⚠️⚠️ THE COLUMN IS `text` HOLDING JSON, NOT AN OBJECT (v576). ⭐ `storefront_config.data` is text on
+    // purpose (see storefront.sql), so the object test below was false for every read — ⭐ **`developerEmails()`
+    // always answered "none", and every wish-list email since v561 was refused with "no developer email is
+    // set".** ⚠️ `shop-feedback` reads both shapes; this copy did not. Both are read now.
+    const raw: unknown = row ? row.data : null;
+    let data: Record<string, unknown> | null = null;
+    if (raw && typeof raw === "object") data = raw as Record<string, unknown>;
+    else if (typeof raw === "string") {
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") data = parsed as Record<string, unknown>;
+      } catch { data = null; }
+    }
+    const list = data && Array.isArray(data.developerEmails) ? (data.developerEmails as unknown[]) : [];
     return list.map((e: unknown) => String(e).trim())
       .filter((e: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
   } catch { return []; }

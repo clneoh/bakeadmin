@@ -545,8 +545,14 @@ export function renderSettings(root, state) {
       // set up from a file, and refusing that would break the very case Import exists for.** ⚠️ But when the
       // cloud IS ready and the copy fails, nothing is imported — the same discipline as Restore.
       const cloudReady = backups.ready(state);
+      // ⚠️⚠️ AND WHEN THERE IS NO CLOUD TO PUT THE COPY IN, SAY WHAT THAT MEANS (v576). ⭐ The sentence about
+      // the safety copy simply vanished, leaving a one-way door with no warning at all: no copy, no "cannot be
+      // undone", nothing. ⭐ An import with shared data off is how a new phone is set up, so it is allowed —
+      // it just has to be honest about it.
       confirmDialog(`Replace ALL current data with this backup? (${counts})`
-          + (cloudReady ? " A \"Before import\" copy is saved first, so you can undo this." : ""),
+          + (cloudReady
+            ? " A \"Before import\" copy is saved first, so you can undo this."
+            : " ⚠️ Shared data is off, so no \"Before import\" copy can be saved — this cannot be undone."),
         async () => {
           if (cloudReady) {
             const safe = await backups.saveSafetyCopy(state, `Before import · ${backups.localWhen()}`);
@@ -571,15 +577,34 @@ export function renderSettings(root, state) {
     }).catch(() => toast("Couldn't read that file"));
   }
 
+  // ★★★ "DELETE ALL DATA" NOW CLEARS THIS PHONE AND NOTHING ELSE (v576).
+  //
+  // ⚠️⚠️ WHAT IT DID: it removed `bakeadmin.v1` and left the sync journal, whose `snapshot` still held every
+  // record — ⚠️ **so the next save wrote a deletion for all of them, pushed the tombstones, and emptied the
+  // shared book and the other phone.** ⭐ And it re-seeded a fresh state, which turned the app password back to
+  // the shipped 8899 and dropped the shared-data sign-in, with nothing said.
+  // ⭐ Now: a "Before delete" copy when the cloud is ready, the journal forgotten, the sign-in cleared, and the
+  // dialog says exactly what happens — ⭐ **this phone only; your shared data still holds your book.**
   function clearAll() {
-    confirmDialog("Delete ALL data (products, ingredients, orders, history)? This cannot be undone.",
-      () => {
-        confirmDialog("Really sure? Export a backup first if you're not.",
-          () => {
-            localStorage.removeItem(LS_KEY);
-            location.reload();
-          }, { danger: true, yesLabel: "Delete everything" });
-      }, { danger: true, yesLabel: "Continue" });
+    const cloudReady = backups.ready(state);
+    confirmDialog("Clear this phone's copy of everything — products, ingredients, orders, history? "
+      + "⚠️ Your SHARED DATA still holds your book, and it comes back when this phone signs in again. "
+      + "This phone is signed out and its app password goes back to the default, so you will be asked for it. "
+      + (cloudReady ? "A \"Before delete\" copy is saved first." : "No cloud copy can be saved while shared data is off."),
+      async () => {
+        if (cloudReady) {
+          const safe = await backups.saveSafetyCopy(state, `Before delete · ${backups.localWhen()}`);
+          if (!safe.ok) return toast(`Couldn't save a "before" copy: ${safe.reason}. Nothing was deleted.`);
+        }
+        try {
+          localStorage.removeItem(LS_KEY);
+          sync.clearJournal();
+        } catch (err) {
+          return toast(`This phone's data could not be cleared (${(err && err.message) || "unknown reason"}).`);
+        }
+        signOut();
+        location.reload();
+      }, { danger: true, yesLabel: "Clear this phone" });
   }
 
   // ── Cloud copies (Backup & safety card) ─────────────────────────────────
