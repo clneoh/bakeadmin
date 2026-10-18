@@ -108,7 +108,9 @@ export function normaliseVehicles(raw) {
   for (const s of list) {
     const key = String((s && s.key) || "").trim();
     if (!key || seen.has(key)) continue;
-    seen.set(key, { key, name: serviceLabel(key, s && s.name) });
+    // ⚠️⚠️ THE CITIES REPLY CARRIES `description`, NOT `name` (v566) — see the server's own note. ⭐ The
+    // vendor's words are used when present; `serviceLabel` is the fallback table, not the source.
+    seen.set(key, { key, name: serviceLabel(key, (s && (s.description || s.name))) });
   }
   return sortServices([...seen.values()]);
 }

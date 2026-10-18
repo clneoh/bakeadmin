@@ -146,14 +146,22 @@ export function emptyState(title, hint) {
 
 export function confirmDialog(message, onYes, { danger = false, yesLabel = "Confirm" } = {}) {
   const layer = document.getElementById("confirm-layer");
-  const card = el("div", { class: "confirm-card" },
-    el("p", { class: "confirm-text" }, message),
+  const textId = `confirm-text-${++popupSeq}`;
+  const card = el("div", {
+    class: "confirm-card", role: "alertdialog", "aria-modal": "true", "aria-labelledby": textId, tabindex: "-1",
+  },
+    el("p", { class: "confirm-text", id: textId }, message),
     el("div", { class: "confirm-actions" },
       button("Cancel", () => close(), "ghost"),
       button(yesLabel, () => { close(); onYes(); }, danger ? "danger" : "primary")));
   layer.replaceChildren(card);
   layer.hidden = false;
+  // ⚠️ The same two gaps a pop-up had (v566): no Escape, and focus left where it was.
+  const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); close(); } };
+  card.addEventListener("keydown", onKey);
+  try { card.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
   function close() {
+    card.removeEventListener("keydown", onKey);
     layer.hidden = true;
     layer.replaceChildren();
   }
@@ -431,10 +439,19 @@ export function keepStill(anchor, fn) {
 // screen with a dimmed scrim; `makeBody(refresh, close)` is called to (re)fill
 // the scrollable body, so callers re-invoke `refresh()` after changing anything
 // that should re-render the form (e.g. adding an item row). Returns close().
+// ⚠️ Unique ids for the title a dialog points at; two cards are never on screen at once, but the
+// counter keeps a stale id from ever matching a new card.
+let popupSeq = 0;
+
 export function showPopup(title, makeBody, { wide = false, onTitle = null, className = "" } = {}) {
   const layer = document.getElementById("popup-layer");
   if (!layer) return () => {};
+  let closeFn = null;
   const close = () => {
+    // ⚠️ The Escape listener lives on the LAYER, not the page: the card is focused, so a key press
+    // bubbles to it, and a shim that has no `document.addEventListener` still works.
+    const f = closeFn; closeFn = null;
+    if (f) f();
     layer.hidden = true;
     layer.replaceChildren();
   };
@@ -459,22 +476,36 @@ export function showPopup(title, makeBody, { wide = false, onTitle = null, class
     body.replaceChildren(...(Array.isArray(made) ? made : [made]));
     body.scrollTop = keepTop;
   };
-  const titleEl = el("div", { class: "popup-title" }, title);
+  // ★★★ A CARD IS A DIALOG, AND IT SAYS SO (v566). ⚠️⚠️ The title was a plain div and the card had no
+  // role, so a screen reader announced an unnamed region and the most-used control in the app was read as
+  // "✕". ⭐ `role="dialog"` + `aria-modal` + a title the card points at is what makes it a card, and the
+  // close button now has a name. ⚠️ Escape closes it, because a keyboard user had no way out but Tab.
+  const titleId = `popup-title-${++popupSeq}`;
+  const titleEl = el("div", { class: "popup-title", id: titleId }, title);
   // The card's heading is built once and never repainted, which is right for every
   // card whose heading is a name it was opened with. The one card whose heading
   // follows something she is still typing — the person's name — takes the node and
   // rewrites it itself, because there is no other way to reach a heading that lives
   // outside the body the card is free to rebuild.
   if (onTitle) onTitle(titleEl);
-  const head = el("div", { class: "popup-head" },
-    titleEl,
-    button("✕", close, "ghost small"));
+  const closeBtn = el("button", { class: "btn ghost small", type: "button", "aria-label": "Close", onclick: close }, "✕");
+  const head = el("div", { class: "popup-head" }, titleEl, closeBtn);
   // ⚠️ A CARD MAY NAME ITSELF (v390), so a stylesheet can size THAT card without a rule broad enough to
   // move every other one. Her words: __"can optimise for desktop as well"__ — the stock card is a
   // table, and a table is the one thing that gets better with width.
-  const card = el("div", { class: `popup-card${wide ? " wide" : ""}${className ? ` ${className}` : ""}` }, head, body);
+  const card = el("div", {
+    class: `popup-card${wide ? " wide" : ""}${className ? ` ${className}` : ""}`,
+    role: "dialog", "aria-modal": "true", "aria-labelledby": titleId, tabindex: "-1",
+  }, head, body);
   layer.replaceChildren(card);
   layer.hidden = false;
+  // ⚠️ Escape, on the layer itself, and only while this card is the one on screen.
+  const onKey = (e) => {
+    if (e.key === "Escape" && !layer.hidden && layer.firstChild === card) { e.preventDefault(); close(); }
+  };
+  layer.addEventListener("keydown", onKey);
+  closeFn = () => layer.removeEventListener("keydown", onKey);
+  try { card.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
   dragByHead(card, head, layer);
   refresh();
   return close;
@@ -523,7 +554,10 @@ export async function guarded({ btn = null, hold, work, said, trouble }) {
 export function toast(msg) {
   let t = document.querySelector(".toast");
   if (!t) {
-    t = el("div", { class: "toast" });
+    // ⚠️⚠️ A TOAST NOBODY ANNOUNCES IS A SILENT SAVE (v566). ⭐ Every "Saved" was invisible to a screen
+    // reader: a plain div that appears and leaves. `role="status"` is the polite announcement, which is
+    // the right weight for a confirmation she does not have to act on.
+    t = el("div", { class: "toast", role: "status", "aria-live": "polite" });
     document.body.appendChild(t);
   }
   t.textContent = msg;

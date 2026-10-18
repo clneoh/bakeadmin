@@ -115,15 +115,24 @@ test("sandbox unless production is said out loud, so a typo cannot spend real mo
 test("each documented code becomes a sentence she can act on", () => {
   const say = (code) => plainReason({ errors: [{ code }] }, 400);
   assert.match(say("ERR_REVERSE_GEOCODE_FAILURE"), /^Lalamove could not place one of these addresses — put the pin on the map/);
-  assert.match(say("ERR_QUOTATION_EXPIRED"), /five minutes old/);
-  assert.match(say("ERR_QUOTATION_NOT_FOUND"), /fresh one/);
+  // ⚠️⚠️ THESE ARE THE IDS LALAMOVE'S OWN TABLE USES (v566). ⭐ Four of the old ones — QUOTATION_EXPIRED,
+  // QUOTATION_NOT_FOUND, INSUFFICIENT_BALANCE and INVALID_STOPS — do not exist in it, so their sentences
+  // were dead lines and she saw the raw code. ⭐ A wrong-or-expired price is ONE code.
+  assert.match(say("ERR_INVALID_QUOTATION_ID"), /five minutes old/);
   assert.match(say("ERR_INSUFFICIENT_CREDIT"), /wallet/);
-  assert.match(say("ERR_INSUFFICIENT_BALANCE"), /wallet/);
+  assert.match(say("ERR_INVALID_FIELD"), /fault in the app/);
+  assert.match(say("ERR_MISSING_FIELD"), /fault in the app/);
+  assert.match(say("ERR_ORDER_NOT_FOUND"), /no record of that trip/);
   assert.match(say("ERR_OUT_OF_SERVICE_AREA"), /does not cover/);
   assert.match(say("ERR_INVALID_SERVICE_TYPE"), /does not run that vehicle/);
   assert.match(say("ERR_INVALID_PHONE_NUMBER"), /phone number/);
-  assert.match(say("ERR_INVALID_STOPS"), /one of the stops/);
   assert.match(say("ERR_CANCELLATION_FORBIDDEN"), /will not let this trip be cancelled/);
+  // ⚠️ AND THE FOUR DEAD ONES MUST NOT COME BACK: if any of these ever matches a sentence, the map has
+  // grown a line the API can never fire.
+  for (const dead of ["ERR_QUOTATION_EXPIRED", "ERR_QUOTATION_NOT_FOUND", "ERR_INSUFFICIENT_BALANCE", "ERR_INVALID_STOPS"]) {
+    assert.equal(say(dead).includes("Lalamove would not") || say(dead).includes("five minutes"), false,
+      `★ ${dead} is not in Lalamove's error table, so its sentence is dead code`);
+  }
 });
 
 test("the two codes whose own words would be useless carry the number she needs", () => {
@@ -143,7 +152,7 @@ test("the code is read from errors[].id too, because the two releases disagree",
 });
 
 test("the code wins over the API's own message, so the sentence she gets is the useful one", () => {
-  const out = plainReason({ message: "Bad Request", errors: [{ code: "ERR_QUOTATION_EXPIRED", message: "quotation not valid" }] }, 400);
+  const out = plainReason({ message: "Bad Request", errors: [{ code: "ERR_INVALID_QUOTATION_ID", message: "quotation not valid" }] }, 400);
   assert.match(out, /five minutes old/);
   assert.equal(out.includes("quotation not valid"), false, "the raw text is dropped when the code is known");
 });
@@ -229,16 +238,24 @@ test("a failure with nothing in it still says something true", () => {
 
 // ── the fleet, read from Lalamove rather than written down here ───────────
 
-test("every vehicle in every city, each named once", () => {
+test("★★★ every vehicle in every city, named in the vendor's own words", () => {
+  // ⚠️⚠️ THE CITIES REPLY HAS NO `name` FIELD (v566). ⭐ Each service carries `key`, `description`,
+  // `dimensions`, `load` and `specialRequests` — so `name` was always empty and every vehicle was
+  // labelled from a table in this app. ⭐ The fixture used to invent a `name`, which is why the suite
+  // could never see it: **a fixture is a consumer, and it has to be the shape the producer sends.**
   const data = { data: [
-    { locode: "MYPEN", services: [{ key: "MOTORCYCLE", name: "Motorcycle" }, { key: "CAR", name: "Car" }] },
-    { locode: "MYKUL", services: [{ key: "CAR", name: "Car" }, { key: "VAN", name: "Van" }] },
+    { locode: "MYPEN", services: [
+      { key: "MOTORCYCLE", description: "Ideal for small to medium goods" },
+      { key: "CAR", description: "For goods needing extra care" }] },
+    { locode: "MYKUL", services: [
+      { key: "CAR", description: "For goods needing extra care" },
+      { key: "VAN", description: "" }] },
   ] };
   assert.deepEqual(servicesIn(data), [
-    { key: "MOTORCYCLE", name: "Motorcycle" },
-    { key: "CAR", name: "Car" },
-    { key: "VAN", name: "Van" },
-  ], "the first spelling of a repeated key is kept, and the order is the API's own");
+    { key: "MOTORCYCLE", name: "Ideal for small to medium goods" },
+    { key: "CAR", name: "For goods needing extra care" },
+    { key: "VAN", name: "" },
+  ], "the vendor's description is the name; a repeated key keeps the first; the order is the API's own");
 });
 
 test("a malformed city list yields what it can and invents nothing", () => {

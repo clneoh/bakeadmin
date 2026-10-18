@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
     // a SECOND call, and a refusal from it is expected rather than a fault — the driver's
     // endpoint says nothing until an hour before the pickup — so the driver is attached
     // as an extra and its absence leaves the check itself untouched.
-    return json({ ok: true, order: await orderWithDriver(cfg, out.data) });
+    return json({ ok: true, order: await orderWithDriver(cfg, out.data, id) });
   }
 
   if (action === "cancel") {

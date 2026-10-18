@@ -86,17 +86,21 @@ export function unwrap(data: unknown): unknown {
 const PLAIN_ERRORS: Record<string, string> = {
   ERR_REVERSE_GEOCODE_FAILURE: "Lalamove could not place one of these addresses — put the pin on the map instead of typing it.",
   ERR_INVALID_SERVICE_TYPE: "Lalamove does not run that vehicle in this market.",
-  ERR_QUOTATION_EXPIRED: "That price is more than five minutes old — ask for a fresh one.",
-  ERR_QUOTATION_NOT_FOUND: "That price is no longer on Lalamove's side — ask for a fresh one.",
+  // ⚠️⚠️ THE FOUR IDS THAT WERE HERE DID NOT EXIST (v566). ⭐ `ERR_QUOTATION_EXPIRED`, `ERR_QUOTATION_NOT_FOUND`,
+  // `ERR_INSUFFICIENT_BALANCE` and `ERR_INVALID_STOPS` appear nowhere in Lalamove's error table — ⭐ **so those
+  // sentences were dead lines, and she was shown the API's raw code instead of the plain one.** ⚠️ The real
+  // ids are the ones below, taken from their own table: a wrong-or-expired quotation is ONE code, the wallet
+  // is `ERR_INSUFFICIENT_CREDIT`, and a stop problem is `ERR_INSUFFICIENT_STOPS`/`ERR_TOO_MANY_STOPS`.
   ERR_INSUFFICIENT_CREDIT: "There is not enough money in the Lalamove wallet for this trip.",
-  ERR_INSUFFICIENT_BALANCE: "There is not enough money in the Lalamove wallet for this trip.",
+  ERR_INVALID_FIELD: "Lalamove would not accept part of this trip. That is a fault in the app rather than in your order — nothing was booked.",
+  ERR_MISSING_FIELD: "Lalamove says part of this trip was missing. That is a fault in the app rather than in your order — nothing was booked.",
+  ERR_ORDER_NOT_FOUND: "Lalamove has no record of that trip.",
   ERR_OUT_OF_SERVICE_AREA: "Lalamove does not cover one of these addresses.",
   ERR_INVALID_PHONE_NUMBER: "Lalamove would not accept a phone number on this trip — check the customer's number.",
   ERR_CANCELLATION_FORBIDDEN: "Lalamove will not let this trip be cancelled any more.",
-  ERR_INVALID_STOPS: "Lalamove would not accept one of the stops on this trip.",
   ERR_TOO_MANY_STOPS: "Lalamove will not carry this many drops on one trip.",
   ERR_INVALID_SCHEDULE_TIME: "Lalamove would not accept that pickup time — it must be at least two hours from now, and no more than thirty days ahead.",
-  ERR_INVALID_QUOTATION_ID: "That price is no longer on Lalamove's side — ask for a fresh one. A price is only good for five minutes, and booking uses the price it was quoted at.",
+  ERR_INVALID_QUOTATION_ID: "That price is more than five minutes old, or no longer on Lalamove's side — ask for a fresh one, and book from the price it was quoted at.",
   // This one arriving means the app built the request wrongly, not that her trip is
   // wrong — it is the error Lalamove returns when the `data` wrapper is missing. Said
   // plainly rather than blamed on her order, because there is nothing she could do
@@ -202,7 +206,11 @@ export function servicesIn(data: unknown): Array<{ key: string; name: string }> 
     for (const s of services) {
       const key = String((s && s.key) || "").trim();
       if (!key || seen.has(key)) continue;
-      seen.set(key, { key, name: String((s && s.name) || "").trim() });
+      // ⚠️⚠️ THE CITIES REPLY CARRIES `description`, NOT `name` (v566). ⭐ Every vehicle in the reply has
+      // `key`, `description`, `dimensions`, `load` and `specialRequests` — so `name` was always empty and
+      // every vehicle was labelled from a table in this app instead of the vendor's own words. ⭐ The
+      // vendor's text is used when it is there, and the key is kept for the caller's own fallback.
+      seen.set(key, { key, name: String((s && (s.description || s.name)) || "").trim() });
     }
   }
   return [...seen.values()];
@@ -299,10 +307,20 @@ export async function orderDetail(cfg: LlmConfig, orderId: string) {
 // plate and the number the customer would ring are a record of their own, behind their
 // own endpoint. So a check is two calls when a driver has been matched, and one when one
 // has not.
-export async function driverDetail(cfg: LlmConfig, driverId: string) {
+// ⚠️⚠️ THE DRIVER IS READ THROUGH THE ORDER, NOT ON ITS OWN (v566). ⭐ This used to ask
+// `GET /v3/drivers/{id}`, and Lalamove's own reference documents `GET /v3/orders/{orderId}/drivers/{driverId}`
+// — an endpoint that does not exist answers 403/404, and `orderWithDriver` folds a refusal into "the driver
+// is not readable yet". ⭐ **So the name, the plate and the number the customer would ring never arrived,
+// silently, on every trip.** ⚠️ The order id is part of the address, which is why the caller passes it.
+export async function driverDetail(cfg: LlmConfig, orderId: string, driverId: string) {
+  const oid = String(orderId || "").trim();
   const id = String(driverId || "").trim();
+  if (!oid) return { ok: false, status: 0, data: null, reason: "No trip is named for the driver lookup." };
   if (!id) return { ok: false, status: 0, data: null, reason: "No driver is on this trip yet." };
-  const out = await llmRequest(cfg, { method: "GET", path: `/v3/drivers/${encodeURIComponent(id)}` });
+  const out = await llmRequest(cfg, {
+    method: "GET",
+    path: `/v3/orders/${encodeURIComponent(oid)}/drivers/${encodeURIComponent(id)}`,
+  });
   return out.ok ? { ...out, data: unwrap(out.data) } : out;
 }
 
@@ -315,12 +333,14 @@ export async function driverDetail(cfg: LlmConfig, driverId: string) {
 // exactly as it was, and her screen goes on showing the status it does have. Failing the
 // whole check because a name is not available yet would break a working feature over a
 // detail she has not asked for.
-export async function orderWithDriver(cfg: LlmConfig, order: unknown) {
+export async function orderWithDriver(cfg: LlmConfig, order: unknown, orderId?: string) {
   const o = (order && typeof order === "object") ? order as Record<string, unknown> : null;
   if (!o) return order;
   const driverId = String(o.driverId || "").trim();
   if (!driverId) return order;
-  const got = await driverDetail(cfg, driverId);
+  // ⚠️ The order's own id is required by the documented path; the caller knows it, and the reply carries
+  // it too. Without one there is nothing honest to ask, so the driver is simply absent as before.
+  const got = await driverDetail(cfg, String(orderId || o.orderId || o.id || "").trim(), driverId);
   if (!got.ok) {
     console.error("[courier] the driver is not readable yet:", got.reason);
     return order;

@@ -1,8 +1,34 @@
-# Jienluv2bake — change history (v54 → v565)
+# Jienluv2bake — change history (v54 → v566)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v566, THE TRIP THAT COULD BE BOOKED TWICE, THE DRIVER WHO NEVER APPEARED — AND THE INGREDIENT CARDS THAT DISAGREED WITH EACH OTHER (no database step; deploy the `courier` function).**
+
+**Your words:** __"why the display format is inconsistent"__ — about your ingredient cards — and before that, __"what else is wrong"__.
+
+**1. ⚠️⚠️ A COURIER BOOKING THAT LOST ITS REPLY COULD BE BOOKED AND PAID TWICE.** The app gives up after 25 seconds, and **the courier keeps working after that** — so a trip may already exist and already be charged, while the screen said *"check your signal and try again"*. ⭐ **Now a lost booking says it cannot tell, and every Book press is taken away** until you have looked in Lalamove. ⭐ It is the same rule the parcel booking got in v561, applied to the vans.
+
+**2. ⚠️ THE DRIVER'S NAME, PLATE AND NUMBER NEVER REACHED YOU.** The app asked for the driver at an address Lalamove does not have (`/v3/drivers/{id}`); their document says the driver is read **through the trip** (`/v3/orders/{orderId}/drivers/{driverId}`). ⭐ The refusal was quietly treated as "not readable yet", so the card stayed empty on every trip.
+
+**3. ⚠️ EVERY VEHICLE WAS NAMED BY AN OLD TABLE IN THE APP.** Lalamove's city list carries a **description** for each vehicle, not a `name` — so the app read nothing and fell back to its own labels. ⭐ It now uses their words when they send them.
+
+**4. ⚠️ FOUR ERROR SENTENCES COULD NEVER FIRE.** Four codes the app had friendly wording for — an expired price, a missing price, an empty wallet and a bad stop — **do not exist in Lalamove's error table**, so you were shown the raw code instead. ⭐ The real codes are mapped now.
+
+**5. ⚠️⚠️ YOUR SCREENSHOT: THE INGREDIENT CARDS DISAGREED WITH EACH OTHER.** On a card whose *Used in* line was short, **Edit / Stock card / Hide sat BESIDE the stock lines**; on a card with a long list they dropped **BELOW** — ⭐ **two shapes for one card, decided by the length of a sentence.** ⭐ Every ingredient card is the same now: the text takes the line, the three buttons take the next.
+
+**6. ⚠️ AND THE BACKOFFICE'S OWN READABILITY, MEASURED.** The Home banner's cut-off line measured **2.98:1 against the cream highlight**; it now measures **4.61:1 at its worst point**. ⚠️ **A closed delivery day was washed out at 2.10:1** — the line saying orders were closed was the least readable text in the app; the card is tinted now, at **4.58:1**. ⚠️ **White on every Save/Confirm button measured 3.81:1**; the top of that gradient is one step deeper and measures **4.67:1**. ⚠️ And several controls were too small to hit: the review dots (10px), the occasion ✕ (18px), the edit and delete buttons **two pixels apart**, the calendar cells, the switches, the style pills. All are at the app's own 36px floor now, with the same look.
+
+**7. ⭐ AND FOUR THINGS THAT WERE SILENT OR UNREACHABLE.** ⚠️ **The 30-second sync took the keyboard's place away** — a redraw moved focus to the top of the page every half-minute; a redraw now leaves it alone. ⚠️ **A pop-up had no name, no Escape and its ✕ was read out as "✕"** — it is a proper dialog now, with Escape and a named close. ⚠️ **Every "Saved" toast was invisible to a screen reader**, and a wrong PIN said nothing; both are announced. ⚠️ Buttons, tabs and pills had no visible focus ring; they have one.
+
+**8. ⭐ A MISSING TRANSLATION, FOUND BY A NEW GUARD.** The reviews' new offline line — *"Reviews can't load right now"* — had no Chinese or Malay, so an offline customer would have seen the key itself. ⭐ **A test now fails if any key a page asks for is missing from any language.**
+
+**9. ⭐ 3,590 tests green (was 3,583). Every new rule was put back to its fault and seen to fail by its own message.**
+
+**10. Nothing of yours was rewritten, and there is no database step. ⚠️ The `courier` function must be deployed — pushing does not deploy it.**
+
+---
 
 **18 Oct 2026 — engine v565, THE SHOP THAT COULD TAKE AN ORDER NOBODY CAN CONFIRM — AND ELEVEN FAULTS IN YOUR OTHER GUIDES (database step: re-run the slots file you already use; then deploy `shop-feedback`).**
 

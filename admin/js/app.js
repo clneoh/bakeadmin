@@ -282,7 +282,11 @@ function render() {
         String((err && err.message) || err)),
       button("Try again", render, "primary")));
   }
-  viewEl.focus({ preventScroll: true });
+  // ⚠️⚠️ AND IT IS NOT RE-FOCUSED BY A TIMER (v566). ⭐ This ran on EVERY render, including the 30-second
+  // sync repaint — ⭐ **so a keyboard user reading the list was silently moved to the page container every
+  // half-minute, with no ring to show it.** ⭐ A NAVIGATION may start at the top of the new screen; a
+  // repaint of the screen she is on must not take her place.
+  if (navigating) viewEl.focus({ preventScroll: true });
   // ⚠️ PUT BACK BEFORE THE BROWSER PAINTS — nothing runs in between, so she never sees the top, and the
   // restore itself cannot move a box whose own scroll a view is still measuring.
   if (keepY > 0 && scroller && !scroller.scrollTop) scroller.scrollTop = keepY;

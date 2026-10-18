@@ -146,6 +146,10 @@ export function courierQuoteSection({
   // A booking or a cancellation in flight. One at a time, because both spend money and
   // a second press while the first is unanswered is a second vehicle.
   let jobBusy = false;
+  // ⚠️⚠️ A BOOKING WHOSE REPLY WAS LOST IS NOT KNOWN TO HAVE FAILED (v566). ⭐ The function has no timeout of
+  // its own, so the browser giving up can leave a trip already booked and already charged. ⭐ While this is
+  // set, every Book press is refused with the sentence that says so — the way back is to look in Lalamove.
+  let bookUnknown = false;
 
   const bodyWrap = el("div", { style: "margin-top:10px" });
   bodyWrap.hidden = true;
@@ -1003,6 +1007,11 @@ export function courierQuoteSection({
       // A price-only host has nowhere to put a trip, so the press is refused here as well
       // as not drawn — a stray call cannot put a real vehicle on the road.
       if (!canBook) return;
+      // ⚠️ A lost booking must be LOOKED AT before another is made (v566).
+      if (bookUnknown) {
+        toast(`Open ${courier.label} and check whether the last booking went through before booking again.`);
+        return;
+      }
       if (jobBusy || !wrap.isConnected) return;
       const trip = pricedTrip;
       if (!trip) { toast("Ask for a price first — a trip is booked at the price it was quoted at."); return; }
@@ -1044,6 +1053,9 @@ export function courierQuoteSection({
       if (!wrap.isConnected) return;
       jobBusy = false;
       if (!out.ok) {
+        // ⚠️⚠️ AN UNKNOWN BOOKING DISABLES EVERY BOOK PRESS (v566). ⭐ Leaving "Book this trip" under a
+        // sentence that says the trip may already exist is how she books and pays twice.
+        if (out.unknown) bookUnknown = true;
         statusLine.textContent = out.reason;
         paintQuotes();
         paintJob();
@@ -1300,7 +1312,8 @@ export function courierQuoteSection({
         // `why` covers everything `unbookable` used to, and more — except the dead clock,
         // which is this row's own reading of the time and not a property of the quote.
         if (bookBtn) {
-          bookBtn.disabled = dead || !!why || !!bookBlocked || jobBusy;
+          // ⚠️ AND A LOST BOOKING TAKES EVERY BOOK PRESS AWAY (v566) — see `bookUnknown`.
+          bookBtn.disabled = dead || !!why || !!bookBlocked || jobBusy || bookUnknown;
           if (dead) bookBtn.textContent = "Expired";
         }
       });

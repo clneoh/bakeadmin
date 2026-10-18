@@ -93,12 +93,27 @@ export async function callCourier(state, { action, provider = "", payload = {}, 
     }
     return body;
   } catch (err) {
+    // ⚠️⚠️ A BOOKING THAT LOST ITS REPLY HAS AN UNKNOWN OUTCOME (v566). ⭐ Placing a Lalamove order spends
+    // money and puts a real vehicle on a real road, and the function has no timeout of its own — ⭐ **so a
+    // 25-second abort can leave a trip that is already booked and already charged**, while this line said
+    // "check your signal and try again", the one instruction that books a second one. ⚠️ The screen takes
+    // the Book press away on `unknown`, and the way back is to look in the courier's own app.
+    const unknown = action === "book";
     if (err && (err.name === "AbortError" || err.code === 20)) {
-      return { ok: false, reason: "The courier service did not answer in time. Check your signal and try again." };
+      return {
+        ok: false,
+        ...(unknown ? { unknown: true } : {}),
+        reason: unknown
+          ? "The courier did not answer in time, so this app cannot tell whether the trip was booked and charged. Open your courier account and look for it before booking again — a second Book may charge you twice."
+          : "The courier service did not answer in time. Check your signal and try again.",
+      };
     }
     return {
       ok: false,
-      reason: err && err.message ? `Couldn't reach the courier service — ${err.message}` : "Couldn't reach the courier service.",
+      ...(unknown ? { unknown: true } : {}),
+      reason: unknown
+        ? "The connection dropped while booking, so this app cannot tell whether the trip was booked and charged. Open your courier account and look for it before booking again — a second Book may charge you twice."
+        : (err && err.message ? `Couldn't reach the courier service — ${err.message}` : "Couldn't reach the courier service."),
     };
   } finally {
     clearTimeout(timer);

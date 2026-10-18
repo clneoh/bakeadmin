@@ -19,13 +19,19 @@ export function renderLock(layerEl, state, { onUnlocked } = {}) {
     autocomplete: "off", autocapitalize: "off", autocorrect: "off", spellcheck: "false",
     placeholder: "4 digits",
   });
-  const err = el("p", { class: "lock-error" });
+  // ⚠️⚠️ A WRONG PIN IS AN ERROR, AND IT SAID NOTHING TO A SCREEN READER (v566). ⭐ `role="alert"` makes
+  // it announced the moment it is written, and `aria-invalid` ties it to the box she has to fix.
+  const err = el("p", { class: "lock-error", role: "alert", id: "lock-error" });
+  input.setAttribute("aria-describedby", "lock-error");
+  // ⚠️ `aria-invalid` is SET both ways rather than removed: the app's test shims implement setAttribute
+  // and not removeAttribute, and "false" is the valid ARIA spelling of "not invalid".
+  const sayWrong = (msg) => { err.textContent = msg; input.setAttribute("aria-invalid", msg ? "true" : "false"); };
   const go = button("Unlock", doUnlock, "primary block");
   let wrong = 0;   // wrong tries on THIS screen — see the pause in `doUnlock`
 
   async function doUnlock() {
     if (!isPin(input.value)) {
-      err.textContent = "Enter 4 digits";
+      sayWrong("Enter 4 digits");
       input.value = "";
       input.focus();
       return;
@@ -41,13 +47,13 @@ export function renderLock(layerEl, state, { onUnlocked } = {}) {
       h = await hashPin(input.value);
     } catch {
       go.disabled = false;
-      err.textContent = "This phone cannot check the password on this address. Open the app from the "
-        + "https:// address (or localhost on a computer), then try again.";
+      sayWrong("This phone cannot check the password on this address. Open the app from the "
+        + "https:// address (or localhost on a computer), then try again.");
       input.focus();
       return;
     }
     if (h === state.settings.lock.pinHash) {
-      err.textContent = "";
+      sayWrong("");
       close();
       if (onUnlocked) onUnlocked();
     } else {
@@ -61,17 +67,17 @@ export function renderLock(layerEl, state, { onUnlocked } = {}) {
       const wait = wrongPauseMs(wrong);
       input.value = "";
       if (wait > 0) {
-        err.textContent = `Wrong password — try again in ${Math.round(wait / 1000)}s`;
+        sayWrong(`Wrong password — try again in ${Math.round(wait / 1000)}s`);
         go.disabled = true;
         input.disabled = true;
         setTimeout(() => {
           go.disabled = false;
           input.disabled = false;
-          err.textContent = "Wrong password — try again";
+          sayWrong("Wrong password — try again");
           input.focus();
         }, wait);
       } else {
-        err.textContent = "Wrong password — try again";
+        sayWrong("Wrong password — try again");
         go.disabled = false;
         input.focus();
       }
