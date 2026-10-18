@@ -14,9 +14,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 const {
-  ACTION, EASYPARCEL_KEY, bodyFor, bookRequest, hostFor, orderRow, phpForm, rateRow, readBalance,
+  ACTION, EASYPARCEL_KEY, bodyFor, bookRequest, bookableCourierName, BOOKABLE_COURIERS,
+  hostFor, orderRow, phpForm, rateRow, readBalance,
   readOrder, readRates, readTracking, reasonIn, stateCode, RATE_EXCLUDE,
 } = await import("../supabase/functions/parcel/easyparcel.ts");
 
@@ -166,6 +168,60 @@ test("booking names ONE courier, and never a silent substitution (v307)", () => 
   assert.equal(bookRequest({ courier: "Ninjavan", dropoff: true, orders: [] }).dropoff, 1);
 });
 
+// ── the courier named in the booking call (v562) ─────────────────────────────
+
+test("★★★ the courier she PRICED is the courier the booking call names", () => {
+  // ⚠️⚠️ THEIR TWO REPLIES NAME THE SAME COURIER DIFFERENTLY. The rate sample says
+  // "POSLAJU NATIONAL COURIER" and "CJ Century Logistics Sdn Bhd"; the booking endpoint documents
+  // 'Poslaju' and 'CJ Century'. ⭐ The app used to send the DISPLAY name, and their `courier` array
+  // is a FALLBACK ORDER — so a name it cannot place may book a different courier at a different
+  // price, or be refused. ⭐ `courier_id` joins the two replies, and a name match is the fallback.
+  assert.equal(bookableCourierName("POSLAJU NATIONAL COURIER", "EP-CR0A"), "Poslaju");
+  assert.equal(bookableCourierName("CJ Century Logistics Sdn Bhd", "EP-CR0Z"), "CJ Century");
+  assert.equal(bookableCourierName("DHL eCommerce", "EP-CR0C"), "DHL eCommerce");
+  assert.equal(bookableCourierName("Skynet", "EP-CR05"), "Skynet");
+  // By name alone, when the id is one this app's list does not carry.
+  assert.equal(bookableCourierName("Aramex", ""), "Aramex");
+  assert.equal(bookableCourierName("PGEON PRIME", ""), "Pgeon Prime",
+    "★ the longest matching name wins — Pgeon Prime must never be booked as Pgeon Delivery");
+  assert.equal(bookableCourierName("Ultimate Consolidators Sdn Bhd", ""), "ULTIMATE CONSOLIDATORS");
+  // ⚠️ AND A COURIER IT CANNOT PLACE IS "" — refused by the caller, never guessed.
+  assert.equal(bookableCourierName("Ninjavan", "EP-CR0DU"), "",
+    "★ Ninja Van is in their INSURANCE list, not their booking list — a guess here books blind");
+  assert.equal(bookableCourierName("Ghost Courier", ""), "");
+});
+
+test("★★★ and every name it will send is one the booking endpoint documents", () => {
+  // ⭐ The list is the document's own Request L1, and the mapping may only ever answer from it.
+  for (const name of BOOKABLE_COURIERS) {
+    assert.equal(bookableCourierName(name, ""), name, `${name} should map to itself`);
+  }
+  assert.equal(BOOKABLE_COURIERS.length, 10, "their booking list is ten names");
+});
+
+test("★★★ the provider's rate rows carry the id the join needs", () => {
+  const out = readRates({ api_status: "Success", result: [{ status: "Success", remarks: "", rates: [
+    { courier_name: "POSLAJU NATIONAL COURIER", courier_id: "EP-CR0A", price: "8.00" },
+  ] }] });
+  assert.equal(out.ok, true);
+  assert.equal(out.rates[0].courierId, "EP-CR0A",
+    "★ the rate row no longer carries courier_id, so booking has only the display name to go on");
+});
+
+test("★★★ the booking action maps the courier BEFORE it sends the order", () => {
+  // ⚠️ A SOURCE CHECK, AND IT IS THE ONLY KIND POSSIBLE HERE: `index.ts` starts with a `jsr:`
+  // specifier and calls `Deno.serve`, so Node cannot import it at all (see
+  // test/edge-function-imports.test.js). ⭐ **This is weaker than a driven test and says so: what
+  // it can prove is that the one line doing the join is still on the path that books, and that the
+  // refusal for a name their list cannot place has not been deleted.**
+  const src = readFileSync(new URL("../supabase/functions/parcel/index.ts", import.meta.url), "utf8");
+  assert.match(src, /const courier = bookableCourierName\(/,
+    "★ the booking action sends the rate's DISPLAY name again — **their booking list documents "
+    + "'Poslaju' while the rate reply says 'POSLAJU NATIONAL COURIER'**");
+  assert.match(src, /if \(!courier\) \{/,
+    "★ a courier their booking list cannot place is no longer refused, so a guess goes to the vendor");
+});
+
 // ── reading their replies ────────────────────────────────────────────────────
 
 test("the wallet is read as money, from the string they actually send (v307)", () => {
@@ -240,6 +296,29 @@ test("a booking reports what went through AND what did not, with their own words
   assert.equal(out.booked[0].reference, "A3F9C2", "tied back by the order's own code");
   assert.equal(out.failed.length, 1);
   assert.equal(out.failed[0].reason, "Insufficient Credit", "the wallet, named as the wallet");
+});
+
+test("★★★ the booking says what was CHARGED, not what was quoted (v562)", () => {
+  // ⚠️⚠️ The screen used to repeat the QUOTED price as the amount paid. ⭐ Their success reply
+  // carries the price it actually took (`price`, with `tax` and `addon_price` inside it), so that is
+  // the figure to show — and the one to compare with the quote.
+  const out = readOrder({ api_status: "Success", result: [{
+    summary: { total_paid_amount: "8.15" },
+    success: [{
+      referrence: "A3F9C2", order_number: "EI-5UFAI", status: "Success",
+      courier: "POSLAJU NATIONAL COURIER", courier_short: "Pos Laju",
+      price: "8.15", tax: "0.00", addon_price: "0.15",
+      parcel: [{ awb: "ER665997516MY", tracking_url: "https://easyparcel.com/my/en/track" }],
+    }],
+    fail: [],
+  }] });
+  assert.equal(out.ok, true);
+  assert.equal(out.booked[0].priceRM, 8.15, "★ the figure EasyParcel took is not on the booking");
+  assert.equal(out.booked[0].taxRM, 0);
+  assert.equal(out.booked[0].addonRM, 0.15);
+  assert.equal(out.booked[0].courierName, "POSLAJU NATIONAL COURIER");
+  assert.equal(out.booked[0].orderNumber, "EI-5UFAI",
+    "★ the V3 reply spells it order_number, and reading only orderno loses it");
 });
 
 test("a booking that answered with nothing at all is a reason, not a silent success (v307)", () => {

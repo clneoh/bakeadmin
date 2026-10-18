@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v561)
+# Jienluv2bake — change history (v54 → v562)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v562, THE PARCEL THAT COULD HAVE BEEN BOOKED WITH THE WRONG COURIER (no database step, but the `parcel` function must be deployed again).**
+
+**Your words:** __"fix the EasyParcel service one"__ — the last open item, and it needed their own document rather than a guess. I have now read it: **EasyParcel Individual API Document 1.4.0.0 (Malaysia), 55 pages.**
+
+**1. ⚠️⚠️ THE NAME THIS APP SENT WAS NOT A NAME THEIR BOOKING ACCEPTS.** EasyParcel's **price list** calls a courier **"POSLAJU NATIONAL COURIER"**; its **booking call** accepts only **"Poslaju"**. Same for **"CJ Century Logistics Sdn Bhd"** versus **"CJ Century"**. ⭐ The app was sending the price list's wording into the booking, and their booking call takes a **list of names in fallback order** — so a name it could not place could book **a different courier at a different price**, or be refused.
+- ⭐ **Now the two are joined properly.** Every priced row carries EasyParcel's own courier code, so "POSLAJU NATIONAL COURIER" is booked as **Poslaju** and "CJ Century Logistics Sdn Bhd" as **CJ Century**.
+- ⚠️ **And a courier their booking list does not carry is REFUSED, with a sentence that says so** and points to their website — because a guess there is a parcel sent with someone she did not choose.
+
+**2. ⚠️⚠️ AND THE PRICE ON THE RECEIPT WAS THE QUOTE, NOT THE BILL.** The screen said **"RM8.00 paid"** from the price it had shown her, not from what EasyParcel charged. ⭐ **Their booking reply carries the amount actually taken** — so that is now the figure she sees.
+- ⭐ **When the two differ, it says both**: you were quoted this, EasyParcel booked that courier's own service, it came to that.
+- ⚠️ **And when their reply carries no figure at all, the line says so** rather than repeating the quote as if it were the bill.
+
+**3. ⭐ AND THE THING THAT CANNOT BE FIXED, SAID PLAINLY.** The exact **service** she picks (one courier can offer two at two prices) **cannot be named in their booking call** — the newer one-call endpoint has no field for it, and the older endpoint that does have a service field **does not take the money**, it leaves an unpaid draft. ⭐ **This app keeps the one call that creates and pays together**, because a draft nobody paid is a parcel nobody collects, and it tells her the charged amount instead of pretending the service was pinned.
+
+**4. ⭐ Worth saying: none of this is live yet.** EasyParcel needs RM500 of prepaid credit before its API is switched on, and you decided against topping that up for a bakery that posts a parcel occasionally. ⭐ **So this is the seam made correct while it waits**, and nothing about it costs you anything until you use it.
+
+**5. ⭐ Measured:** their own two samples are now held against each other by a test — "POSLAJU NATIONAL COURIER" with its code books as **Poslaju**, "CJ Century Logistics Sdn Bhd" books as **CJ Century**, a courier they carry for insurance but not for booking (**Ninja Van**) is **refused rather than guessed**, and their booking reply's **RM8.15** (with 15 sen of add-on) is read as the amount charged. Every one of those assertions was put back to its fault and seen to fail.
+
+**6. Nothing of yours was rewritten, and there is no database step. ⚠️ The `parcel` function must be deployed again — pushing does not deploy it.**
+
+---
 
 **18 Oct 2026 — engine v561, THE BOOKING THAT MAY HAVE GONE THROUGH — AND THREE PDF FAULTS YOU HAVE BEEN LOOKING AT (database step: run `supabase/tracking.sql` again; then deploy four functions, listed below).**
 

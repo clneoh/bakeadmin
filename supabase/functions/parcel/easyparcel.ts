@@ -247,6 +247,7 @@ export function readBalance(json: unknown): { ok: true; balanceRM: number } | { 
 export type Rate = {
   courierName: string; serviceName: string; priceRM: number;
   delivery: string; serviceId: string; rateId: string;
+  courierId: string;
   dropoff: boolean; pickup: boolean;
 };
 
@@ -275,6 +276,7 @@ export function readRates(json: unknown): { ok: true; rates: Rate[] } | { ok: fa
       delivery: String(x.delivery || "").trim(),
       serviceId: String(x.service_id || "").trim(),
       rateId: String(x.rate_id || "").trim(),
+      courierId: String(x.courier_id || "").trim(),
       dropoff: detail.indexOf("dropoff") >= 0,
       pickup: detail.indexOf("pickup") >= 0,
     };
@@ -288,7 +290,59 @@ export function readRates(json: unknown): { ok: true; rates: Rate[] } | { ok: fa
   return { ok: true, rates };
 }
 
-export type Booked = { reference: string; orderNumber: string; awb: string; trackingUrl: string };
+// ⚠️⚠️ THE RATE REPLY AND THE BOOKING CALL NAME A COURIER DIFFERENTLY, AND THAT IS THE WHOLE FAULT (v562).
+//
+// ⭐ `EPRateCheckingBulk` answers with a DISPLAY name — their own sample says **"POSLAJU NATIONAL
+// COURIER"**, **"CJ Century Logistics Sdn Bhd"** — while `EPSubmitOrderBulkV3` accepts only the ten
+// names its Request L1 lists: 'Pgeon Prime', 'Pgeon Delivery', 'Poslaju', 'Skynet', 'ABX',
+// 'DHL eCommerce', 'Aramex', 'CJ Century', 'UTS', 'ULTIMATE CONSOLIDATORS'.
+// ⚠️ **So the app was sending "POSLAJU NATIONAL COURIER" to an endpoint that documents "Poslaju"** —
+// a name it may answer with a fallback courier or a refusal, and neither is the parcel she priced.
+//
+// ⭐ THE JOIN IS `courier_id`, WHICH BOTH REPLIES CARRY. Appendix IV gives the codes for insurance
+// (EP-CR0A Pos Laju, EP-CR05 Skynet, EP-CR0C DHLeC, EP-CR03 Aramex, EP-CR01 UTS) and the rate
+// sample gives EP-CR0Z for CJ Century. ⭐ A code that is not one of those falls back to a NAME
+// match, because the ten names are plain words and a display name contains one.
+//
+// ⚠️ A COURIER THAT CANNOT BE MATCHED IS REFUSED, NOT GUESSED. Sending a name their booking list
+// does not carry can book a DIFFERENT courier through their fallback rule, at a different price.
+export const BOOKABLE_COURIERS = [
+  "Pgeon Prime", "Pgeon Delivery", "Poslaju", "Skynet", "ABX",
+  "DHL eCommerce", "Aramex", "CJ Century", "UTS", "ULTIMATE CONSOLIDATORS",
+];
+
+const COURIER_BY_ID: Record<string, string> = {
+  "EP-CR0A": "Poslaju",
+  "EP-CR05": "Skynet",
+  "EP-CR0C": "DHL eCommerce",
+  "EP-CR03": "Aramex",
+  "EP-CR01": "UTS",
+  "EP-CR0Z": "CJ Century",
+};
+
+// Their names are words, so the match is on the words: lower case, punctuation gone, spaces run
+// together. ⚠️ Only a name that CONTAINS the booked name is accepted, and the longest booked name
+// wins so "Pgeon Prime" is never read as "Pgeon Delivery".
+export function bookableCourierName(courierName: unknown, courierId?: unknown): string {
+  const id = String(courierId || "").trim().toUpperCase();
+  if (COURIER_BY_ID[id]) return COURIER_BY_ID[id];
+  const said = String(courierName || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  if (!said) return "";
+  let best = "";
+  for (const name of BOOKABLE_COURIERS) {
+    const key = name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (said === key || said.indexOf(key) >= 0) {
+      if (key.length > best.length) best = name;
+    }
+  }
+  return best;
+}
+
+export type Booked = {
+  reference: string; orderNumber: string; awb: string; trackingUrl: string;
+  // ⭐ What EasyParcel actually charged, read from the reply rather than assumed from the quote.
+  priceRM: number; taxRM: number; addonRM: number; courierName: string;
+};
 
 // What came back from the booking. ⚠️ THIS ONE CALL BOTH CREATES THE ORDER AND TAKES THE
 // MONEY OUT OF THE WALLET, so a partial failure is a real thing that has to be reported per
@@ -321,9 +375,17 @@ export function readOrder(json: unknown): { ok: true; booked: Booked[]; failed: 
         // correctly-spelled key is kept as a fallback in case they ever fix the typo rather
         // than break every integration that copied it.
         reference: String(x.referrence || x.reference || parcel.referrence || parcel.reference || "").trim(),
-        orderNumber: String(x.orderno || "").trim(),
+        // ⚠️ BOTH SPELLINGS: the V3 reply uses `order_number`, the older samples use `orderno`.
+        orderNumber: String(x.order_number || x.orderno || "").trim(),
         awb,
         trackingUrl: String(parcel.tracking_url || "").trim(),
+        // ⭐ THE FIGURES THAT WERE ACTUALLY TAKEN. `price` is the total (shipping + tax + addon),
+        // `tax` and `addon_price` are the parts of it. Read as numbers so the screen can compare
+        // them with what she was quoted.
+        priceRM: round2(x.price),
+        taxRM: round2(x.tax),
+        addonRM: round2(x.addon_price),
+        courierName: String(x.courier || x.courier_short || "").trim(),
       });
       continue;
     }
@@ -373,13 +435,15 @@ export function readTracking(json: unknown): { ok: true; events: TrackEvent[] } 
 // actually see in their own website. So the app books from the RATE it was given: she picks
 // a priced row.
 //
-// ⚠️⚠️ AND THIS COMMENT USED TO SAY THAT ROW'S **SERVICE** GOES INTO THE ORDER — IT DOES NOT (v561).
-// ⭐ The rate row carries `serviceId`/`rateId`, and `bookRequest` below sends the COURIER'S NAME only, so
-// where one courier quotes two services at two prices, **the one she picked is not the one necessarily
-// booked.** ⚠️ It is left as it is on purpose: the field their order endpoint wants for a service is not
-// something this app can verify, and a guessed field could book the wrong thing rather than refuse.
-// ⭐ A stale comment was quoted as evidence once in this project; it is corrected here rather than left
-// claiming a promise the payload does not keep.
+// ⚠️⚠️ AND THE SERVICE CANNOT BE PINNED, WHICH IS NOW A FACT AND NOT A GUESS (v562).
+// ⭐ The rate row carries `serviceId`/`rateId`, and the booking row has **no field for either**:
+// `EPSubmitOrderBulkV3`'s Request L2 (page 33 of their 1.4.0.0 document) lists `referrence`, `weight`,
+// `content`, `value`, the pick/send party, `collect_date`, `send_email` and `sms` — and nothing else.
+// ⚠️ The ONLY way to name a service is the older `EPSubmitOrderBulk`, whose row takes `service_id` —
+// **and that endpoint does not take the money**; it leaves a draft that has to be paid by a second
+// call. ⭐ One call that creates AND pays is the safer of the two, so this app keeps V3 and says on
+// screen that the price is a quote for that courier, with the charged amount read back from the
+// reply (`readOrder` below) rather than the quote repeated as if it were the bill.
 //
 // The `courier` array is their fallback order for "if the first is not available" — one
 // name, because she chose ONE price and a silent substitution to a different courier at a

@@ -3955,11 +3955,16 @@ function parcelApiBlock({ state, group, draft, refresh }) {
   const book = (rate) => {
     const cost = Number(rate.priceRM) || 0;
     confirmDialog(
-      `Book this parcel with ${rate.courierName} for RM${cost.toFixed(2)}?`,
+      // ⚠️ A QUOTE IS A QUOTE (v562). EasyParcel's booking call takes the COURIER and picks that
+      // courier's service itself — the exact row she picked cannot be named in it — so the price on
+      // screen is what it quoted and the amount it charged is read back from its own reply.
+      `Book this parcel with ${rate.courierName} for RM${cost.toFixed(2)}? EasyParcel picks that courier's service; the amount it actually charges is shown the moment it answers.`,
       async () => {
         draft.parcelSaid = "Booking…";
         refresh();
-        const out = await parcelBook(state, { ...payload(), courier: rate.courierName, dropoff: !!rate.dropoff });
+        const out = await parcelBook(state, {
+          ...payload(), courier: rate.courierName, courierId: rate.courierId, dropoff: !!rate.dropoff,
+        });
         if (!out.ok) {
           draft.parcelSaid = out.reason;
           // ⚠️⚠️ AN UNKNOWN OUTCOME TAKES THE BOOK PRESS AWAY (v561). ⭐ The server cannot tell whether the
@@ -3991,7 +3996,19 @@ function parcelApiBlock({ state, group, draft, refresh }) {
         // chose. She can pick it in the box above in one press if she wants it named.
         save(state);
         maybeSync(state);
-        draft.parcelSaid = `Booked with ${rate.courierName} — RM${cost.toFixed(2)} paid from your EasyParcel credit. Consignment number ${done.awb}, and it is in the tracking box above.`;
+        // ⚠️ THE AMOUNT ON THIS LINE IS THE ONE THAT WAS TAKEN, NOT THE ONE THAT WAS QUOTED (v562).
+        // ⭐ EasyParcel answers with the price it charged; quoting the rate row back at her would be a
+        // receipt that describes a different transaction. ⚠️ When it did not send a figure, the message
+        // says so rather than repeating the quote as if it were the bill.
+        const paid = Number(done.priceRM) || 0;
+        const who = done.courierName || rate.courierName;
+        const charged = paid > 0
+          ? `RM${paid.toFixed(2)} paid from your EasyParcel credit`
+          : "EasyParcel did not say what it charged — that figure is on your EasyParcel account";
+        const differs = paid > 0 && Math.abs(paid - cost) >= 0.01
+          ? ` You were quoted RM${cost.toFixed(2)}; EasyParcel booked ${who}'s own service, which came to RM${paid.toFixed(2)}.`
+          : "";
+        draft.parcelSaid = `Booked with ${who} — ${charged}.${differs} Consignment number ${done.awb}, and it is in the tracking box above.`;
         draft.parcelRates = null;
         draft.parcelRate = null;
         toast(`Parcel booked — ${done.awb}`);

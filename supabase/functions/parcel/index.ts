@@ -40,7 +40,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
-  ACTION, EASYPARCEL_KEY, bodyFor, bookRequest, hostFor, notSetUpReason, orderRow, rateRow,
+  ACTION, EASYPARCEL_KEY, bodyFor, bookRequest, bookableCourierName, hostFor, notSetUpReason, orderRow, rateRow,
   RATE_EXCLUDE, readBalance, readOrder, readRates, readTracking, reasonIn, stateCode,
   type Box, type Party,
 } from "./easyparcel.ts";
@@ -212,11 +212,24 @@ Deno.serve(async (req) => {
   // ⚠️ THIS TAKES THE MONEY. It is the V3 endpoint, which creates the order AND pays for it
   // in one call, so there is no half-state where a draft exists that nobody paid for.
   if (action === "book") {
-    const courier = String(args.courier || "").trim();
+    // ⚠️⚠️ THE NAME SENT HERE MUST BE ONE THEIR BOOKING LIST CARRIES (v562). ⭐ The RATE reply calls the
+    // same courier "POSLAJU NATIONAL COURIER" while the BOOKING call documents "Poslaju", and their
+    // courier array is a FALLBACK ORDER — so an unmatched name can book a different courier at a
+    // different price. ⭐ `courierId` joins the two replies; a name match is the fallback.
+    const said = String(args.courier || "").trim();
+    const courier = bookableCourierName(said, args.courierId);
     const box = checkedBox(args.box);
     const pick = checkedParty(args.pick);
     const send = checkedParty(args.send);
-    if (!courier) return json({ ok: false, reason: "Choose which courier to book first." });
+    if (!said) return json({ ok: false, reason: "Choose which courier to book first." });
+    if (!courier) {
+      return json({
+        ok: false,
+        reason: `EasyParcel's booking list has no entry for "${said}", so this app cannot book it without `
+          + "guessing which courier and which price you would be charged. Book that one on easyparcel.com.my, "
+          + "and its consignment number can be typed into the tracking box here.",
+      });
+    }
     if (!box) return json({ ok: false, reason: "A parcel needs a weight before it can be booked." });
     if (!pick || !send) return json({ ok: false, reason: "The sender's and receiver's details both have to be finished before a parcel can be booked." });
     const order = orderRow({
