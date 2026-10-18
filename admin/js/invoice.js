@@ -43,6 +43,8 @@
 // Pure module: no DOM, no storage. Runs under Node for tests.
 
 import { customerTotal } from "./courier.js";
+import { orderDateOf } from "./customers.js";
+import { fmtRM } from "./state.js";
 import { orderCode, orderLineName, orderLinePrice, round2 } from "./state.js";
 import { longDate } from "./dates.js";
 
@@ -86,6 +88,14 @@ export function invoiceSheet(state, group, { from = "", bakery = "", printed = "
   // cash-on-delivery charge out of `courier`, so this is the same figure the
   // confirmation message states and never a second reading of the fee.
   if (t.courier > 0) lines.push({ what: "Courier", amount: t.courier });
+  // ⚠️⚠️ AND A CASH-ON-DELIVERY CHARGE, WHICH THE INVOICE NEVER MENTIONED (v572). ⭐ `customerTotal` nets a COD
+  // charge OUT of `courier`, so the line above does not exist for it — while the message and the on-screen
+  // receipt both say "Courier charge RM 8.00 — COD". ⚠️ **The paper said Total RM16 and the customer handed the
+  // driver RM24.** ⭐ It is a note, not a line: it is not part of what this invoice's Total adds up to, and a
+  // line would make the sheet's own arithmetic wrong.
+  const codNote = (Number(t.cod) || 0) > 0
+    ? `Courier charge ${fmtRM(t.cod, (state.settings && state.settings.currency) || "RM")} is paid to the driver on delivery (cash on delivery).`
+    : "";
   // The code, taken off. Drawn with `dir: "out"` because that is what prints the
   // minus in front of the figure on all four renderings — the sheet has one way of
   // saying "this much came off", and this is it.
@@ -107,12 +117,21 @@ export function invoiceSheet(state, group, { from = "", bakery = "", printed = "
     // number belongs, which is the fault this app treats as a bug everywhere else.
     receipt,
     receiptNote: receipt ? "" : receiptStatus,
-    // The day the order was PLACED, not today — a reprint is the same invoice and
-    // must carry the same date as the first one.
-    subtitle: longDate(first.orderDate || first.createdAt),
+    // ⚠️⚠️ THE PLACED DAY, READ THE ONE WAY THE APP READS IT (v572). ⭐ This passed the RAW value to
+    // `longDate`, and an order with no `orderDate` fell through to a full ISO timestamp — ⭐ **which prints
+    // "NaN undefined NaN"** (measured). `orderDateOf` takes the date it has, in her clock, and answers "" when
+    // there is none, so the line is either a real day or absent.
+    subtitle: longDate(orderDateOf(first)),
+    // ⚠️⚠️ AND WHO IT IS FOR, ON PAPER (v572). ⭐ The screen said "Aunty Bee · placed …" and the sheet said
+    // nothing, so a printed invoice could only be matched to an order by its code. The address rides with it
+    // for a courier order, because that is the document that goes in the parcel.
+    to: [String(first.customerName || "").trim(),
+      first.fulfillment === "courier" ? String(first.address || "").trim() : ""]
+      .filter(Boolean).join(" · "),
     bakery,
     from,
     printed,
+    note: codNote,
     lines,
     // ⚠️⚠️ THE TOTAL IS WHAT THE LINES ABOVE IT ADD UP TO (v551). ⭐ MEASURED: two lines at RM0.005 each
     // printed as "RM 0.01" and "RM 0.01" — a reader's sum of **RM0.02** — under **Total RM0.01**, because

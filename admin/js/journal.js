@@ -65,12 +65,15 @@ export function bakeryName(state) {
 // wearing a statement class (a subtotal row) or being a heading with no money of its own;
 // `totals` are the closing figures, drawn after a rule of their own.
 export function journalSheet({
-  title, subtitle = "", lines = [], totals = [], empty = "", note = "",
+  title, subtitle = "", to = "", lines = [], totals = [], empty = "", note = "",
   where = "", bakery = "", from = "", printed = "", receipt = "", receiptNote = "",
 } = {}) {
   return {
     title: String(title || "Journal"),
     subtitle: String(subtitle || ""),
+    // ⭐ WHO THE DOCUMENT IS FOR (v572). ⚠️ An invoice's paper carried the order code and no customer at all —
+    // a stack of them could only be matched by number. ⚠️ The screen had always said it; the paper did not.
+    to: String(to || ""),
     // ★ THE RECEIPT'S SERIAL, AND WHAT TO SAY WHEN THERE IS NONE (v360). An invoice carries
     // it under its title; every other journal passes nothing, so this stays empty and draws
     // nothing. `receiptNote` is the sentence for an order that has no number YET — it is
@@ -156,6 +159,7 @@ export function buildJournalText(sheet, cur = "RM") {
   // still says who it is from and where to find them.
   out.push(...fromLines(s.from, s.bakery));
   if (s.subtitle) out.push(s.subtitle);
+  if (s.to) out.push(s.to);
 
   if (!s.lines.length) {
     out.push("", s.empty);
@@ -259,6 +263,7 @@ export function journalSheetEl(sheet, cur = "RM") {
       ...fromLines(s.from, s.bakery).map((line) => el("p", { class: "js-from" }, line)),
       el("h2", { class: "js-title" }, s.title),
       s.subtitle ? el("p", { class: "js-sub" }, s.subtitle) : null,
+      s.to ? el("p", { class: "js-sub js-to" }, s.to) : null,
       // The serial, printed under the title on the paper and nowhere else, so a second
       // number cannot be mistaken for the document's own heading.
       s.receipt ? el("p", { class: "js-receipt" }, s.receipt) : null,
@@ -340,6 +345,7 @@ function sheetPages(s, cur) {
     put(s.title, PDF_MARGIN, { font: "F2", size: 18 });
     y -= 24;
     if (s.subtitle) { put(s.subtitle, PDF_MARGIN, { size: 10, color: MUTED }); y -= 15; }
+    if (s.to) { put(s.to, PDF_MARGIN, { size: 10, color: MUTED }); y -= 15; }
     y -= 3;
     rule(0.8);
     y -= 17;

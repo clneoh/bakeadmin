@@ -636,3 +636,48 @@ test("★★★ a correction still works after the stock card has FORGOTTEN the 
   setBakedTotal(st, p, "2026-10-17", 0);
   assert.equal(st.ingredients[0].onHand, 10000);
 });
+
+test("★★★ an OLD bake (no memory of what it took) survives add → correct → clear (v572)", () => {
+  // ⚠️⚠️ MEASURED BEFORE THE FIX: bake 10 (2,500 g), correct to 6 (right), back to 10, then clear — the row
+  // was deleted at 8,500 with `applied` 0 and **1,500 g stayed off the shelf with nothing to explain it.**
+  // ⭐ An add on a pre-v570 record wrote a figure that shadowed the journal; the journal is now copied onto
+  // the row the first time it is touched, in either direction.
+  const st = baseState([], []);
+  st.ingredients = [{ id: "i1", name: "Flour", unit: "g", uomId: "g", onHand: 10000, stockLog: [] }];
+  const p = { id: "p1", name: "Focaccia", active: true, unit: "pc", recipe: [{ ingredientId: "i1", qty: 250, unit: "g" }] };
+  st.products = [p];
+  setBakedTotal(st, p, "2026-10-17", 10);
+  // Make it look like a PRE-v570 record: the memory was never written.
+  const row = st.bakedDays.find((r) => r.id === "bake_2026-10-17_p1");
+  delete row.items.p1.took;
+
+  setBakedTotal(st, p, "2026-10-17", 6);     // journal fallback gives four pans back
+  assert.equal(st.ingredients[0].onHand, 8500);
+  setBakedTotal(st, p, "2026-10-17", 10);    // back up
+  assert.equal(st.ingredients[0].onHand, 7500);
+  setBakedTotal(st, p, "2026-10-17", 0);     // and clear
+  assert.equal(st.ingredients[0].onHand, 10000,
+    "★★ an old bake lost stock on add → correct → clear — **the shelf ends short with no bake row left**");
+});
+
+test("★★★ the ✕ is REFUSED on a bake correction, so the day's pans and the shelf cannot disagree (v572)", () => {
+  // ⚠️⚠️ A correction row is half of one arithmetic. Removing it put stock back out and left the day's
+  // `applied` untouched — ⚠️ **measured: clearing the day afterwards gave back 1,500 g where 2,500 belonged,
+  // and the shelf ended at 9,000 instead of 10,000.** ⭐ It is refused with the way through: the baked box.
+  const st = baseState([], []);
+  st.ingredients = [{ id: "i1", name: "Flour", unit: "g", uomId: "g", onHand: 10000, stockLog: [] }];
+  const p = { id: "p1", name: "Focaccia", active: true, unit: "pc", recipe: [{ ingredientId: "i1", qty: 250, unit: "g" }] };
+  st.products = [p];
+  setBakedTotal(st, p, "2026-10-17", 10);
+  setBakedTotal(st, p, "2026-10-17", 6);
+  const correction = st.ingredients[0].stockLog[0];
+  assert.equal(correction.delta, 1000, "precondition: the newest row is the give-back");
+  const plan = stockRowUndo(st.ingredients[0], correction);
+  assert.equal(plan.correction, true, "★ the ✕ was allowed on a bake correction");
+  assert.equal(undoStockRow(st.ingredients[0], correction, st).correction, true);
+  assert.equal(st.ingredients[0].onHand, 8500, "★ the refused ✕ moved the shelf anyway");
+  assert.equal(stockLogOf(st.ingredients[0])[0], correction, "★ the correction line was taken off the card");
+  // ⭐ And the day still clears correctly from here.
+  setBakedTotal(st, p, "2026-10-17", 0);
+  assert.equal(st.ingredients[0].onHand, 10000);
+});

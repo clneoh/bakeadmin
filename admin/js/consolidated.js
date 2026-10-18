@@ -22,6 +22,7 @@ import { isCollected, isRefunded, refundOf } from "./money.js";
 import { orderDay, monthSpan } from "./profit.js";
 import { weekStartISO } from "./weekly.js";
 import { customerList, keyOf } from "./customers.js";
+import { bakeryName } from "./journal.js";
 import { receiptNoOf, receiptNoOfGroup } from "./receipts.js";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June",
@@ -343,6 +344,11 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     // the shared text AND in the PDF — so the document number is on every copy of it or on none.
     ref,
     title: "Consolidated invoice",
+    // ⚠️⚠️ THE DOCUMENT HAD NO SELLER ON IT (v572). ⭐ The single-order invoice prints her bakery name and
+    // address; this one printed neither, so a filed page said "Consolidated invoice" and nothing about whose
+    // it was. ⭐ Both come from the same settings the invoice uses.
+    bakery: bakeryName(state),
+    from: String((state.settings && state.settings.mailingAddress) || ""),
     subtitle: [
       ref,
       kind === "all" ? "" : span.label,

@@ -304,7 +304,9 @@ test("the screen offers no press that could change a number", async () => {
   await settle();
 
   const presses = all(root).filter((n) => n.tagName === "BUTTON").map((n) => txt(n).trim());
-  assert.deepEqual(presses, ["Read again"],
+  // ⚠️ "Print this page" IS ALLOWED AND IS THE ONLY ADDITION (v572): it writes nothing, and the page it
+  // prints is the evidence itself. ⭐ Anything else — an edit, a void, a delete — is what this forbids.
+  assert.deepEqual(presses.filter((p) => p !== "Print this page"), ["Read again"],
     `the register offers a press beyond re-reading it: ${JSON.stringify(presses)}`);
   // ⚠️⚠️ AND THE LINKS ARE COUNTED TOO (v381). This assertion used to look at BUTTONS alone,
   // which made it blind the moment the order numbers became anchors — a control that could

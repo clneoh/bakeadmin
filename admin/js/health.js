@@ -78,14 +78,22 @@ export function localChecks(state) {
       : pass("both", "Nothing is on the orders list and the Removed list at once"));
   }
 
-  // ── 3 · every order sits on a real bake day ─────────────────────────────
+  // ── 3 · every order can still be FOUND ─────────────────────────────────
+  //
+  // ⚠️⚠️ THIS USED TO FAIL EVERY ORDER ON A DAY SHE HAD DELETED (v572). ⭐ The app's own Delete button removes
+  // a bake day and **keeps its orders on purpose**, and the Orders list draws exactly those with "its bake day
+  // was removed — tap to put it on one". ⚠️ **So the check cried wolf on a normal tidy-up, for ever**, and its
+  // sentence said the orders were "invisible" — which was not true of the app it was describing.
+  // ⭐ A FAULT IS AN ORDER THAT CANNOT BE FOUND AT ALL: no bake day, and no day recorded on the order either.
   {
-    const bad = orders.filter((o) => o && !(o.deliveryDateId && byId(days, o.deliveryDateId)));
-    out.push(bad.length
-      ? fail("day", "Every order sits on a real bake day", bad.map((o) => `#${codeOf(o)}`),
-        "These orders are not on any bake day you have, so no Orders screen can show them — they are in your data and invisible.",
-        "Open the Removed list, or find each order by its number in the Orders search box, and set its bake day.")
-      : pass("day", "Every order sits on a real bake day"));
+    const lost = orders.filter((o) => o
+      && !(o.deliveryDateId && byId(days, o.deliveryDateId))
+      && !String(o.deliveryDate || "").trim());
+    out.push(lost.length
+      ? fail("day", "Every order can still be found", lost.map((o) => `#${codeOf(o)}`),
+        "These orders are on no bake day and carry no day of their own, so nothing can place them — not the Orders list, not the calendar, not a search by day.",
+        "Find each order by its number in the Orders search box and set its bake day.")
+      : pass("day", "Every order can still be found"));
   }
 
   // ── 4 · every line of one order agrees about the order ──────────────────
@@ -186,11 +194,17 @@ export function localChecks(state) {
           return `${fmtStockAmount(state, x, n)}${uses ? `, used in ${uses} recipe${uses === 1 ? "" : "s"}` : ", no recipe uses this one"}`;
         }).join(" · "));
     if (dupes.length) {
+      const repairOk = duplicateIngredientPlan(state).length > 0;
       const entry = fail("dupeIngredient", "No two ingredients share a name", dupes,
         "Two or more ingredients carry the same name. Their stock is separate, so a stock card can show one amount and the list another — and a recipe takes from whichever one it points at. Neither is wrong; they are simply two records with one name. Each one below carries its own amount, and says whether a recipe uses it.",
-        "The one with no recipe behind it is the spare: press the button below to hide it (hiding keeps its stock card, and Unhide brings it back). Then set the stock on the one that is left, so the number means something.");
+        // ⚠️⚠️ AND THE SENTENCE MUST NOT NAME A BUTTON THE SCREEN DID NOT DRAW (v572). ⭐ The press is offered
+        // only when HER RECIPES settle the pair — exactly one of two is used. ⚠️ For two unused cards, two used
+        // ones, or three sharing a name, it is not there, and "press the button below" pointed at nothing.
+        repairOk
+          ? "The one with no recipe behind it is the spare: press the button below to hide it (hiding keeps its stock card, and Unhide brings it back). Then set the stock on the one that is left, so the number means something."
+          : "Open each card and see which one your recipes use, then hide or delete the other — Unhide brings a hidden card back. Then set the stock on the one that is left, so the number means something.");
       // ⭐ AND THE PRESS, when her own recipes decide it without ambiguity (v564).
-      if (duplicateIngredientPlan(state).length) entry.repair = "dupeIngredient";
+      if (repairOk) entry.repair = "dupeIngredient";
       out.push(entry);
     } else {
       out.push(pass("dupeIngredient", "No two ingredients share a name"));
@@ -486,7 +500,15 @@ export function copyChecks(copies, now = new Date()) {
     .filter(Boolean)
     .sort()
     .pop() || "";
-  const ageDays = newest ? Math.floor((now.getTime() - new Date(newest).getTime()) / 86400000) : Infinity;
+  // ⚠️⚠️ AN UNREADABLE DATE IS NOT A RECENT COPY (v572). ⭐ `NaN > 3` is false, so a copy whose own date
+  // could not be parsed reported **PASS** — ⚠️ the one direction this page must never fail in. ⭐ It says it
+  // could not measure the age instead.
+  const newestAt = newest ? new Date(newest).getTime() : NaN;
+  if (!Number.isFinite(newestAt)) {
+    return [skipped("copies", "Your saved copies are recent and readable",
+      "Your saved copies were listed, but the newest one's own date could not be read — so its age cannot be measured.")];
+  }
+  const ageDays = Math.floor((now.getTime() - newestAt) / 86400000);
   // ⚠️ THREE DAYS, because a copy is written on the days she OPENS the app: a bakery that has not opened
   // it in three days has no recent copy, and the day it matters is the day it is missing.
   return [ageDays > 3
@@ -600,8 +622,13 @@ export function reachedCloudCheck(state, cloud, local) {
     return [skipped("reached", TITLE,
       "Your shared data holds more records than this phone can read in one go, so this could not be checked. Nothing is known to be wrong — the check simply could not look at all of it.")];
   }
+  // ⚠️⚠️ AND A CHECK WITH NOTHING ON ONE SIDE MUST NOT PASS (v572) — `local` absent answered "everything
+  // reached the cloud", which is this module's own forbidden direction.
+  if (!Array.isArray(local)) {
+    return [skipped("reached", TITLE, "What this phone holds could not be listed, so nothing could be compared.")];
+  }
   const held = cloud.keys instanceof Set ? cloud.keys : new Set(Array.isArray(cloud.keys) ? cloud.keys : []);
-  const missing = (Array.isArray(local) ? local : []).filter((k) => !held.has(k));
+  const missing = local.filter((k) => !held.has(k));
   // ⭐ NAMED THE WAY SHE CAN LOOK THEM UP — an order by its number, a bake day by its date.
   const nameOf = (key) => {
     const at = String(key).indexOf(":");

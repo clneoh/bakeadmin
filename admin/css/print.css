@@ -123,3 +123,24 @@
     padding-top: 4px;
   }
 }
+
+
+/* ── the receipt register (v572) ─────────────────────────────────────────────────────────────
+   ⚠️⚠️ "KEEP THIS PAGE" AND A BLANK SHEET. Every card but the purchase order is hidden in print, so printing
+   the register produced nothing — and it is the only record that says which receipt numbers were never
+   issued. ⭐ Scoped to the body class the screen adds for the instant of printing, exactly as the labels do. */
+@media print {
+  body.receipt-print .view > .card:not(.receipt-card),
+  body.receipt-print .page-head,
+  body.receipt-print .tabbar,
+  body.receipt-print .topbar { display: none !important; }
+  body.receipt-print .view > .card.receipt-card { display: block !important; border: none; box-shadow: none; }
+  /* ⚠️ AND A LONG LINE WRAPS ON PAPER INSTEAD OF ENDING IN "…" — the PDF already wrapped it, so the same
+     document said different things on paper and in the file. */
+  body.receipt-print .journal-cols .j-col,
+  body.journal-print .journal-cols .j-col {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+}

@@ -184,7 +184,9 @@ export function renderHealth(root, state) {
     // off gets a SKIP with its reason, never a pass.**
     const cloud = await sync.cloudKeys(state).catch(() => null);
     if (dead) return;
-    const res = runHealthChecks(state, {
+    let res;
+    try {
+      res = runHealthChecks(state, {
       register, copies, copy, copyWhen,
       cloud, local: sync.localKeys(state), waiting: sync.pendingCount(),
       // ⭐ WHY THE QUEUE DID NOT EMPTY (v528) — the reason `refresh` used to return once and forget.
@@ -198,8 +200,21 @@ export function renderHealth(root, state) {
       // ⭐ AND THE DEEPEST PAIR (v471): what this phone holds, and what it has queued — the same single
       // read of the shared data answers both, so this costs no extra round trip.
       payloads: sync.localPayloads(state), queued: sync.pendingKeys(),
-    });
-    run.busy = false;
+      });
+    } catch (err) {
+      // ⚠️⚠️ ONE MALFORMED RECORD MUST NOT TAKE THE PAGE DOWN (v572). ⭐ A null in a list made a check throw,
+      // there was no guard, and `run.busy` was never cleared — ⭐ **the screen stayed on "Reading your
+      // records…" for ever and the Run button answered nothing.** ⭐ It says what happened and stays usable.
+      res = null;
+      if (!dead) {
+        list.replaceChildren(el("p", { class: "card-sub" },
+          "The check could not finish: one of your records is in a shape it cannot read. Nothing has been "
+          + `changed. The message is: ${String((err && err.message) || err)}`));
+      }
+    } finally {
+      run.busy = false;
+    }
+    if (!res) return;
     paint(res);
     paintList(res);
   }

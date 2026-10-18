@@ -5,7 +5,7 @@
 // Pure helpers (computeSlots) run under Node for tests; all fetch/localStorage
 // access is guarded so importing the module is side-effect free.
 
-import { generateUpcomingDates, shortDate, todayISO } from "./dates.js";
+import { generateUpcomingDates, shortDate, todayISO, toISODate } from "./dates.js";
 import { normRules } from "../../availability.js";
 import { publishOccasions } from "./occasion_catalog.js";
 import { flattenTree, primaryCategoryId, productsInCategory } from "./productCategories.js";
@@ -1202,7 +1202,7 @@ export async function pullIncoming(state) {
     const rows = [];
     for (let page = 0; page < MAX_PAGES; page += 1) {
       const res = await fetch(
-        `${c.url}/rest/v1/incoming_orders?select=id,data&status=eq.new`
+        `${c.url}/rest/v1/incoming_orders?select=id,data,created_at&status=eq.new`
         + `&order=created_at.desc&limit=${PAGE}&offset=${rows.length}`,
         { headers: auth });
       if (!res.ok) return { ok: false, imported: [] };
@@ -1265,6 +1265,14 @@ export async function pullIncoming(state) {
 // match a backoffice product are skipped (the owner adds them by hand). Creates
 // the delivery date if it isn't in the plan yet. Returns the created order ids,
 // or null when nothing matched.
+// The local calendar day a queue row was written on — the customer's own moment, in this phone's clock.
+function placedDay(row) {
+  const at = row && row.created_at;
+  if (!at) return todayISO();
+  const d = new Date(at);
+  return Number.isNaN(d.getTime()) ? todayISO() : toISODate(d);
+}
+
 function importIncoming(state, row) {
   let data;
   try { data = JSON.parse(row.data); } catch { return null; }
@@ -1322,7 +1330,11 @@ function importIncoming(state, row) {
       id: newId("ord"),
       deliveryDateId: del.id,
       deliveryDate: dateStr,
-      orderDate: todayISO(),
+      // ⚠️⚠️ THE DAY THE ORDER WAS PLACED, NOT THE DAY THIS PHONE READ IT (v572). ⭐ `todayISO()` stamped the
+      // PULL — so an order placed at 23:50 and imported at 00:10 was dated the next day, and a phone offline
+      // over a weekend was two days out, on the invoice she prints for it. ⭐ The queue row's own `created_at`
+      // is the customer's moment, read in HER clock; `todayISO()` is the fallback for a row that has none.
+      orderDate: placedDay(row),
       productId: product.id,
       qty,
       customerName: String(data.customer || "").trim(),

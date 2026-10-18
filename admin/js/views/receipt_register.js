@@ -142,7 +142,7 @@ export function renderReceiptRegister(root, state) {
     const gapTxt = reg.gaps.map((n) => `#${String(n).padStart(6, "0")}`).join(", ");
 
     root.replaceChildren(head,
-      el("div", { class: "card" },
+      el("div", { class: "card receipt-card" },
         el("p", { class: "card-title" }, "Receipts issued"),
         el("p", { class: "card-sub", style: "margin:0 0 8px" }, registerSummary(reg)),
 
@@ -169,7 +169,15 @@ export function renderReceiptRegister(root, state) {
         el("p", { class: "card-sub", style: "margin:10px 0 0" },
           "Press an Order number to open that order, so you can look at it or amend it. A receipt whose order is not on this phone has nothing to open and says so."),
         el("div", { class: "btn-row", style: "margin-top:10px" },
-          button("Read again", () => load(), "soft small"))),
+          button("Read again", () => load(), "soft small"),
+          // ⚠️⚠️ THIS PAGE SAID "KEEP THIS PAGE" AND COULD NOT BE PRINTED (v572). ⭐ Every other card is hidden
+          // in print, so a browser print here came out blank — ⭐ **the one record that proves the receipt
+          // numbers have no gaps was the one record she could not put on paper.** ⭐ The class is on the body
+          // for the instant of printing only, so no other screen's print is affected.
+          button("Print this page", () => {
+            document.body.classList.add("receipt-print");
+            try { window.print(); } finally { document.body.classList.remove("receipt-print"); }
+          }, "soft small"))),
 
       el("div", { class: "card" },
         el("p", { class: "card-title" }, "What this run is for"),

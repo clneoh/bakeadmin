@@ -643,6 +643,11 @@ function normalize(s) {
     // ⚠️⚠️ AND A ROW FOR AN ORDER THAT IS BACK IN THE LIVE LIST IS DROPPED HERE (v474) — the invariant
     // `dropStaleShelfRows` exists for, applied on every load. ⭐ It reads `s.orders`, the same source the
     // `orders` key above uses, so the two can never disagree about what is live.
+    // ⚠️ AND THE SHELF'S OWN NOTE SURVIVES A LOAD (v572) — it was written on removal and never read back, so
+    // the screen's sentence vanished on the next open and the running total restarted.
+    removedTrim: s.removedTrim && typeof s.removedTrim === "object"
+      ? { at: String(s.removedTrim.at || ""), n: Number(s.removedTrim.n) || 0, total: Number(s.removedTrim.total) || 0 }
+      : null,
     removedOrders: (Array.isArray(s.removedOrders) ? s.removedOrders : [])
       .filter((r) => !(r && r.id && Array.isArray(s.orders) && s.orders.some((o) => o && o.id === r.id)))
       // ★★★ AND THE DUPLICATE ROWS SHE ALREADY HAS ARE COLLAPSED ON LOAD (v528). ⚠️⚠️ **Without this the fix

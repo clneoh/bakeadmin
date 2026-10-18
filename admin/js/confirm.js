@@ -67,7 +67,11 @@ export function buildConfirmation(state, group, trackUrl) {
   const collectAddr = courier ? "" : pointAddressFor(state, first);
   // ⚠️ AND A COLLECTION AT THE KITCHEN NEEDS A DOOR TOO (v569): the first line of her mailing address is
   // exactly the street a customer needs, and it is already typed once for the labels.
-  const kitchenAddr = (!courier && !collectAddr)
+  // ⚠️⚠️ ONLY WHEN NO POINT WAS CHOSEN (v572). ⭐ This tested `!collectAddr`, which is also true for a NAMED
+  // Point that has no address on file — ⚠️ **so the message said "Self collect at Farlim" and then gave the
+  // KITCHEN's street**, and a customer drives to the wrong place. ⭐ The kitchen is the answer only when there
+  // is no Point at all.
+  const kitchenAddr = (!courier && !String(first.pointId || "").trim())
     ? String(((state.settings || {}).mailingAddress || "")).split("\n").map((l) => l.trim()).filter(Boolean)[0] || ""
     : "";
   const address = deliveryAddr ? `\nAddress: ${deliveryAddr}`

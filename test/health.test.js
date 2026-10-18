@@ -181,11 +181,21 @@ test("★★ one order's lines disagreeing about the order FAILS", () => {
     "★ a perfectly ordinary two-item order was reported as disagreeing with itself");
 });
 
-test("★ an order not on any bake day FAILS — the order that is invisible", () => {
+test("★★★ an order on a DELETED bake day is FINE — the app shows it; only an unplaceable one fails (v572)", () => {
+  // ⚠️⚠️ The app's own Delete button removes a bake day and keeps its orders on purpose, and the Orders list
+  // draws them with "its bake day was removed — tap to put it on one". ⭐ The check used to fail for ever on
+  // that ordinary state, with a sentence saying the orders were invisible — **which the app contradicts.**
   const st = healthy();
-  st.orders[0].deliveryDateId = "d_gone";
-  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "day");
-  assert.equal(r.status, "fail", "★ an order no bake day can show was not reported");
+  st.orders[0].deliveryDateId = "d_gone";     // the day is gone, the order keeps its own date
+  assert.equal(resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "day").status, "pass",
+    "★ a normal tidy-up was reported as a fault — **a red X she cannot clear by doing something wrong**");
+
+  // ⚠️ And an order with NO day at all — no id and no date — is the one that really is unplaceable.
+  const lost = healthy();
+  lost.orders[0].deliveryDateId = "d_gone";
+  delete lost.orders[0].deliveryDate;
+  const r = resultOf(runChecks(lost, { register: REGISTER, copies: COPIES }), "day");
+  assert.equal(r.status, "fail", "★ an order nothing can place was not reported");
   assert.match(r.fix, /bake day/, "the check does not say what she can do about it");
 });
 

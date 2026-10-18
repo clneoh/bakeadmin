@@ -1,8 +1,35 @@
-# Jienluv2bake — change history (v54 → v571)
+# Jienluv2bake — change history (v54 → v572)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v572, THE INVOICE THAT COULD NOT SAY WHO IT WAS FOR — AND THREE FAULTS IN MY OWN LAST FIX (no database step).**
+
+**Your words:** __"what else is wrong"__ — and this round turned the question on the printed documents and on the checks that do the asking.
+
+**1. ⚠️⚠️ THE PRINTED INVOICE HAD NO CUSTOMER ON IT, AND COULD PRINT A BROKEN DATE.** The screen said "Aunty Bee · placed 17 Oct"; **the paper said neither** — so a stack of invoices could only be matched to an order by its code. ⚠️ And an order with no recorded date printed **"NaN undefined NaN"** (measured). ⭐ The paper now says who it is for, with the address on a courier order, and the date is read the one way the rest of the app reads it.
+
+**2. ⚠️ A CASH-ON-DELIVERY CHARGE WAS MISSING FROM THE INVOICE.** The message and the on-screen receipt both say "Courier charge RM 8.00 — COD"; ⚠️ **the paper said Total RM16 while the customer handed the driver RM24.** ⭐ It is stated on the invoice now, as a note — not a line, because the Total must still add up.
+
+**3. ⚠️ THE CONSOLIDATED INVOICE HAD NO SELLER ON IT AT ALL.** No bakery name, no address — ⭐ **a filed page that said "Consolidated invoice" and nothing about whose it was.** Both are printed now, from the same settings the single invoice uses.
+
+**4. ⚠️ A COLLECTION AT A POINT SHOWED THE BAKE DAY, NOT THE DAY THE VAN ARRIVES.** The delivery run writes its day onto every order it carries and the reminder has used it since v429; ⚠️ **the card kept the bake day, so the card and the message named different days.** ⭐ Fixed.
+
+**5. ⚠️ THE RECEIPT REGISTER SAID "KEEP THIS PAGE" AND COULD NOT BE PRINTED.** Every card but the purchase order is hidden in print, so it came out **blank** — ⭐ **the one record that proves the receipt numbers have no gaps was the one she could not put on paper.** ⭐ It has **Print this page** now, and long lines wrap on paper instead of ending in "…".
+
+**6. ⚠️⚠️ AND THREE FAULTS IN MY OWN LAST STOCK FIX, FOUND BY READING IT BACK.**
+- **An old baking day, recorded before the fix, could lose stock.** ⭐ Measured: bake 10, correct to 6, back to 10, then clear — **1,500 g stayed off the shelf with no record left to explain it.** ⭐ The day's figure is now taken from its stock rows the first time it is touched, in either direction.
+- **The ✕ on a bake correction was allowed**, and it left the day's pans and the shelf disagreeing — clearing the day afterwards gave back too little. ⭐ **It is refused now**, with the way through: change the day's baked figure.
+- **Your Removed list's note vanished on the next open** — the sentence about how many rows the list had cleared was written and never read back. ⭐ It survives a reload now.
+
+**7. ⚠️ AND THE CHECKS THAT DO THE ASKING, CHECKED THEMSELVES.** ⚠️ **A saved copy whose own date could not be read reported PASS** — the one direction this page must never fail in; it says it could not measure now. ⚠️ **An order on a bake day you deleted was a permanent red X** with a sentence saying it was invisible — ⭐ **while your Orders list draws exactly those and lets you put them on a day.** ⭐ Only an order with no day at all is a fault now. ⚠️ The duplicate-ingredient line told you to "press the button below" when no button was drawn. ⚠️ A check given nothing to compare answered PASS. ⚠️ **And one malformed record froze the whole screen on "Reading your records…" for ever** — it says what happened and stays usable.
+
+**8. ⭐ 3,610 tests green (was 3,607); each new rule was put back to its fault and seen to fail by its own message.**
+
+**9. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v571, THE REWARD THAT WAS CALLED SOMEBODY ELSE'S COUPON (database step: run `supabase/tracking.sql` BEFORE you push).**
 

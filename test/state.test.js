@@ -777,3 +777,10 @@ test("★★★ the Removed shelf SAYS when its own size guard cleared the oldes
   assert.equal(st.removedTrim && st.removedTrim.total, 50,
     "★ 50 rows were cleared off the Removed shelf and nothing recorded it");
 });
+
+test("★★★ the Removed shelf's note SURVIVES a reload (v572)", () => {
+  // ⚠️ It was written on removal and never read back by `normalize`, so the screen's sentence vanished on the
+  // next open and the running total restarted.
+  const out = normalize({ version: 1, removedTrim: { at: "2026-10-18T00:00:00.000Z", n: 1, total: 51 } });
+  assert.equal(out.removedTrim && out.removedTrim.total, 51, "★ the shelf's own note is lost on load");
+});
