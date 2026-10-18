@@ -124,6 +124,13 @@ $$;
 -- ⚠️ THE OLD ONE-ARGUMENT FUNCTION IS DROPPED FIRST. A two-argument version with a default would
 -- otherwise leave BOTH callable, and Postgres would refuse to choose between them.
 drop function if exists public.refund_receipt(text);
+-- ⚠️⚠️ AND THE TWO-ARGUMENT ONE A PREVIOUS RUN CREATED (v557). ⭐ The line above only removes the OLD
+-- one-argument function — so on a file that had already been run since v370, `create function` collided
+-- with the (text, numeric) version that was there, and Supabase answered: ⚠️
+--   ERROR: 42723: function "refund_receipt" already exists with same argument types
+-- ⭐ Both signatures are dropped now, so this file is safe to run again — which is what every step in
+-- this folder claims, and what this one did not do.
+drop function if exists public.refund_receipt(text, numeric);
 
 create function public.refund_receipt(p_order_code text, p_amount numeric default null)
 returns bigint

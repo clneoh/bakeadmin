@@ -27,6 +27,12 @@ always tell which build a phone is running.
 
 **9. Nothing of yours was rewritten, apart from the two files above which only refuse bad input and clear less.**
 
+**⚠️ AMENDED THE SAME DAY — the two files could not both be run.** Running `supabase/receipts.sql` in Supabase stopped with **`ERROR: 42723: function "refund_receipt" already exists with same argument types`**.
+- ⭐ **Why:** the file dropped the **one-argument** `refund_receipt(text)` and then created the **two-argument** one. On a project where it had already been run since the amount was added, the two-argument version was still there — so the drop removed nothing and the create collided. ⚠️ **The file had been un-runnable since that change, and nobody had tried.**
+- ⭐ **Fixed:** both signatures are dropped before the create, so it can be run again — which is what every step in that folder claims.
+- ⭐ **And the same class was found in `supabase/backoffice.sql`:** its two policies were created without being dropped, so a re-run stopped at the second line. ⭐ Both are dropped first now. **Every file in that folder was then scanned for a drop that does not match its create, a trigger or policy with no drop, and an index without `IF NOT EXISTS` — nothing else was found.**
+- ⭐ **To finish the step:** run `supabase/receipts.sql` again, then `supabase/incoming_cleanup.sql`.
+
 ---
 
 **18 Oct 2026 — engine v556, THE HALF-TYPED PRODUCT IS SAFE (no database step).**
