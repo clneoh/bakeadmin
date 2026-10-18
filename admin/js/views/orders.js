@@ -4516,6 +4516,8 @@ function openLabelPrint(state, group) {
       pills.replaceChildren(...styles.map(([v, label]) => {
         const pill = el("button", {
           class: "style-pill" + (v === style ? " active" : ""),
+          // ⚠️ The chosen style was said by colour alone (v566); `aria-pressed` is the same fact in words.
+          "aria-pressed": String(v === style),
           onclick: () => { style = v; paint(); },
         }, label);
         return pill;

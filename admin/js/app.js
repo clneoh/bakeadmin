@@ -2,7 +2,7 @@
 
 import { byId, loadState, save, setSaveHook, stampOrderLine, updateOrderBadge, ensureSupabase } from "./state.js";
 import { costOf } from "./bom.js";
-import { el, button } from "./ui.js";
+import { el, button, nameFields } from "./ui.js";
 import * as sync from "./sync.js";
 import { maybeAutoBackup } from "./backups.js";
 import { cachedToken, maybeSync, pullIncoming, refreshStorefront } from "./supabase.js";
@@ -270,6 +270,11 @@ function render() {
   try {
     const ret = route.render(viewEl, state, params);
     if (typeof ret === "function") cleanup = ret;
+    // ⚠️⚠️ AND EVERY BOX ON THE NEW SCREEN IS NAMED BY THE LABEL BESIDE IT (v566) — see `nameFields`. ⭐ The
+    // words were already drawn; this attaches them, so a screen reader says "Capacity per day" instead of
+    // "edit text". ⚠️ Run after the view, never inside it, so one screen's fields cannot be named from
+    // another's markup.
+    try { nameFields(viewEl); } catch { /* an unnamed box is not a dead screen */ }
   } catch (err) {
     // The view is already cleared above — without this guard a render crash
     // would show a blank page. Surface the error so the baker can report it.

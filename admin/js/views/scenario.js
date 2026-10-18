@@ -996,6 +996,8 @@ function controlsRow(r, sc, on, state, run) {
       el("span", { class: "tl-ctl-lab" }, "Walk the day"),
       el("button", {
         type: "button", class: `tl-chip${run.on ? " on" : ""}`,
+        // ⚠️ The chip's "on" state was colour alone (v566).
+        "aria-pressed": String(!!run.on),
         onclick: () => (run.on ? stopDay(run, on) : startDay(run, sc, state, on)),
       }, run.on ? "Stop" : "Start the day now"),
       el("button", {

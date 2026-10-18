@@ -3,6 +3,15 @@
 
 export function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
+  // ★★★ A DIV WITH A CLICK IS A BUTTON, AND SAYS SO (v566).
+  // ⚠️⚠️ Twenty-four controls in this app are a div or a span with an `onclick` and nothing else — the Home
+  // tiles, a delivery day, a history row — ⭐ **so a keyboard or a switch could not reach them at all**, and a
+  // screen reader did not announce them as pressable. ⭐ Doing it HERE means every one of them, and every one
+  // written tomorrow, is a button without a call site being touched.
+  // ⚠️ Only when the caller has not said otherwise, and never on a real <button>/<a>.
+  const clickish = attrs && typeof attrs.onclick === "function" && /^(div|span|li)$/i.test(tag);
+  const madeButton = clickish && !attrs.role && !("tabindex" in attrs);
+  if (madeButton) { attrs = { ...attrs, role: "button", tabindex: "0" }; }
   for (const [k, v] of Object.entries(attrs)) {
     // Skip null/undefined AND false: `selected: false` must not become a
     // setAttribute call — "selected" is a boolean attribute, so ANY presence
@@ -22,7 +31,74 @@ export function el(tag, attrs = {}, ...children) {
     if (child == null || child === false) continue;
     node.append(child.nodeType ? child : document.createTextNode(String(child)));
   }
+  // ⚠️ And Enter/Space press it, the way a real button does — otherwise the tab stop is a dead end.
+  if (madeButton) {
+    node.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+      e.preventDefault();
+      attrs.onclick(e);
+    });
+  }
   return node;
+}
+
+// ★★★ EVERY BOX GETS ITS OWN NAME (v566).
+//
+// ⚠️⚠️ THE APP HAD 246 `<label>` ELEMENTS AND **NOT ONE `for=`**, and about 178 of its boxes carried no
+// `aria-label` at all: ⭐ **so a screen reader announced every one of them as "edit text", and voice control
+// could not say which box was which.** ⚠️ The labels were there and VISIBLE — this app has always drawn the
+// words above each field — but a label that is only *near* a box is not attached to it.
+// ⭐ Doing it here, once, after each render, means every screen (and every screen written tomorrow) gets the
+// words it already prints. ⚠️ It never overwrites a name a field was given.
+function tagOf(node) {
+  return String((node && node.tagName) || "").toLowerCase();
+}
+
+function labelFor(box) {
+  // 1) the nearest label BEFORE it, walking out of a few wrappers
+  let node = box;
+  for (let depth = 0; depth < 4 && node; depth++) {
+    let sib = node.previousSibling;
+    while (sib) {
+      if (sib.nodeType === 1) {
+        if (tagOf(sib) === "label") return sib;
+        const inner = typeof sib.querySelector === "function" ? sib.querySelector("label") : null;
+        if (inner) return inner;
+      }
+      sib = sib.previousSibling;
+    }
+    node = node.parentNode;
+  }
+  // 2) otherwise the first label in the block the box sits in
+  let scope = box.parentNode;
+  for (let depth = 0; depth < 3 && scope; depth++) {
+    const l = typeof scope.querySelector === "function" ? scope.querySelector("label") : null;
+    if (l) return l;
+    scope = scope.parentNode;
+  }
+  return null;
+}
+
+// Name every unnamed box in `root`. Returns how many it named (0 is a normal answer, not a fault).
+export function nameFields(root) {
+  if (!root || typeof root.querySelectorAll !== "function") return 0;
+  const boxes = root.querySelectorAll("input, select, textarea");
+  let named = 0;
+  for (const box of boxes) {
+    if (!box || typeof box.getAttribute !== "function" || typeof box.setAttribute !== "function") continue;
+    if (box.getAttribute("aria-label") || box.getAttribute("aria-labelledby")) continue;
+    const id = box.getAttribute("id");
+    if (id && typeof root.querySelector === "function") {
+      try { if (root.querySelector(`label[for="${id}"]`)) continue; } catch { /* odd id; keep going */ }
+    }
+    const label = labelFor(box);
+    if (!label) continue;
+    const words = String(label.textContent || "").replace(/\s+/g, " ").trim();
+    if (!words) continue;
+    box.setAttribute("aria-label", words);
+    named += 1;
+  }
+  return named;
 }
 
 export function button(text, onClick, cls = "") {
@@ -474,6 +550,8 @@ export function showPopup(title, makeBody, { wide = false, onTitle = null, class
     const keepTop = body.scrollTop;
     const made = makeBody(refresh, close);
     body.replaceChildren(...(Array.isArray(made) ? made : [made]));
+    // ⚠️ A CARD'S BOXES ARE NAMED TOO (v566) — the Edit forms live here, not on a screen the router draws.
+    try { nameFields(body); } catch { /* an unnamed box is not a dead card */ }
     body.scrollTop = keepTop;
   };
   // ★★★ A CARD IS A DIALOG, AND IT SAYS SO (v566). ⚠️⚠️ The title was a plain div and the card had no

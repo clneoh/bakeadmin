@@ -1,8 +1,36 @@
-# Jienluv2bake — change history (v54 → v566)
+# Jienluv2bake — change history (v54 → v567)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v567, THE MANUAL PUT BACK IN STEP WITH THE APP — AND A NAME FOR EVERY BOX (no database step).**
+
+**Your words:** __"go ahead, fix them"__ — the manual against the app, and the two accessibility items left from the sweep.
+
+**1. ⚠️⚠️ THE MANUAL DESCRIBED A MORE SCREEN THAT HAS NOT EXISTED FOR MONTHS.** It listed the screens flat, in an order that moved with v312; ⭐ it now names **the seven groups** exactly as they are: Logistic, Products & ingredients, Buying, Money, The kitchen, The shop, and Settings & this app.
+
+**2. ⚠️ THE SETTINGS CARD NUMBERS WERE FROM AN OLDER LAYOUT.** Live availability is **card 6** (the manual said 9), Shared data is **7**, Backup & safety is **8** (it said 11, and there is no card 11), and your mailing address is **card 5, "Your address"** (it said card 7, and under a name that was retired in v315). ⭐ Following the manual, you would have gone looking for the wrong card every time.
+
+**3. ⚠️ THE BAKERY'S PIN WAS SAID TO BE IN SETTINGS.** It moved to **More → Location pin for Kitchen** in v315 — ⭐ **the one point every delivery price starts from, in a place the manual did not name.**
+
+**4. ⚠️ IT SAID PARCEL BOOKING WAS NOT BUILT.** It was, in v561 and v562 — ⭐ the manual now describes **Check the price** and **Book this parcel**, and the EasyParcel credit it needs before its API is switched on.
+
+**5. ⚠️ IT SAID THE REVIEWS MOVE ON THEIR OWN.** Since v565 they move only when the visitor does. ⭐ Fixed in all three places it was said.
+
+**6. ⚠️ IT CALLED THE CUSTOMER'S NAME OPTIONAL, AND THE BUTTON GREY.** The name has been required since v452, and the Place order button is never switched off. ⭐ Both corrected — this was the manual describing YOUR CUSTOMER's checkout wrongly.
+
+**7. ⭐ AND ELEVEN MORE, EACH CHECKED AGAINST THE APP.** "Fifteen checks" is **twenty-three**. A stock line the shelf cannot cover is **refused**, not clamped (v546). The two always-open cards are **Add category** and **Add carrier** — there was no "New" to tap. The change history sits **above** the wish list. A backup copy carries **five** buttons. "Delivery settings" is **Bake day settings**. There is no "About the developer" section — the developer rows live in **Settings & this app**. Backup & safety is **inside Settings**, not on More. Receipt register and Consolidated invoice are **rows on the Money group of More**. ⭐ Every corrected passage was read back out of the rebuilt PDF.
+
+**8. ⚠️⚠️ AND 246 LABELS THAT WERE ONLY NEAR THEIR BOXES.** Every form in the app drew the words above the field, and **not one of them was attached to it** — ⭐ so a screen reader called every box "edit text" and voice control could not name them. ⭐ Now, after every screen and every card is drawn, **each box is named by the label the app already prints**; measured on Settings, **30 of 31 boxes named, and the last one — an email in a repeater — is named properly now too**. ⚠️ A name a field already had is never overwritten.
+
+**9. ⭐ AND TWENTY-FOUR THINGS YOU COULD TAP THAT A KEYBOARD COULD NOT.** The Home tiles, a delivery day, a history row were divs with a click and nothing else. ⭐ They are **buttons now, reachable with Tab and pressed with Enter** — done in the one place that builds them, so every one written tomorrow is too. **And two chip controls that said their state by colour alone now say it out loud.**
+
+**10. ⚠️ One thing in the manual I did NOT change, because it is a fact only you know:** the manual's product record says the focaccia pan is **13 × 9.5 × 2.5 inches** and a bake weighs **~800 g**, while the product in your app is named **9"x12" ~ 850g**. ⭐ Tell me which is right and I will put the manual and the product in line.
+
+**11. Nothing of yours was rewritten, and there is no database step. ⭐ 3,596 tests green (was 3,590); each new rule was put back to its fault and seen to fail.**
+
+---
 
 **18 Oct 2026 — engine v566, THE TRIP THAT COULD BE BOOKED TWICE, THE DRIVER WHO NEVER APPEARED — AND THE INGREDIENT CARDS THAT DISAGREED WITH EACH OTHER (no database step; deploy the `courier` function).**
 

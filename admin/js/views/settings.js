@@ -288,6 +288,9 @@ export function renderSettings(root, state) {
   function renderDevEmails() {
     devEmailBox.replaceChildren(...dev.emails.map((email, i) => {
       const inp = el("input", { class: "input", type: "email", inputmode: "email",
+        // ⚠️ This one sits in a repeater with no label beside it (v566): a placeholder is not a name, and
+        // the numbering matters the moment there are two.
+        "aria-label": `Developer email address ${i + 1}`,
         placeholder: "dev@example.com", value: email,
         onchange: () => {
           const v = inp.value.trim();

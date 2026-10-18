@@ -1971,7 +1971,11 @@ option.tone-off { color: var(--muted); }
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
+  /* ⚠️⚠️ `vh` IS THE LARGE VIEWPORT ON iOS SAFARI (v566) — with the toolbar showing, the bottom of a long
+     card sat underneath it and the layer does not scroll. `dvh` is the height actually on screen; the `vh`
+     line above stays as the fallback for a browser that has never heard of it. */
   max-height: calc(100vh - 28px);
+  max-height: calc(100dvh - 28px);
 }
 .popup-card.wide { max-width: 560px; }
 /* The card's title bar is its handle — drag it and the card comes with you. A
