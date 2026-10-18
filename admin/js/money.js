@@ -532,7 +532,9 @@ export function investmentOf(state) {
     bump(d.source, "putIn", amount);
   }
   for (const e of state.expenses || []) {
-    if (!e || e.transfer) continue;
+    // ⚠️⚠️ AND A PAYBACK'S OWN HALF IS NOT "TAKEN BACK" (v579). ⭐ The deposit half was already skipped;
+    // its expense half was not, so ⚠️ **paying a pocket back read as money she took out of the business.**
+    if (!e || e.transfer || e.repay) continue;
     const amount = Number(e.amount) || 0;
     if (!amount) continue;
     // ★★ SOMETHING SHE BOUGHT WITH HER OWN MONEY (v397). Her words: __"When i enter an expenses, like
@@ -572,7 +574,7 @@ function buildInvestmentRows(state) {
       source: String(d.source == null ? "" : d.source) });
   }
   for (const e of state.expenses || []) {
-    if (!e || e.transfer) continue;
+    if (!e || e.transfer || e.repay) continue;
     const amount = Number(e.amount) || 0;
     if (!amount) continue;
     if (e.invested) {

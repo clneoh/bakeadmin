@@ -41,6 +41,22 @@ test("sales, cost of sales and gross profit come from what was sold", () => {
   assert.equal(pl.uncosted, 0, "the recipe prices this product");
 });
 
+test("★★★ a payback settles a debt — it is not drawings, and it is not a running cost (v579)", () => {
+  // ⚠️⚠️ THE FAULT: the money paid out of the till to settle an account carried `repay` on its deposit
+  // half only, ⚠️ **so Profit read the payment as Drawings — "money you took out" — although the business
+  // merely paid what it owed.**
+  const st = state();
+  st.expenses = [{ id: "exp_r", date: "2026-09-16", amount: 40, category: "My own withdrawal",
+    method: "Cash", repay: true }];
+  const pl = profitBetween(st, "2026-09-01", "2026-09-30");
+  assert.equal(pl.drawings, 0, "★ paying an account back is reported as money she took out");
+  assert.equal(pl.expensesTotal, 0, "★ and it was also counted as a running cost");
+  // The control: an ordinary withdrawal of the same shape is still drawings.
+  st.expenses[0].repay = false;
+  assert.equal(profitBetween(st, "2026-09-01", "2026-09-30").drawings, 40,
+    "an ordinary withdrawal stopped being counted as money she took out");
+});
+
 test("★★★ a transfer between her own accounts is neither capital nor drawings", () => {
   // ⚠️⚠️ THE FAULT (v548): the profit page summed EVERY deposit as capital and EVERY drawing-class
   // expense as money she took out — including the two halves of one transfer. ⭐ **The transfer form says

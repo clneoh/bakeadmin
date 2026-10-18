@@ -525,7 +525,8 @@ function pocketRow(state, e, what, listKey, redraw, cur) {
         }, { danger: true, yesLabel: "Delete" }), "ghost small")));
 }
 const expenseRow = (state, e, redraw, cur) =>
-  pocketRow(state, e, e.poId ? "Shopping run (PO)"
+  pocketRow(state, e, e.repay ? "Paid back"   // ⭐ not "My own withdrawal" (v579)
+    : e.poId ? "Shopping run (PO)"
     : e.courierFor ? `Courier (order #${e.courierFor})`   // the same words the journal uses
     : (e.category || "Expense"), "expenses", redraw, cur);
 // ★ A money-in row names the pot it came from (v394). ⚠️ It used to read a FIXED __From my pocket__
@@ -843,9 +844,15 @@ function openPayBackForm(state, from, to, redraw, label) {
           const typed = note.value.trim();
           state.expenses = Array.isArray(state.expenses) ? state.expenses : [];
           state.deposits = Array.isArray(state.deposits) ? state.deposits : [];
+          // ⚠️⚠️ THE EXPENSE CARRIES `repay` TOO (v579). ⭐ The deposit has always said "this is a payback",
+          // but its OTHER half — the money leaving the till — was an ordinary drawing-category expense, so
+          // ⚠️ **Profit read "Drawings RM100" and Your investment read "Taken back RM100, still in −RM100"
+          // for money that settled a debt and never left the business.** ⭐ Both halves now say what they are.
           state.expenses.push({ id: newId("exp"), date, amount: value,
-            category: drawingLabel(state), method: outOf,
-            note: typed || `Paid back to ${account}` });
+            category: drawingLabel(state), method: outOf, repay: true,
+            // ⭐ The note is the ACCOUNT's name and nothing more: the row is already labelled "Paid back",
+            // so "Paid back · Paid back to Kean" said it twice (seen live, v579).
+            note: typed || account });
           state.deposits.push({ id: newId("dep"), date, amount: value, method: account,
             note: typed, repay: true });
           save(state);

@@ -116,7 +116,10 @@ export function profitBetween(state, from, to) {
   let expensesTotal = 0;
   let drawings = 0;
   for (const e of state.expenses || []) {
-    if (!e || e.transfer || !isWithin(String(e.date || ""), from, to)) continue;
+    // ⚠️ A PAYBACK IS NOT MONEY SHE TOOK OUT (v579). It settles what the business owed an account that
+    // had paid for something — ⭐ the transfer line above already says what a movement between her own
+    // accounts is, and this is the same kind of movement with a debt being closed.
+    if (!e || e.transfer || e.repay || !isWithin(String(e.date || ""), from, to)) continue;
     const amount = Number(e.amount) || 0;
     const cls = classOfCategory(state, e.category);
     if (cls === "drawing") { drawings += amount; continue; }
@@ -171,7 +174,7 @@ export function profitBetween(state, from, to) {
 export function expenseRows(state, from, to, label = null) {
   const rows = [];
   for (const e of state.expenses || []) {
-    if (!e || e.transfer || !isWithin(String(e.date || ""), from, to)) continue;
+    if (!e || e.transfer || e.repay || !isWithin(String(e.date || ""), from, to)) continue;
     const cls = classOfCategory(state, e.category);
     if (cls === "drawing" || cls === "stock") continue;
     const category = e.category || "Other";

@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v578)
+# Jienluv2bake — change history (v54 → v579)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v579, PAYING AN ACCOUNT BACK SETTLES A DEBT, IT IS NOT A WITHDRAWAL (no database step).**
+
+**Your words:** I asked whether paying an account back should read as settling a debt or as a withdrawal, and you said __"yes, settling a debt not a withdrawal"__.
+
+**1. ⚠️⚠️ PAYING AN ACCOUNT BACK WAS REPORTED AS MONEY YOU TOOK OUT OF THE BUSINESS.** ⚠️ Kean's account paid RM100 for packaging out of his own money, so it was down RM100; paying him back from the till made **Profit show "Drawings RM100"** and **Your investment show "Taken back RM100 · still in −RM100"** — ⚠️ **although nothing left the business: it paid what it owed.** ⭐ The payment now says what it is on **both** of its halves, and neither figure moves.
+
+**2. ⭐ SEEN ON THE REAL SCREENS**, pressing the actual **Pay back an account** card with Kean's account RM100 down:
+- **Money · accounts:** Cash pays out **RM100.00**, Personal Pocket Kean takes in **RM100.00** and **holds RM0.00** — the debt is settled.
+- **Your investment:** Put in **RM0.00**, Taken back **RM0.00**, Still in the bakery **RM0.00**.
+- **Profit:** **Drawings you took out RM0.00**, and Sales unchanged.
+- The expense list names it **"Paid back · Personal Pocket Kean"**, not "My own withdrawal".
+
+**3. ⭐ THE MONEY IS STILL IN THE RIGHT PLACE.** The RM100 really did leave the till, so the Cash account still shows it going out — what changed is only that it is no longer called money you took for yourself.
+
+**4. ⚠️ A payback recorded BEFORE this version carries no such mark on its expense, so it still reads as a withdrawal.** If you have one and want it corrected, tell me the date and the amount and I will tell you the exact two rows to change.
+
+**5. Nothing of yours was rewritten, and there is no database step. ⭐ 3,639 tests green; the rule has a test that fails without it, and the ordinary withdrawal beside it still counts as one.**
+
+---
 
 **19 Oct 2026 — engine v578, A REFUND IS MONEY OUT IN THE MONTH IT WENT BACK (no database step).**
 

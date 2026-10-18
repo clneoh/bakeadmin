@@ -949,6 +949,11 @@ test("★ Pay back an account moves money INTO it and brings it back to zero, in
   assert.equal(added[0].amount, 25);
   assert.equal(added[0].category, "My own withdrawal", "her own money going back to her");
   assert.equal(added[0].method, "Cash", "and it came out of the till");
+  // ⚠️⚠️ BOTH HALVES SAY WHAT THEY ARE (v579). ⭐ The deposit always carried `repay`; its expense half did
+  // not, ⚠️ **so Profit read the payment as Drawings and Your investment read "Taken back" — money that
+  // settled a debt, reported as money she took out.**
+  assert.equal(added[0].repay, true,
+    "★ the expense half of a payback does not say it is a payback — Profit reads it as a withdrawal");
   assert.equal(st.deposits.length, 1);
   assert.equal(st.deposits[0].method, "Personal Pocket Kean", "the pocket is told it was paid");
   assert.equal(st.deposits[0].repay, true, "marked as a payback, not money she put in");
@@ -962,6 +967,25 @@ test("★ Pay back an account moves money INTO it and brings it back to zero, in
   assert.ok(rows.some((r) => r.includes("Paid back by the till")),
     "the pocket's own list says it was paid back");
   assert.ok(!rows.some((r) => r.includes("From my pocket")), "and does not call it money she put in");
+});
+
+test("★★★ a payback is NOT money she took out — Your investment does not move (v579)", () => {
+  // ⚠️⚠️ MEASURED FAULT: Kean's account went RM100 down paying for packaging, the till paid him back,
+  // and ⚠️ **"Your investment" read "taken back RM100, still in −RM100"** although nothing left the
+  // business — the business settled what it owed.
+  const st = pocketState();
+  st.expenses = [{ id: "e1", date: "2026-09-16", amount: 40, category: "My own withdrawal",
+    method: "Cash", repay: true }];
+  st.deposits = [{ id: "d2", date: "2026-09-16", amount: 40, method: "Personal Pocket Kean", repay: true }];
+  const inv = investmentOf(st);
+  assert.equal(inv.takenBack, 0,
+    "★ paying an account back is counted as money she took out of the business");
+  assert.deepEqual(inv.rows.map((r) => r.what), [],
+    "★ the investment book lists a payback as a withdrawal");
+  // The control: without the mark, the same row IS a withdrawal — otherwise this test proves nothing
+  // about the mark.
+  st.expenses[0].repay = false;
+  assert.equal(investmentOf(st).takenBack, 40, "an ordinary withdrawal stopped counting as one");
 });
 
 test("the payback lowers the till and the pocket line, and leaves profit alone", () => {
