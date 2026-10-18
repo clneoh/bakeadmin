@@ -176,6 +176,12 @@ test("the customer's tracking page shows what they bought, at the price they pai
   const snap = trackingSnapshot(state, { orders: [o] });
   assert.equal(snap.items, "Rosemary Focaccia ×2");
   assert.equal(snap.total, "RM 30.00");
+  // ★★★ AND THE PHONE THE ORDER WAS PLACED WITH IS PUBLISHED WITH THE CARD (v558). ⭐ It is the SECOND key
+  // on the customer's way in — without it on the row, the lookup has nothing to match and the card is
+  // unreachable for a customer who knows their own number. ⭐ Digits only, so one number has one spelling.
+  assert.equal(snap.whatsapp, "60123456789",
+    "★ the tracking card was published WITHOUT the customer's phone — **the second key is missing, so the "
+    + "lookup can only fall back to the code alone**");
 });
 
 test("★ what a loaf cost HER never reaches the customer's card", () => {

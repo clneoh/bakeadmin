@@ -148,7 +148,7 @@ function detailsNode(node = box()) {
 
 async function card(row) {
   TRACK_ROW.row = row;
-  await trackOrder("A3F9C2");
+  await trackOrder("A3F9C2", "0123456789");
   return allParas(box());
 }
 const texts = (read) => read.map((p) => p.text);

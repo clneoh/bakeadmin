@@ -136,7 +136,7 @@ function paras(node = box(), out = []) {
 
 async function card(row) {
   TRACK_ROW = row;
-  await trackOrder("A3F9C2");
+  await trackOrder("A3F9C2", "0123456789");
   return paras();
 }
 
@@ -301,8 +301,13 @@ test("the public cannot read the tracking table, only ask for one order", () => 
     "no read policy hands the table to the public");
   assert.ok(/security\s+definer/i.test(sql),
     "the lookup is SECURITY DEFINER, which is what lets it match a code before RLS applies");
-  assert.ok(/grant\s+execute\s+on\s+function\s+public\.track_order\(text\)\s+to\s+anon/i.test(sql),
-    "anon may call the lookup");
+  assert.ok(/grant\s+execute\s+on\s+function\s+public\.track_order\(text,\s*text\)\s+to\s+anon/i.test(sql),
+    "anon may call the lookup — with the TWO arguments the phone check needs (v558)");
+  // ★★★ AND THE PHONE IS A SECOND KEY (v558). ⭐ A six-character code is about 16.7 million values and
+  // this lookup is open to anyone; the phone is what a stranger does not have. ⚠️ The guard reads the
+  // body, so a function that took the phone and then ignored it would be caught here.
+  assert.ok(/and\s*\([\s\S]*?t\.whatsapp[\s\S]*?p_phone/i.test(sql),
+    "★ the lookup does not match the PHONE — **the code alone still opens any order it happens to name**");
   assert.ok(/drop\s+policy\s+if\s+exists\s+"public read"\s+on\s+order_tracking/i.test(sql),
     "the old permissive read is dropped, so a database that already has it is repaired");
 });
@@ -310,7 +315,7 @@ test("the public cannot read the tracking table, only ask for one order", () => 
 // ── the silent failure, measured off the lookup's own column list ────────────
 test("every trip column the card reads is named in the lookup's own column list", async () => {
   TRACK_ROW = null;
-  await trackOrder("A3F9C2");
+  await trackOrder("A3F9C2", "0123456789");
   const asked = TRACK_URL[TRACK_URL.length - 1] || "";
   assert.ok(asked, "the page asked for the order");
   assert.ok(asked.includes("/rest/v1/rpc/track_order"),

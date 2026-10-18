@@ -1328,10 +1328,10 @@ test("trackOrder re-fetches and re-renders every lookup (never stale)", async ()
     return { ok: true, json: async () => [row] };
   };
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     const afterFirst = box.children.length;
     assert.ok(afterFirst >= 4, "first lookup renders status + delivery + items + customer");
-    await trackOrder("B5D1E4");
+    await trackOrder("B5D1E4", "0123456789");
     assert.equal(box.children.length, afterFirst, "second lookup replaces the result");
     assert.equal(urls.length, 2, "every lookup hits the network — nothing is cached");
     assert.equal(urls[0].opts.cache, "no-store", "cache: no-store so status is always fresh");
@@ -1352,7 +1352,7 @@ test("trackOrder shows only the order details and latest status — no receipt/Q
     delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
   }] });
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     const journey = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
     assert.ok(journey, "shows the order journey progress line");
     const steps = [];
@@ -1395,7 +1395,7 @@ test("a Paid order lights up Paid on the journey, between Confirmed and Baked", 
     delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
   }] });
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     const journey = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
     assert.ok(journey, "shows the journey");
     const labels = [];
@@ -1429,7 +1429,7 @@ test("a Packed order (status ready) shows the bakery steps done with only the la
     status: "Ready", delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
   }] });
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     const journey = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
     assert.ok(journey, "shows the journey");
     const labels = [];
@@ -1465,7 +1465,7 @@ test("an order at the last stage shows the whole journey green — nothing flash
     status: "Delivered", delivery: "4 Sep · Self collect", items: "Focaccia ×1", total: "RM15.00", customer: "Ain",
   }] });
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     const journey = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
     assert.ok(journey, "shows the journey");
     const steps = [];
@@ -1603,7 +1603,7 @@ test("a posted order shows the courier's tracking number", async () => {
   };
   globalThis.fetch = async (url) => ({ ok: true, json: async () => [onlySelected(url, posted)] });
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     const no = byExactClass(box, "track-no");
     assert.ok(no, "the card carries the tracking number on its own line");
     assert.equal(no.children[0].text, "Tracking number: JT123456789");
@@ -1628,7 +1628,7 @@ test("a courier's share link in the tracking slot is a link a customer can tap",
   };
   globalThis.fetch = async (url) => ({ ok: true, json: async () => [onlySelected(url, posted)] });
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     const no = byExactClass(box, "track-no");
     assert.ok(no, "the card carries the tracking slot on its own line");
     assert.equal(no.children[0].text, "Track your delivery: ",
@@ -1658,7 +1658,7 @@ test("only http and https become a link — a delivery is never a page to run", 
     };
     globalThis.fetch = async (url) => ({ ok: true, json: async () => [onlySelected(url, posted)] });
     try {
-      await trackOrder("A3F9C2");
+      await trackOrder("A3F9C2", "0123456789");
       const no = byExactClass(box, "track-no");
       assert.ok(no, `the slot still draws for ${value}`);
       assert.equal(no.children.length, 1, `${value} must not become a link`);
@@ -1683,7 +1683,7 @@ test("a courier charge the customer bears is named on the card, and the lookup a
     return { ok: true, json: async () => [onlySelected(url, posted)] };
   };
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     assert.ok(trackCols.has("courier_fee"),
       "the lookup names courier_fee — it sends only the columns listed, so the charge the baker typed is invisible to the card until this asks for it");
     assert.ok(trackCols.has("customer"),
@@ -1706,7 +1706,7 @@ test("an order with no courier charge shows no charge line", async () => {
     total: "RM15.00", customer: "Ain",
   }] });
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     assert.equal(deepByClass(box, "track-fee"), undefined,
       "nothing to name, so no line at all — not an empty label, and not a stray null");
   } finally {
@@ -1730,7 +1730,7 @@ test("a Courier COD charge tells the customer to pay the courier, not the baker"
     return { ok: true, json: async () => [onlySelected(url, posted)] };
   };
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     assert.ok(trackCols.has("courier_cod"),
       "the lookup names courier_cod — it sends only the columns listed, so the card can never know the charge is COD until this asks for it, and would word it as money owed to the baker");
     const fee = deepByClass(box, "track-fee");
@@ -1754,7 +1754,7 @@ test("a charge paid with the order still reads as the plain charge", async () =>
   };
   globalThis.fetch = async (url) => ({ ok: true, json: async () => [onlySelected(url, posted)] });
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     assert.equal(rowLabel(deepByClass(box, "track-fee")), "Courier charge",
       "no COD wording, and no flag sent — as every row published before this column existed");
     assert.equal(rowFigure(deepByClass(box, "track-fee")), "RM8.00");
@@ -1770,7 +1770,7 @@ test("a self-collect order shows no tracking line", async () => {
     total: "RM15.00", customer: "Ain",
   }] });
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     assert.equal(byExactClass(box, "track-no"), undefined,
       "nothing was posted, so there is no number to show");
     assert.equal(cardLabels(box)[5], "Collected / Shipped", "the label is the same pair");
@@ -1789,7 +1789,7 @@ test("a bypassed order shows the customer five steps, with no Paid tick", async 
     delivery: "4 Sep · Self collect", items: "Sourdough ×2", total: "RM36.00", customer: "Ain",
   }] });
   try {
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     const journey = box.children.find((c) => c.tagName === "DIV" && String(c.className || "").includes("tj"));
     const labels = [];
     const steps = [];
@@ -1819,7 +1819,7 @@ test("a bypassed order shows the customer five steps, with no Paid tick", async 
       status: "ready", confirmed_sent: true, paid_received: true,
       delivery: "4 Sep · Self collect", items: "Sourdough ×2", total: "RM36.00", customer: "Ain",
     }] });
-    await trackOrder("A3F9C2");
+    await trackOrder("A3F9C2", "0123456789");
     const paidLabels = [];
     (function walk(n) {
       for (const c of n.children || []) {
@@ -4057,4 +4057,39 @@ test("★★★ the step warning blinks, and its flash ends where the words rest
   assert.ok(seen >= 3,
     `⚠️⚠️ the flash moves the background from ${flashColour} to ${restColour} — only ${seen.toFixed(2)}:1 `
     + `apart, so on a phone it reads as one colour and the warning does not blink at all`);
+});
+
+test("★★★ the tracking lookup now needs the PHONE as well as the code", async () => {
+  // ⚠️⚠️ A six-character code is about 16.7 million values and this lookup is open to anyone: at a few
+  // hundred orders a stranger making requests could reach a real order and read that customer's name,
+  // address and driver's phone. ⭐ The phone is the second key, and it is never published publicly.
+  const box = document.getElementById("track-result");
+  const texts = (n, out = []) => {
+    for (const kid of n.children || []) {
+      if (kid.nodeType === 3) out.push(String(kid.text));
+      else texts(kid, out);
+    }
+    return out;
+  };
+  const bodies = [];
+  globalThis.fetch = async (url, opts) => {
+    bodies.push(JSON.parse(opts.body));
+    return { ok: true, json: async () => [] };
+  };
+  try {
+    await trackOrder("A3F9C2", "");
+    assert.equal(bodies.length, 0,
+      "★ a lookup went out on the CODE ALONE — **that is the door the phone is there to close**");
+    assert.match(texts(box).join(" "), /phone number/i,
+      "and the card does not say the phone is needed");
+
+    await trackOrder("A3F9C2", "012-345 6789");
+    assert.equal(bodies.length, 1, "the lookup was not made at all once both were given");
+    assert.equal(bodies[0].p_phone, "0123456789",
+      "★ the phone went as TYPED, dashes and spaces and all — **a lookup that refused over a dash would be "
+      + "a bug, not a security rule**");
+    assert.equal(bodies[0].p_code, "A3F9C2", "and the code still goes with it");
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => [] });
+  }
 });

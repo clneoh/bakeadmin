@@ -1,8 +1,29 @@
-# Jienluv2bake — change history (v54 → v557)
+# Jienluv2bake — change history (v54 → v558)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v558, THE TRACKING CODE NOW NEEDS THE PHONE IT WAS ORDERED WITH (database step: run `supabase/tracking.sql` BEFORE you push).**
+
+**Your words:** __"add phone number to the tracking"__ — the last open item from the fourth sweep.
+
+**1. ⚠️⚠️ A SIX-CHARACTER CODE WAS THE WHOLE KEY.** The code is about **16.7 million** values and the lookup is open to anyone, so at a few hundred orders a stranger making requests could reach a real order and read **that customer's name, delivery address and driver's phone.**
+
+**2. ⭐ AND NOW IT TAKES **BOTH**: the order number **and the WhatsApp number the order was placed with.**
+- **What the customer does:** types the number they already know, under the order number. ⭐ **Typed however they like** — `012-345 6789`, `0123456789` and `60123456789` are one number, because the lookup compares the last nine digits.
+- **What the link does:** `?track=CODE` still works and still lands on the card — it fills the number in and **puts the cursor in the phone box**. ⭐ One more thing to type, and that is exactly the point.
+- **An order with no number on it** (one typed in by hand without one) publishes none, so it still opens on the code alone — a customer mid-order is never locked out of their own card.
+
+**3. ⚠️⚠️ AND THE ORDER OF THE TWO STEPS MATTERS THIS TIME.** ⭐ **Run `supabase/tracking.sql` FIRST, then push.** ⚠️ The app now publishes the phone with every card, and a column that does not exist yet **kills publishing for every order, silently** — that is written in the code beside it, in those words.
+
+**4. ⚠️ AND ONE THING THAT HAD TO CHANGE WITH IT.** Editing a customer's number now **republishes their card** — it must, because the number is the key they open it with. ⚠️ The app's own test said "the WhatsApp number is on the order but not on the card"; that is no longer true, so the test is rewritten to use her **cost** (which is never published) and a **new test proves a number change does republish**.
+
+**5. ⭐ Measured on the real shop:** the phone box is there, the hint names both, and pressing **Track** with the number alone says *"Enter the phone number this order was placed with, and we will find it."* — with nothing sent. At 280 px the card wraps to two rows and does not scroll sideways.
+
+**6. Nothing of yours was rewritten, and the file above adds a column and one condition — it changes no existing record.**
+
+---
 
 **18 Oct 2026 — engine v557, THE DATABASE AND THE TESTS THEMSELVES — AND ONE THING THAT NEEDS YOU TO RUN TWO FILES (database step: three files, listed below).**
 

@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "557";
+export const SHOP_BUILD = "558";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -4340,6 +4340,7 @@ function paintTrack() {
   if (kind !== "row") {
     const text = kind === "enter" ? t("trackEnter")
       : kind === "looking" ? t("trackLooking")
+      : kind === "needPhone" ? t("trackNeedPhone")
       : kind === "notfound" ? sub(t("trackNotFound"), code)
       : t("trackUnavailable");
     box.replaceChildren(el("p", { class: "track-note" }, text));
@@ -4386,11 +4387,21 @@ function paintTrack() {
   box.replaceChildren(...kids.filter(Boolean));
 }
 
-export async function trackOrder(code) {
+export async function trackOrder(code, phone = "") {
   if (!document.getElementById("track-result")) return;
   const clean = String(code || "").trim().replace(/^#/, "").toUpperCase();
   if (!clean) {
     lastTrack = { kind: "enter", code: "" };
+    return paintTrack();
+  }
+  // ★★★ AND THE PHONE THE ORDER WAS PLACED WITH (v558) — the SECOND key.
+  // ⚠️⚠️ A six-character code is about 16.7 million values and this lookup is open to anyone. At a few
+  // hundred orders a stranger making requests could reach a real order and read **that customer's name,
+  // delivery address and driver's phone.** ⭐ The phone is not published anywhere public, so a guess must
+  // now know BOTH. ⭐ Digits only, so 012-345 6789 and 60123456789 are the same number.
+  const digits = String(phone || "").replace(/[^0-9]/g, "");
+  if (!digits) {
+    lastTrack = { kind: "needPhone", code: clean };
     return paintTrack();
   }
   const sb = CONFIG.supabase;
@@ -4424,7 +4435,7 @@ export async function trackOrder(code) {
     const res = await fetch(`${base}/rest/v1/rpc/track_order`, {
       method: "POST",
       headers: { apikey: sb.anonKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ p_code: clean }),
+      body: JSON.stringify({ p_code: clean, p_phone: digits }),
       cache: "no-store",
     });
     const rows = res.ok ? await res.json() : null;
@@ -5453,11 +5464,14 @@ function revealTrack() {
 
 function wireTrack() {
   const input = document.getElementById("track-input");
+  const phoneInput = document.getElementById("track-phone");
   const btn = document.getElementById("track-btn");
   if (!input || !btn) return;
-  const go = () => trackOrder(input.value);
+  const go = () => trackOrder(input.value, phoneInput ? phoneInput.value : "");
   btn.addEventListener("click", go);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  // ⚠️ Enter in the phone box looks the order up too — the customer's hands are already there.
+  if (phoneInput) phoneInput.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
   // The confirmation link opens this page as /store/?track=CODE — prefill and
   // look the order up right away so the customer sees their status instantly.
   if (typeof location !== "undefined" && location.search) {
@@ -5465,7 +5479,12 @@ function wireTrack() {
     const code = params.get("track");
     if (code) {
       input.value = code.replace(/^#/, "").toUpperCase();
-      trackOrder(code);
+      // ⚠️⚠️ THE LINK NO LONGER OPENS THE ORDER ON THE CODE ALONE (v558). ⭐ It fills the number in and puts
+      // the cursor in the phone box: the customer still has ONE more thing to type, and that one thing is
+      // what keeps a stranger from reading their address. ⚠️ The link still does its job — it lands them on
+      // the card with half the answer already written.
+      trackOrder(code, phoneInput ? phoneInput.value : "");
+      if (phoneInput) phoneInput.focus();
       revealTrack(); // the link she tapped IS the card she should land on
       // ★★ AND THE CODE COMES OFF THE ADDRESS BAR (v324). Her report: __"when a customer track
       // his order, his store version became associated with that order code."__

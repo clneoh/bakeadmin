@@ -11,7 +11,7 @@ import { publishOccasions } from "./occasion_catalog.js";
 import { flattenTree, primaryCategoryId, productsInCategory } from "./productCategories.js";
 import { isThumb, lineNoteOf } from "../../storefront-fields.js";
 import { costOf, effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
-import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, stampOrderLine, duplicateOrderCodes } from "./state.js";
+import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, stampOrderLine, duplicateOrderCodes, waNumber } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { customerTotal } from "./courier.js";
 // The promo-code engine. Only two things are asked of it here: what the shop may
@@ -766,6 +766,14 @@ export function trackingSnapshot(state, group) {
     items,
     total,
     customer: String(first.customerName || ""),
+    // ★★★ THE PHONE THE ORDER WAS PLACED WITH (v558) — the SECOND KEY on the customer's way in.
+    // ⚠️⚠️ A six-character code is about 16.7 million values and the lookup is open to anyone, so the
+    // customer's card is now found by **code AND phone**, and the phone is never published anywhere public.
+    // ⭐ Stored as the digits the app already uses to match a customer (`waNumber`), so the same number
+    // typed as 012-345 6789, 0123456789 or 60123456789 is one key.
+    // ⚠️ **THE COLUMN MUST EXIST BEFORE THIS APP PUBLISHES IT** — a column that does not yet exist kills
+    // publishing for EVERY order, silently. `supabase/tracking.sql` adds it; run that file first.
+    whatsapp: waNumber(first.whatsapp),
     updated_at: new Date().toISOString(),
     // The customer's journey map ticks Confirmed/Paid green only when the
     // baker actually pressed Send confirmation / Paid, not when the status was

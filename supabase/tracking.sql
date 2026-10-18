@@ -23,8 +23,16 @@ create table if not exists order_tracking (
   tracking_no     text                   -- the courier's tracking number, shown on the customer's card; NULL = none
 );
 
+-- ⚠️⚠️ AND THE PHONE THE ORDER WAS PLACED WITH (v558) — a SECOND KEY on the way in.
+-- ⭐ A six-character code is about 16.7 million values and this lookup is open to anyone, so at a few
+-- hundred orders a stranger making requests could reach a real order and read that customer's name,
+-- address and driver's phone. ⭐ The phone is not published anywhere public, so a guess must now know
+-- BOTH. ⚠️ A row published before this change carries '' here — see the function below for how those
+-- stay findable while they are republished.
+alter table order_tracking add column if not exists whatsapp text not null default '';
+
 -- ─────────────────────────────────────────────────────────────────────────────
--- THE PUBLIC'S WAY IN: one order, by its code. Never the table.
+-- THE PUBLIC'S WAY IN: one order, by its code AND its phone. Never the table.
 -- ─────────────────────────────────────────────────────────────────────────────
 --
 -- ⚠️ WHY THIS IS A FUNCTION AND NOT A READ POLICY (7 Oct 2026). This table used
@@ -49,7 +57,7 @@ create table if not exists order_tracking (
 -- THIS FILE to prove every column the card needs is named. So a new column the
 -- customer should see has to be added in two places: the backoffice's publish,
 -- and this list.
-create or replace function public.track_order(p_code text)
+create or replace function public.track_order(p_code text, p_phone text default null)
 returns table (
   status          text,
   confirmed_sent  boolean,
@@ -82,12 +90,27 @@ as $$
     t.courier_plate, t.courier_phone
   from order_tracking t
   where t.code = upper(trim(p_code))
+    -- ⚠️⚠️ AND THE PHONE MUST MATCH TOO (v558). ⭐ Compared on DIGITS ONLY, and on the LAST NINE of them,
+    -- so 012-345 6789, 0123456789 and 60123456789 are the same number — the customer's own fingers decide
+    -- the spelling, and a lookup that refused because of a dash would be a bug, not a security rule.
+    -- ⚠️ A row whose `whatsapp` is still '' was published before this change and is NOT republished yet;
+    -- it stays findable by its code alone so a customer mid-order is not locked out of their own card.
+    -- ⭐ Every order republishes its phone the next time its card changes, and every NEW order carries it
+    -- from the start — so the open door closes as the old rows are refreshed.
+    and (
+      t.whatsapp = ''
+      or right(regexp_replace(t.whatsapp, '[^0-9]', '', 'g'), 9)
+         = right(regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g'), 9)
+    )
   limit 1;
 $$;
 
+-- ⚠️⚠️ AND THE OLD ONE-CODE FUNCTION IS DROPPED, OR IT WOULD BE THE DOOR THAT BYPASSES THIS (v558).
+drop function if exists public.track_order(text);
+
 -- Only the shop may call it, and it may call nothing else on this table.
-revoke all on function public.track_order(text) from public;
-grant execute on function public.track_order(text) to anon;
+revoke all on function public.track_order(text, text) from public;
+grant execute on function public.track_order(text, text) to anon;
 
 alter table order_tracking enable row level security;
 
