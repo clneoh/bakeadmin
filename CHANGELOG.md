@@ -1,8 +1,21 @@
-# Jienluv2bake — change history (v54 → v570)
+# Jienluv2bake — change history (v54 → v571)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v571, THE REWARD THAT WAS CALLED SOMEBODY ELSE'S COUPON (database step: run `supabase/tracking.sql` BEFORE you push).**
+
+**Your words:** __"go ahead, write the sql"__ — the one thing the last version left undone.
+
+**1. ⚠️⚠️ A REWARD YOU EARNED WAS DESCRIBED AS A COUPON SOMEBODY SENT YOU.** The bring-a-friend line on a customer's tracking card had **one sentence for both halves of the scheme**: "Bring-a-friend you were sent". ⭐ **The figures were always right — only the words were about a different person**, and the message already said it correctly ("reward" for the referrer, "you were sent" for the friend). ⭐ The card now says the same thing the message says, in all three languages.
+- ⚠️ **Cards published before this carry no role and read exactly as they did** — nothing on an old card changes until its order is republished.
+
+**2. ⚠️⚠️ AND THE ORDER OF YOUR TWO STEPS MATTERS THIS TIME, AGAIN.** ⭐ **Run `supabase/tracking.sql` FIRST, then push.** The app now publishes the role with every card, and a column that does not exist yet **kills publishing for every order, silently** — the same rule as v558. ⭐ The file is safe to run twice: it adds the column only if it is missing, drops the old two-argument lookup **before** recreating it (its list of columns changed, which `create or replace` refuses), and re-grants the shop's one permission. ⚠️ **And that order is the whole of it** — the first version of this file had the drop UNDER the create, so your SQL editor answered `ERROR: 42P13: cannot change return type of existing function` — ⭐ **the database's own hint said to drop it first, and the fix was to move the line, not to change the words.** ⚠️ **If you already ran the failed version, the column was added and nothing else changed: run the corrected file once more.**
+
+**3. ⭐ Nothing of yours was rewritten, and there is no other database step. ⭐ 3,606 tests green (was 3,605); the new rule was put back to its fault and seen to fail — both halves of it, the publishing and the card's own choice of words.**
+
+---
 
 **18 Oct 2026 — engine v570, THE CORRECTION THAT STOPPED WORKING AFTER TWO MONTHS — AND THE COPIES YOU COULD NOT REACH (no database step).**
 

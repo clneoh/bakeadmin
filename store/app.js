@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "570";
+export const SHOP_BUILD = "571";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -4315,7 +4315,11 @@ function moneyEls(row) {
     // thing this app never lets a figure do.
     rows.push(code
       ? moneyRow(t("promoLine"), [code, moneyText(read.sym, off)], "track-promo")
-      : moneyRow(t("promoFriend"), [moneyText(read.sym, off)], "track-promo"));
+      // ⚠️⚠️ AND WHICH ONE IT WAS (v571). ⭐ A referrer spending the reward they EARNED was told it was a
+      // coupon somebody sent them — the figures were right and the words were about a different person.
+      // ⚠️ A card published before this carries no role and reads exactly as it did.
+      : moneyRow(t(String(row.promo_role || "") === "reward" ? "promoReward" : "promoFriend"),
+          [moneyText(read.sym, off)], "track-promo"));
   }
   rows.push(moneyRow(t("trkTotal"), [moneyText(read.sym, read.n)], "track-total"));
   return [

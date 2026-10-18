@@ -336,6 +336,35 @@ test("the customer's tracking card carries the discount, with no code on it", ()
     "and carries NO code — which is exactly what tells the shop to use the bring-a-friend words");
 });
 
+test("★★★ the card is told WHICH kind of friend discount it is (v571)", () => {
+  // ⚠️⚠️ ONE SENTENCE FOR TWO PEOPLE. The card said "Bring-a-friend you were sent" for both — ⭐ so a
+  // customer spending the reward they EARNED was shown somebody else's coupon's words. ⭐ The role rides
+  // the published row, and a card with no role reads exactly as it always did.
+  const sent = { ...P22, credits: [], orders: orderFor() };
+  sent.credits = [friendCoupon({ orderCode: orderCode(sent.orders[0]) })];
+  assert.equal(trackingSnapshot(sent, { orders: sent.orders }).promo_role, "friendOff",
+    "★ the friend's own discount is published with no role, so the card cannot tell it from a reward");
+
+  const earned = { ...P22, credits: [], orders: orderFor() };
+  // ⚠️ A reward is earned on the FRIEND's order and spent on one of HER OWN — so what makes it count here
+  // is that she pressed Apply on this order (`appliedTo`), not the code it was born on.
+  earned.credits = [friendCoupon({ role: "reward", orderCode: "ZZZZZZ",
+    usedAt: "2026-09-10T00:00:00.000Z", appliedTo: orderCode(earned.orders[0]) })];
+  assert.equal(trackingSnapshot(earned, { orders: earned.orders }).promo_role, "reward",
+    "★ a REFERRER'S REWARD is published as if somebody sent it to them");
+
+  // ⚠️ And a code is not a friend discount at all: its own line names it, so the role stays empty.
+  const coded = { ...P22, credits: [], orders: orderFor({ promo: "FRESH10" }) };
+  coded.promoCodes = [{
+    id: "c1", code: "FRESH10", state: "live", vis: "public", frozen: false,
+    who: { type: "all" }, when: { from: "", to: "" }, basket: { type: "none", amount: 0 },
+    gives: { type: "rm", value: 10, cap: 0 }, often: { type: "unlimited", n: 0, maxRM: 0 },
+    beside: { type: "anything" }, say: "", sayZh: "", sayMs: "", used: 0, given: 0,
+  }];
+  assert.equal(trackingSnapshot(coded, { orders: coded.orders }).promo_role, "",
+    "a CODE was published with a friend role — the card would draw the friend's words over a code's line");
+});
+
 test("a code still publishes as a code, not as the friend's discount", () => {
   const st = { ...P22, credits: [], orders: orderFor({ promo: "FRESH10" }) };
   st.promoCodes = [{

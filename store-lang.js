@@ -425,6 +425,9 @@ const en = {
   // line needs its own words. Matched to the WhatsApp confirmation, which names it the
   // same way (v323).
   promoFriend: "Bring-a-friend you were sent: -%1",
+  // ⚠️ THE OTHER HALF OF THE SAME LINE (v571): a referrer spending what they EARNED was told it was a
+  // coupon somebody sent them.
+  promoReward: "Bring-a-friend reward: -%1",
   // The booked trip, as the courier's own reply last said. %1 is one of a handful of
   // NEUTRAL phase words below rather than the courier's own vocabulary — the backoffice
   // publishes the phase, this page owns the words, so no company's status list is
@@ -681,6 +684,7 @@ const zh = {
   courierCod: "快递费：%1 - 货到付款，收货时付给送货员",
   promoLine: "优惠码 %1：-%2",
   promoFriend: "朋友推荐优惠：-%1",
+  promoReward: "带朋友奖励：-%1",
   tripStatus: "配送：%1",
   tripFinding: "正在寻找司机",
   tripOnTheWay: "司机在路上",
@@ -923,6 +927,7 @@ const ms = {
   courierCod: "Caj kurier: %1 - COD, bayar kepada kurier semasa penghantaran",
   promoLine: "Kod %1: -%2",
   promoFriend: "Diskaun bawa rakan yang dihantar kepada anda: -%1",
+  promoReward: "Ganjaran bawa kawan: -%1",
   tripStatus: "Penghantaran: %1",
   tripFinding: "Sedang mencari driver",
   // ⚠️ THE FIFTH DRIVER STRING, AND THE ONE HER DECISION MISSED (17 Oct 2026). ⭐ **Her rule was the WORD —

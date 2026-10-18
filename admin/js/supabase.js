@@ -615,7 +615,7 @@ export function trackingSnapshot(state, group) {
   // ask them for the charge at the door (19 Sep 2026).
   const {
     courier: courierFee, cod: courierCod, total: totalNum,
-    promo: promoRm, promoCode, coupon: couponRm,
+    promo: promoRm, promoCode, coupon: couponRm, couponRole,
   } = customerTotal(state, group);
   // ★★ THE CARD'S DISCOUNT COLUMN CARRIES BOTH KINDS (v323), AND THAT IS DELIBERATE.
   // A customer who ordered through a friend's link has the RM3 taken off their total — and
@@ -725,6 +725,10 @@ export function trackingSnapshot(state, group) {
     // The ONE discount on this order — a code, or the friend's first-order coupon, never
     // both. See the note where this number is worked out.
     promo_rm: (promoRm + couponRm) > 0 ? round2(promoRm + couponRm) : null,
+    // ⚠️⚠️ WHICH KIND OF FRIEND DISCOUNT IT IS (v571) — 'sent' for the friend, 'reward' for the referrer.
+    // ⭐ The card had one sentence for both, so a reward she earned was described as a coupon she was given.
+    // ⚠️ ONLY when the friend's coupon is the one that paid — a code that paid says so in its own line.
+    promo_role: couponRm > 0 ? String(couponRole || "") : "",
     // Who is carrying it, where it has got to, and who is driving — each null when the
     // order has no trip or the trip has not told us that yet.
     //

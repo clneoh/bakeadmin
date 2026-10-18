@@ -333,13 +333,26 @@ test("every trip column the card reads is named in the lookup's own column list"
   const declared = sql.slice(sql.indexOf("returns table"), sql.indexOf("language sql"));
   const body = sql.slice(sql.indexOf("as $$"), sql.indexOf("$$;"));
   const wanted = ["courier_name", "courier_phase", "courier_driver", "courier_plate",
-    "courier_phone", "tracking_no"];
+    "courier_phone", "tracking_no", "promo_role"];
   for (const col of wanted) {
     assert.ok(declared.includes(col), `${col} is declared in the function's returns table`);
     // A column declared but not selected raises at call time, and the customer's card
     // is simply empty with nothing anywhere saying why — so both halves are checked.
     assert.ok(body.includes(col), `${col} is selected in the function's body`);
   }
+});
+
+test("★★★ the lookup is DROPPED before it is recreated, or the file cannot run (v571)", () => {
+  // ⚠️⚠️ HER OWN ERROR, WORD FOR WORD: `ERROR: 42P13: cannot change return type of existing function ...
+  // HINT: Use DROP FUNCTION track_order(text,text) first.` ⭐ The hint was right and the FIRST version of this
+  // file still failed, because the drop sat UNDER the create — so the create failed before the line that would
+  // have fixed it was ever reached. ⭐ This pins the ORDER, which is the part a reader cannot see at a glance.
+  const sql = readFileSync(new URL("../supabase/tracking.sql", import.meta.url), "utf8");
+  const create = sql.indexOf("create or replace function public.track_order");
+  const drop2 = sql.indexOf("drop function if exists public.track_order(text, text)");
+  assert.ok(create > 0 && drop2 > 0, "the create and the two-argument drop are both in the file");
+  assert.ok(drop2 < create,
+    "★ the drop comes AFTER the create — **the file fails with 42P13 before it reaches the drop**");
 });
 
 // ── the words themselves ────────────────────────────────────────────────────

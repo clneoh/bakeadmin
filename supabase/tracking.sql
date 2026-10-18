@@ -31,6 +31,14 @@ create table if not exists order_tracking (
 -- stay findable while they are republished.
 alter table order_tracking add column if not exists whatsapp text not null default '';
 
+-- ⚠️⚠️ AND WHICH KIND OF BRING-A-FRIEND DISCOUNT IT WAS (v571). ⭐ The card had ONE sentence — "Bring-a-friend
+-- you were sent" — so a customer spending the reward they EARNED was shown somebody else's coupon. ⚠️ The
+-- figures always agreed; only the words were wrong.
+-- ⭐ Values: '' (no friend discount), 'friendOff' (the friend's first-order discount) or 'reward' (the
+-- referrer's own reward) — the app's own two role names, so no third spelling exists.
+-- ⚠️ A row published before this carries '' and reads exactly as it did — nothing on an old card changes.
+alter table order_tracking add column if not exists promo_role text not null default '';
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- THE PUBLIC'S WAY IN: one order, by its code AND its phone. Never the table.
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -57,6 +65,14 @@ alter table order_tracking add column if not exists whatsapp text not null defau
 -- THIS FILE to prove every column the card needs is named. So a new column the
 -- customer should see has to be added in two places: the backoffice's publish,
 -- and this list.
+-- ⚠️⚠️ AND THE TWO-ARGUMENT FUNCTION IS DROPPED FIRST, BEFORE IT IS RECREATED (v571).
+-- ⭐ Its list of returned columns gained one, and **`create or replace` REFUSES to change those** — run below
+-- the create, this file fails before it reaches the line that would have fixed it. ⚠️ **HER OWN ERROR, WORD
+-- FOR WORD:** `ERROR: 42P13: cannot change return type of existing function. DETAIL: Row type defined by OUT
+-- parameters is different. HINT: Use DROP FUNCTION track_order(text,text) first.` ⭐ The hint is right, and the
+-- reason the first version failed is that the drop sat UNDER the create.
+drop function if exists public.track_order(text, text);
+
 create or replace function public.track_order(p_code text, p_phone text default null)
 returns table (
   status          text,
@@ -70,6 +86,7 @@ returns table (
   courier_cod     boolean,
   promo_code      text,
   promo_rm        numeric,
+  promo_role      text,
   customer        text,
   updated_at      timestamptz,
   courier_name    text,
@@ -85,7 +102,7 @@ set search_path = public
 as $$
   select
     t.status, t.confirmed_sent, t.paid_received, t.delivery, t.items, t.total,
-    t.tracking_no, t.courier_fee, t.courier_cod, t.promo_code, t.promo_rm,
+    t.tracking_no, t.courier_fee, t.courier_cod, t.promo_code, t.promo_rm, t.promo_role,
     t.customer, t.updated_at, t.courier_name, t.courier_phase, t.courier_driver,
     t.courier_plate, t.courier_phone
   from order_tracking t
@@ -121,7 +138,6 @@ $$;
 
 -- ⚠️⚠️ AND THE OLD ONE-CODE FUNCTION IS DROPPED, OR IT WOULD BE THE DOOR THAT BYPASSES THIS (v558).
 drop function if exists public.track_order(text);
-
 -- Only the shop may call it, and it may call nothing else on this table.
 revoke all on function public.track_order(text, text) from public;
 grant execute on function public.track_order(text, text) to anon;
