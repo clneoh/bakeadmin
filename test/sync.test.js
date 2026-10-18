@@ -2564,3 +2564,50 @@ test("★★★★ EVERY synced list repairs a record with no id — the class, 
   sync.repairRecordIds(c);
   assert.equal(c.orders[c.orders.length - 1].id, "keep_me", "the repair renamed a record that already had an id");
 });
+
+test("★★★ the cursor is not trusted for ever — a FULL read every fifteen minutes", async () => {
+  // ⚠️⚠️ `seq` is stamped by a trigger BEFORE its transaction commits, so a batch that took 101-120 and
+  // committed late can land BEHIND a 121 that committed first — ⭐ **and a reader that has seen 121 never
+  // asks for anything at or below it again.** The old comment claimed a concurrent write "always takes a
+  // higher number", which is true of the NUMBER and false of the COMMIT ORDER. ⭐ The periodic full read
+  // is what makes "never read again" impossible.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    seedToken(store);
+    store.set("bakeadmin.sync", JSON.stringify({
+      version: 1, pending: {}, snapshot: {}, meta: {}, lastPullAt: null, lastSeq: 100,
+      lastFullPullAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),   // 20 minutes ago
+    }));
+    const urls = [];
+    const restoreFetch = installFetch(async (url) => { urls.push(String(url)); return { ok: true, json: async () => [] }; });
+    try {
+      await sync.pull(st);
+      assert.equal(urls.some((u) => /seq=gt\./.test(u)), false,
+        "★ a cursor read was used after the safety interval had passed — **a record skipped by a late commit "
+        + "would never be read again**");
+      const b = JSON.parse(store.get("bakeadmin.sync"));
+      assert.ok(Date.parse(String(b.lastFullPullAt)) > Date.now() - 60_000,
+        "the full read was not recorded, so the next pull would immediately do another");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("★★ and inside the interval it still asks only for what changed", async () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    seedToken(store);
+    store.set("bakeadmin.sync", JSON.stringify({
+      version: 1, pending: {}, snapshot: {}, meta: {}, lastPullAt: null, lastSeq: 100,
+      lastFullPullAt: new Date().toISOString(),
+    }));
+    const urls = [];
+    const restoreFetch = installFetch(async (url) => { urls.push(String(url)); return { ok: true, json: async () => [] }; });
+    try {
+      await sync.pull(st);
+      assert.ok(urls.some((u) => /seq=gt\.100/.test(u)),
+        "★ the cursor was abandoned inside the interval — every pull is now a full read");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});

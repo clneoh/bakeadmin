@@ -405,8 +405,13 @@ let reported = false;
 
 // ── the pass ────────────────────────────────────────────────────────────────
 test("★ every screen renders, and every control on it can be pressed without throwing", async () => {
-  assert.ok(ROUTES.length >= 20,
-    `the route table was read from app.js and found only ${ROUTES.length} screens — the reader has gone stale, and a pass over nothing passes`);
+  // ⚠️⚠️ THE READER MUST HAVE FOUND **EVERY** ROUTE (v557). ⭐ A `>= 20` floor left ten routes of slack, so a
+  // route written in a shape this regex cannot parse was omitted — and the pass stayed green while that
+  // screen was never pressed. ⭐ Counted structurally here, then held to it.
+  const routeKeys = (APP.match(/\n\s*"\/[a-z0-9-]*":\s*\{/g) || []).length;
+  assert.equal(ROUTES.length, routeKeys,
+    `the route reader found ${ROUTES.length} of ${routeKeys} screens — **a screen it cannot parse is never `
+    + "pressed, and this pass stays green about it**");
   assert.equal(IMPORTS.size > 10, true, "and the import block with it, or no renderer could be located");
 
   for (const { path, render } of ROUTES) {

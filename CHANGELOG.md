@@ -1,8 +1,33 @@
-# Jienluv2bake — change history (v54 → v556)
+# Jienluv2bake — change history (v54 → v557)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v557, THE DATABASE AND THE TESTS THEMSELVES — AND ONE THING THAT NEEDS YOU TO RUN TWO FILES (database step: three files, listed below).**
+
+**Your words:** __"what else is wrong"__ — so I read the two things behind the app: **the database functions** (`supabase/*.sql`) and **the tests themselves**. Eight faults found; seven fixed; one is a decision for you.
+
+**1. ⚠️⚠️ THE SYNC COULD SKIP A RECORD FOR EVER — MY FAULT, AND IT IS FIXED.** The "only read what changed" number is stamped by the database **before** the write is committed. So a batch that took numbers 101–120 and commits late can land **behind** a 121 that committed first — and this phone, having seen 121, never asks for anything at or below it again. ⭐ **That is an order, a receipt mark or a stock change that never arrives, with nothing on screen to say so.**
+- ⭐ **Now: a FULL read every fifteen minutes, regardless of the cursor.** Anything that slipped in is picked up within a quarter of an hour instead of never. ⚠️ **My own comment claimed a concurrent write "always takes a higher number" — true of the number, false of the order they commit in.**
+
+**2. ⚠️⚠️ A REFUND AMOUNT WAS TRUSTED BY THE DATABASE.** The dialog clamps to the customer's bill; the **function** took whatever it was handed — so a signed-in client could write **RM 999,999 refunded** on a receipt, and your other phone would adopt that figure. ⭐ It now refuses a zero or a negative amount. ⚠️ The true ceiling is the order's own bill, which that table does not hold — the app enforces it, and the function says so in its comment rather than pretending.
+
+**3. ⚠️⚠️ "SAFE TO RE-RUN" WAS NOT SAFE, ON THE FILE THAT EMPTIES THE ORDER QUEUE.** It deleted **every** row — so an order a customer had just placed, one the shop had already thanked them for, was deleted the next time that file was run. ⭐ It now clears only rows **older than an hour**, longer than any import poll and never a fresh order.
+
+**4. ⚠️ TWO SLOT FILES OVERWROTE EACH OTHER.** `instant_slots.sql` and `shared_pool_slots.sql` define the same function, and running the older one after the newer silently reverts the pool handling — a value pack stops lowering its base product. ⭐ The older file now **refuses to run** when the newer one is installed, and says why.
+
+**5. ⚠️ THREE OF THE APP'S OWN GUARDS COULD NOT FAIL.** ⭐ **The route reader** in two test files matched a rigid pattern and only required "at least 20" — a new route written in a slightly different shape was silently skipped, and the pass stayed green over a screen nobody had built. ⭐ **The Chinese-in-the-PDF guard** returned early when a Python package was missing, and node counted that as a **PASS** — it now reports **skipped**. ⭐ And **two `every()` checks were true of an empty list**, so they passed when nothing had been written at all.
+
+**6. ⚠️ AND ONE THAT IS YOURS TO DECIDE: A TRACKING CODE CAN BE GUESSED.** The code is six characters — about 16.7 million — and the lookup is open to anyone. At about 200 orders, a stranger making requests could reach a real order and see **that customer's name, address and driver's phone**. ⚠️ Lengthening the code would move every code you have given out (v441's fault, refused again), so the honest options are: **ask for the customer's phone number as well as the code**, or **slow repeated guesses at the database**. Both are changes to what a customer does, so I have not made either.
+
+**7. ⚠️ AND ONE CONFIGURATION FACT WORTH KNOWING.** Every private table trusts **anyone signed in** to the bakery's project — so **sign-ups must stay disabled in Supabase**. That is the whole of the privacy between customers' records. ⭐ If a stranger can create an account in your project, they can read your book.
+
+**8. ⚠️ TWO FILES TO RUN — THIS IS THE DATABASE STEP.** ⭐ After pushing: run **`supabase/receipts.sql`** (the refund guard) and **`supabase/incoming_cleanup.sql`** (the scoped clear) in Supabase. ⚠️ `instant_slots.sql` does **not** need running — and if you ever do, it will now refuse rather than undo the newer rule.
+
+**9. Nothing of yours was rewritten, apart from the two files above which only refuse bad input and clear less.**
+
+---
 
 **18 Oct 2026 — engine v556, THE HALF-TYPED PRODUCT IS SAFE (no database step).**
 

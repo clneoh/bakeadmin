@@ -1,6 +1,9 @@
 -- Instant "N left" — lower the storefront counts the moment an order lands.
 -- Run this once in the Supabase SQL editor (Dashboard → SQL → New query → Run).
--- Safe to re-run: the function is replaced and the trigger recreated.
+-- ⚠️⚠️ NOT SAFE TO RE-RUN ONCE shared_pool_slots.sql IS INSTALLED (v557). ⭐ Both files define the SAME
+-- function and trigger, and running this older one afterwards silently reverts the pool-aware version:
+-- a value pack stops lowering its base product, and a day's count is wrong until a phone recalculates.
+-- ⭐ The guard below refuses, rather than replacing a newer rule with an older one.
 --
 -- Why: normally the "Only N left / Sold out" numbers are recalculated by the
 -- backoffice app, so they only stay fresh while one of the phones is awake.
@@ -20,6 +23,19 @@
 -- moments in between, and the app's full recalc always wins when it runs.
 -- Best-effort by design: if anything about an order can't be read, the order
 -- is still saved and the counts are simply left for the next app recalc.
+
+-- ⚠️⚠️ AND HERE IS THAT GUARD. It reads the INSTALLED function — not this file — so it answers the only
+-- question that matters: would running this file undo something newer?
+do $$
+begin
+  if exists (
+    select 1 from pg_proc
+    where proname = 'decrement_slots_on_order' and prosrc like '%pool_base%'
+  ) then
+    raise exception 'This file is retired: shared_pool_slots.sql is already installed, and running this '
+      'older version would revert it. Nothing has been changed.';
+  end if;
+end $$;
 
 create or replace function public.decrement_slots_on_order()
 returns trigger

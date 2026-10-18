@@ -271,7 +271,11 @@ test("giveCredits: a credit can carry no expiry when the scheme says never", () 
   const st = baseState();
   st.settings.referrals.validDays = "";
   const grp = groupOf(order({ whatsapp: "60123456789", referredBy: "60139876543" }));
-  giveCredits(st, grp, schemeOf(st), T);
+  const r = giveCredits(st, grp, schemeOf(st), T);
+  // ⚠️⚠️ `every` IS TRUE OF AN EMPTY LIST (v557). ⭐ Without this precondition the test passed when
+  // `giveCredits` wrote NOTHING at all — the one outcome it exists to catch.
+  assert.equal(r.created, true, "precondition: the couple was written");
+  assert.equal(st.credits.length, 2, "precondition: two credits, so the check below has something to read");
   assert.ok(st.credits.every((c) => c.expiresAt === ""), "blank expiry written, not a date");
 });
 

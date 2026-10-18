@@ -508,7 +508,8 @@ function canonical(value) {
 // ── journal (bakeadmin.sync) ──────────────────────────────────────────────
 
 function emptyBlob() {
-  return { version: 1, pending: {}, snapshot: {}, meta: {}, lastPullAt: null, lastFail: null, lastCount: null, lastSeq: null, seqUnsupported: false };
+  return { version: 1, pending: {}, snapshot: {}, meta: {}, lastPullAt: null, lastFail: null, lastCount: null,
+    lastSeq: null, lastFullPullAt: null, seqUnsupported: false };
 }
 
 function readSync() {
@@ -533,6 +534,7 @@ function readSync() {
           // ⭐ THE "SINCE" CURSOR (v533) — the highest database number this phone has read. ⚠️ Same `!= null`
           // rule: **a cursor that came back 0 would mean "since the beginning" while looking like a cursor.**
           lastSeq: b.lastSeq != null && Number.isFinite(Number(b.lastSeq)) ? Number(b.lastSeq) : null,
+          lastFullPullAt: typeof b.lastFullPullAt === "string" ? b.lastFullPullAt : null,
           seqUnsupported: b.seqUnsupported === true,
         };
       }
@@ -1009,7 +1011,17 @@ export async function pull(state) {
   // EVER.** So the cursor is a number the database stamps itself, strictly higher on every write.
   // ⚠️ `lastSeq != null` FIRST — **`Number(null)` IS 0, and a cursor of 0 is a "since the beginning" read
   // dressed as a normal one** (the v419 lesson, for the third time today).
-  const useCursor = !b.seqUnsupported && b.lastSeq != null && Number.isFinite(Number(b.lastSeq));
+  // ★★★ AND EVERY SO OFTEN IT READS THE WHOLE BOOK ANYWAY (v557). ⚠️⚠️ **THE CURSOR CAN SKIP A RECORD.**
+  // `seq` is stamped by a trigger BEFORE its transaction commits, so a batch that took numbers 101-120 and
+  // commits late can land BEHIND a row numbered 121 that committed first — ⭐ **and the reader, having seen
+  // 121, never asks for anything at or below it again.** ⭐ The comment further down claimed a concurrent
+  // write "always takes a HIGHER number", and that is true of the NUMBERS and false of the COMMIT ORDER.
+  // ⭐ A full read every so often is the safety net: it ignores the cursor entirely, so anything skipped is
+  // picked up within this interval instead of never.
+  const FULL_PULL_EVERY_MS = 15 * 60 * 1000;
+  const lastFullAt = Date.parse(String(b.lastFullPullAt || ""));
+  const dueForFull = !(Number.isFinite(lastFullAt) && Date.now() - lastFullAt < FULL_PULL_EVERY_MS);
+  const useCursor = !b.seqUnsupported && b.lastSeq != null && Number.isFinite(Number(b.lastSeq)) && !dueForFull;
   const select = "select=kind,id,data,updated_at,_deleted,seq";
   let read = await readAllRows(
     c.url, useCursor ? `${select}&seq=gt.${encodeURIComponent(String(b.lastSeq))}` : select,
@@ -1060,9 +1072,11 @@ export async function pull(state) {
   const { changed } = mergeCloudRows(state, rows, b);
   b.lastPullAt = new Date().toISOString();
   // ⚠️⚠️ THE CURSOR ADVANCES ONLY ON A COMPLETE READ. ⭐ **A half-read book must not be remembered as "seen"**
-  // — the next read would start after records this one never received. ⭐ And a record written WHILE the read
-  // is running always takes a HIGHER number than anything already read, so it cannot slip behind the cursor:
-  // the next beat asks for it by name.
+  // — the next read would start after records this one never received.
+  // ⚠️⚠️ AND IT DOES **NOT** FOLLOW FROM THE NUMBER ORDER THAT NOTHING IS SKIPPED (v557). A record written
+  // during the read takes a higher NUMBER, but a batch that took its numbers first can COMMIT after it —
+  // and then the cursor is already past it. ⭐ That is what the periodic full read above is for; it is the
+  // part that makes "never read again" impossible.
   if (read.complete && !b.seqUnsupported) {
     const top = rows.reduce((m, r) => (Number.isFinite(Number(r && r.seq)) && Number(r.seq) > m ? Number(r.seq) : m),
       Number.isFinite(Number(b.lastSeq)) && b.lastSeq != null ? Number(b.lastSeq) : 0);
@@ -1072,7 +1086,10 @@ export async function pull(state) {
   // cursor read fetches just the changed rows, so taking its length would make her count collapse to "3
   // records" the first time nothing had changed. ⭐ **A number that describes a different thing than it says
   // is worse than no number.**
-  if (!useCursor) b.lastCount = rows.length;
+  if (!useCursor) {
+    b.lastCount = rows.length;
+    b.lastFullPullAt = new Date().toISOString();   // ⭐ the safety net ran (v557)
+  }
   writeSync(b);
 
   // On the first pull (or when rows changed), save so the save-hook queues any

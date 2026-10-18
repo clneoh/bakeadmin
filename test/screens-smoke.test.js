@@ -343,7 +343,14 @@ test("★★ every route in the app is covered by this smoke pass", async () => 
     new URL("../admin/js/app.js", import.meta.url), "utf8");
   const routed = [...src.matchAll(/"(\/[a-z0-9-]*)":\s*\{\s*title:\s*"[^"]*",\s*tab:\s*"[^"]*",\s*render:\s*(\w+)/g)]
     .map((m) => m[2]);
-  assert.ok(routed.length >= 20, `only ${routed.length} routes were found — the pattern has drifted`);
+  // ⚠️⚠️ AND THE READER MUST HAVE FOUND **EVERY** ROUTE (v557). ⭐ A `>= 20` floor has ten routes of slack,
+  // so a route written in a shape this regex cannot parse — a comma inside the title, say — was simply
+  // OMITTED from `routed`, `missing` stayed empty, and **this pass stayed green while that screen was never
+  // built.** ⭐ The keys are counted structurally, then the reader is held to that count.
+  const routeKeys = (src.match(/\n\s*"\/[a-z0-9-]*":\s*\{/g) || []).length;
+  assert.equal(routed.length, routeKeys,
+    `the route reader found ${routed.length} of ${routeKeys} routes — **a route it cannot parse is never built, `
+    + "and this pass stays green about it**");
   const covered = new Set(SCREENS.map(([, , fn]) => fn));
   const missing = routed.filter((fn) => !covered.has(fn));
   assert.deepEqual(missing, [],

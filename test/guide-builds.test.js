@@ -35,10 +35,13 @@ function pythonCanParse(file) {
   execFileSync("python3", ["-c", 'import ast,sys; ast.parse(open(sys.argv[1], encoding="utf-8").read())', file], { stdio: "pipe" });
 }
 
-test("the PDF builders are still valid Python", { skip }, () => {
+test("the PDF builders are still valid Python", { skip }, (t) => {
   // ⚠️ No Python on this machine is not a fault in the guide — the builders only run when she runs them.
+  // ⚠️⚠️ A GUARD THAT DID NOT RUN MUST NOT REPORT AS A PASS (v557). ⭐ These returned early and node counted
+  // a PASS — so a machine without python3, or without PyMuPDF, showed green for a check that never looked.
+  // ⭐ `t.skip` is the reporter's own word for it, and it shows on the run.
   try { execFileSync("python3", ["-c", "print(1)"], { stdio: "pipe" }); }
-  catch { return; }
+  catch { t.skip("python3 is not on this machine"); return; }
 
   for (const f of BUILDERS) {
     if (!present(f)) continue;
@@ -89,10 +92,13 @@ const OUTPUTS = {
 // ⭐⭐ **So this reads the built PDF back and asks for the characters themselves.**
 // ⚠️ It needs PyMuPDF to read text out of a PDF. **Without it this SKIPS rather than fails** — a guard that
 // goes red because a package she does not ship is missing is a guard that gets ignored.
-test("★★★ her Chinese is IN the changelog PDF — not a gap where her words should be", { skip }, () => {
+test("★★★ her Chinese is IN the changelog PDF — not a gap where her words should be", { skip }, (t) => {
   try { execFileSync("python3", ["-c", "import fpdf, fitz"], { stdio: "pipe" }); }
-  catch { return; }
-  if (!present("CHANGELOG.md") || !present("marketing/build_changelog.py")) return;
+  catch { t.skip("fpdf / PyMuPDF is not installed here"); return; }
+  if (!present("CHANGELOG.md") || !present("marketing/build_changelog.py")) {
+    t.skip("the changelog or its builder is not in this checkout");
+    return;
+  }
 
   // ⚠️ The phrases to look for are taken FROM THE CHANGELOG ITSELF, so this cannot drift from the document it
   // is checking. Every CJK run in it must survive into the PDF.
@@ -102,7 +108,10 @@ test("★★★ her Chinese is IN the changelog PDF — not a gap where her word
   // language rather than as a word of hers. ⭐ Measured the hard way: this check first went red on it alone,
   // and the fault was the check, not the PDF.
   const runs = [...new Set(md.match(/[一-鿿]{2,}/g) || [])].filter((r) => r !== "中文");
-  if (!runs.length) return; // nothing to check — the document carries no Chinese today
+  if (!runs.length) {
+    t.skip("the changelog carries no Chinese today");
+    return;
+  }
 
   const out = OUTPUTS["marketing/build_changelog.py"];
   const before = existsSync(here(out)) ? readFileSync(here(out)) : null;
@@ -127,7 +136,7 @@ test("★★★ her Chinese is IN the changelog PDF — not a gap where her word
   }
 });
 
-test("the PDF builders actually RUN (a valid file can still kill the build)", { skip }, () => {
+test("the PDF builders actually RUN (a valid file can still kill the build)", { skip }, (t) => {
   try { execFileSync("python3", ["-c", "print(1)"], { stdio: "pipe" }); }
   catch { return; }
   // ⚠️ `fpdf` is what the builders draw with; without it this cannot tell a broken guide from a missing

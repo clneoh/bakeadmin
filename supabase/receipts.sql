@@ -138,6 +138,16 @@ begin
   if v_code = '' then
     return null;
   end if;
+  -- ⚠️⚠️ A REFUND AMOUNT IS CHECKED HERE TOO, NOT ONLY IN THE APP (v557). ⭐ The refund dialog clamps to
+  -- the customer's bill, but the FUNCTION trusted whatever it was handed — so any signed-in client could
+  -- write `refunded_amount = 999999`, the register would print "refunded RM 999,999.00", and her other
+  -- phone would adopt that figure as the size of the refund.
+  -- ⚠️ Zero or negative is not a refund: nothing is written, and the null answer tells the caller so.
+  -- ⚠️ The true ceiling is the order's own bill, which this table does not hold — the app enforces that,
+  -- and this function cannot see it. What it can refuse, it refuses.
+  if p_amount is not null and p_amount <= 0 then
+    return null;
+  end if;
   update receipt_numbers
      set refunded_at     = coalesce(refunded_at, now()),
          -- ⚠️ ONCE AN AMOUNT IS RECORDED IT IS NOT OVERWRITTEN BY A LATER CALL THAT CARRIES NONE,

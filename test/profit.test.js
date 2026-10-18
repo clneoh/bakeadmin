@@ -195,7 +195,11 @@ test("the chart of accounts covers what she named, and is hers to change", () =>
   assert.ok(!categoryLabels(st).includes("Rent"), "gone from the picker");
   assert.equal(classOfCategory(st, "Rent"), "expense",
     "but the rows already written under it still count as a cost");
-  assert.ok(profitBetween(st, "2026-09-01", "2026-09-30").expenses.every((e) => e.label !== "Rent"),
+  const stmt = profitBetween(st, "2026-09-01", "2026-09-30");
+  // ⚠️ `every` IS TRUE OF AN EMPTY LIST (v557) — the chart is always drawn, so this precondition is a
+  // guard on the guard: if the chart ever came back empty, the line below would say nothing.
+  assert.ok(stmt.expenses.length > 0, "precondition: the statement prints a chart of accounts");
+  assert.ok(stmt.expenses.every((e) => e.label !== "Rent"),
     "and the statement stops printing a line for it");
 });
 
