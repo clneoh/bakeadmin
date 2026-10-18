@@ -443,7 +443,13 @@ export function backupChecks(state, copy, when = "") {
       // ⚠️ AND IT NAMES BOTH INNOCENT CASES (v527). It named one, and the one it named was not hers: **the
       // copy looks back about a week, and the Removed list remembers 48 hours** — so the whole band in
       // between is an order she took off deliberately, with nothing left to explain it.
-      `The copy saved on ${when || "an earlier day"} holds ${missing.length === 1 ? "an order" : "orders"} that this phone no longer has — and ${missing.length === 1 ? "it is" : "they are"} not on the Removed list either, so the app has no record of taking ${missing.length === 1 ? "it" : "them"} off. TWO innocent cases look exactly the same, so check the dates before worrying: a removal made before the Removed list existed, and — because the Removed list keeps a row for only ${removedKeepWords()} — an order you took off yourself longer ago than that, which this copy is old enough to remember.`,
+      // ⚠️⚠️ AND A THIRD INNOCENT CASE, WHICH HER OWN SCREEN FOUND (v550): **an order removed on her OTHER
+      // phone while THIS phone had never received it.** ⭐ The shelf row is written on the phone that HELD the
+      // order — this one has nothing to record, because it never had anything to take off — and the copy was
+      // made when the order was still there. ⭐ **Measured in the code: `mergeCloudRows` writes no shelf row
+      // for a tombstone whose order this phone does not have**, so a second phone makes this check cry wolf
+      // about an order it never held.
+      `The copy saved on ${when || "an earlier day"} holds ${missing.length === 1 ? "an order" : "orders"} that this phone no longer has — and ${missing.length === 1 ? "it is" : "they are"} not on the Removed list either, so the app has no record of taking ${missing.length === 1 ? "it" : "them"} off. THREE innocent cases look exactly the same, so check the dates before worrying: a removal made before the Removed list existed; an order you took off yourself longer ago than the ${removedKeepWords()} the Removed list keeps, which this copy is old enough to remember; and an order removed on your OTHER phone that this phone had never received — this phone has nothing to record for that, because it never had anything to take off.`,
       // ⚠️⚠️ AND THE WAY OUT NO LONGER OFFERS A REWIND (v532). ⭐ **"Put that copy back" meant Restore, which
       // takes the WHOLE app back to the day of the copy — here, in the shared data and on her other phone.**
       // ⭐ **It is the right tool for "put everything back", and the wrong one for one missing order** — and

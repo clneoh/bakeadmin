@@ -3213,7 +3213,11 @@ function boardJobCard(r, m, live, sc, state, k) {
   const cyc = win && win.cycle >= 0 ? (here.cycles || [])[win.cycle] : null;
   const name = cyc ? String(cyc.name || "").trim() : "";
   boardReadout(`${live.icon || m.icon} ${live.name} · batch ${k + 1} of ${n}`, [
-    ["When", `${clockAt(sc.dayStartMin, at)} → ${clockAt(sc.dayStartMin, end)}`],
+    // ⚠️⚠️ THE BOARD'S OWN CLOCK (v550). ⭐ While the day is being walked, `r.dayStartMin` is the hour the
+    // run is actually at — the ruler, the strip and the person card all read it (see the note at 3038).
+    // ⚠️ This card read the PLAN's start, so after pressing **Start the day now** it said "When 3:00 pm →
+    // 3:20 pm" beside a ruler at 9:00 am: **two clocks in one popup.**
+    ["When", `${clockAt(r.dayStartMin, at)} → ${clockAt(r.dayStartMin, end)}`],
     ["How long", `${trim(here.cycleMin)} min a batch` + (here.touchMin ? `, ${trim(here.touchMin)} min of hands` : ", no hands")],
     ["Where", here.lines > 1 ? `line ${(p && p.line != null ? p.line : 0) + 1} of ${here.lines}` : null],
     ["What for", name || null],
@@ -3231,7 +3235,8 @@ function boardJobCard(r, m, live, sc, state, k) {
 // from `m` because only it has been through the chain.
 function boardModuleCard(r, m, live, sc, state) {
   const notes = moduleNotes(r, m, live);
-  const batches = (m.passes || []).map((p, k) => ["", `Batch ${k + 1}: ${clockAt(sc.dayStartMin, p.at)} → ${clockAt(sc.dayStartMin, p.end)}`]);
+  // ⚠️ `r`, not `sc`: the module's card must read the same clock as its own batch cards (v550).
+  const batches = (m.passes || []).map((p, k) => ["", `Batch ${k + 1}: ${clockAt(r.dayStartMin, p.at)} → ${clockAt(r.dayStartMin, p.end)}`]);
   boardReadout(`${(live.icon || m.icon)} ${live.name || m.name}`, [
     ["", notes.tags.length ? notes.tags.map((t) => t.text).join(" · ") : null],
     ["When", notes.when],

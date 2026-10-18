@@ -15,7 +15,7 @@
 // WHOLE order, stamped on every one of its rows so a row read alone knows them — so anything that sums
 // rows counts them once per item. That is the v370 trap, and it is why every loop below walks groups.
 
-import { groupOrders, orderCode, orderLineName, orderLinePrice, round2, waNumber } from "./state.js";
+import { groupOrders, orderCode, codeFromId, orderLineName, orderLinePrice, round2, waNumber } from "./state.js";
 import { addDays, longDate } from "./dates.js";
 import { customerTotal } from "./courier.js";
 import { isCollected, isRefunded, refundOf } from "./money.js";
@@ -116,7 +116,12 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
   for (const g of groupOrders(state.orders || [])) {
     const first = (g.orders || [])[0];
     if (!first) continue;
-    if (customerKey && keyOf(first) !== customerKey) continue;
+    // ⚠️⚠️ A FORGOTTEN CUSTOMER KEEPS THEIR HISTORY UNDER A DIFFERENT KEY (v550). ⭐ `profiles.js` clears
+    // the name and number and leaves a random `redactedKey` so their sales stay together — but this filter
+    // asked `keyOf`, which no longer answers for them, so **their own statement said "this customer has
+    // nothing in this period" while the ALL page showed the same order.** ⭐ `customers.js` already reads
+    // `redactedKey || keyOf(o)`; this is the same rule.
+    if (customerKey && (first.redactedKey || keyOf(first)) !== customerKey) continue;
     mine.push(g);
   }
 
@@ -218,7 +223,11 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
   //
   // ⚠️ AND A VOID LINE CARRIES NO AMOUNT AT ALL — not zero. The money for it never existed, and printing
   // "RM 0.00" beside it would put a figure in a filed document that nobody ever paid.
-  const have = new Set((state.orders || []).map((o) => orderCode(o)));
+  // ⚠️⚠️ BOTH NUMBERS AN ORDER HAS EVER WORN (v550). ⭐ An order regrouped before v441 changed its number, so
+  // a receipt claimed while it was one row holds the OLD one — and this set held only today's, so the
+  // consolidated invoice called a live order **"order removed"** and printed its invoice number twice.
+  // ⭐ The register screen already matches `codeFromId` too (v445); this is the same rule.
+  const have = new Set((state.orders || []).flatMap((o) => [orderCode(o), codeFromId(o)]));
   const through = (iso) => localDay(iso);
   if (Array.isArray(register)) {
     for (const r of register) {

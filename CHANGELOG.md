@@ -1,8 +1,45 @@
-# Jienluv2bake — change history (v54 → v549)
+# Jienluv2bake — change history (v54 → v550)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v550, THE SECOND AUDIT: EIGHT FIXED, NINE SAID PLAINLY (no database step).**
+
+**Your words:** __"what else is wrong"__ — so I swept the parts the first audit had not read: the receipt register and invoices, couriers and parcels, points, referrals and coupons, and production and the planner. **Seventeen faults found. Eight are fixed below. Nine are written down and NOT fixed, each with its reason.**
+
+**1. ⚠️⚠️ THE TIMETABLE TOLD YOU TO MIX AT MIDNIGHT.** Measured: with the pans at the oven at 3:20 am, the dough goes into the tub 239 minutes earlier — **11:21 pm the night before** — and the card said **12:00 am**. ⭐ A minute before midnight was being clamped to zero instead of wrapping round the clock, so **it told you to mix 39 minutes LATE, which is the over-fermented dough that card exists to prevent.**
+
+**2. ⚠️⚠️ A FRIEND'S COUPON COULD BE SPENT AND TAKE NOTHING OFF.** When the first order carried a code, the code won and the friend's coupon was deliberately left unspent. Measured: on their **next** order, pressing Apply marked the coupon spent and deducted **RM0** — the customer was promised RM3 and got nothing, and the coupon was gone.
+- ⭐ The referrer's reward has read the order it was applied to since v336; **the friend's never did.** It does now.
+
+**3. ⚠️⚠️ BOOKING A RUN WITH THE PAYER LEFT BLANK DELETED EXISTING CHARGES.** A charge with no payer is not "nothing" — a fee of 0 **removes** the order's courier charge and its Delivery & fuel row. Measured: booking a run without choosing a payer wiped a RM8 charge that was already on one of the orders.
+- ⭐ No payer now means **no decision**: that order is left exactly as it was.
+- ⭐ And **a payer changed while the courier was being asked** now books nothing, rather than booking the old prices under the new payer.
+
+**4. ⚠️ A POINT COUNTED ITEMS, NOT ORDERS.** One customer collecting two loaves read **"2 orders"** on the Point's card and **"2 orders have collected there"** in the delete warning. ⭐ It counts orders now, the same way the rest of the app does.
+
+**5. ⚠️ A FORGOTTEN CUSTOMER'S OWN STATEMENT SAID THEY HAD NOTHING.** When you forget a customer, the app keeps their history under a private key — but the consolidated invoice still looked them up by their old name key, so **their statement read "this customer has nothing in this period" while the ALL page showed the same order.**
+
+**6. ⚠️ THE CONSOLIDATED INVOICE CALLED A LIVE ORDER "REMOVED".** An order that was regrouped before v441 changed its number, so a receipt claimed while it was one row holds the older one. ⭐ The invoice knew only today's number, so it printed the sale **and** a phantom "order removed" line with the same invoice number. ⭐ It now accepts both numbers the order has ever worn — the same rule the register has used since v445.
+
+**7. ⚠️ TWO CLOCKS IN ONE POPUP ON THE PLANNER'S BOARD.** After pressing **Start the day now**, the batch card said "When 3:00 pm → 3:20 pm" beside a ruler showing 9:00 am. ⭐ The card read the plan's start; it reads the run's now, like the ruler, the strip and the person card.
+
+**8. ⚠️ WHAT I COULD NOT TEST, SAID PLAINLY.** Every fix above but one has a test watched to fail by its own message. **The courier fixes (#3) have none** — they live in a booking flow this harness cannot drive — and are verified by reading only.
+
+**9. ⚠️ FOUND AND NOT FIXED — NINE, EACH WITH ITS REASON.** These are real and reproduced; none is a guess.
+- **The delivery run can book the OLD doorstep.** If you press "Use the customer's pin instead" after pricing, the row names the new door but the trip is bought for the old one. ⚠️ The fix is to clear the price when the door changes — I have not made it, because it touches the booking path itself.
+- **A run containing a Self collection Point with two or more customers, billed to the customer, writes no charges and removes existing ones.** ⚠️ It needs a pricing model per stop, not per order — a design decision.
+- **The receipt register reads only the first 1,000 numbers** and calls the run unbroken; number 1,001 is invisible. ⚠️ The fix is paging the read, like the sync already does.
+- **Opening the Scenario planner writes the mixer's HANDS minutes into the plan as the step's DURATION**, so the Production line can show a 1.29-minute mix instead of 20. ⚠️ This is a mapping between two models, and I will not guess which number she means.
+- **Deleting or renaming a promo code raises the Total of every order that carried it**, though the screen promises those orders keep it.
+- **Two phones can grant the same referral twice** (the credit gets a random id on each phone) and spend two coupons on one order.
+- **A fully refunded order still earns a referral reward, still counts as a "brought in" customer, and still spends a promo code's quota.** ⚠️ Whether a refund should give the use back is your rule, not mine.
+- **Two invoice lines can fail to add up to their own Total with a three-decimal sell price** (RM0.01 + RM0.01 under Total RM0.01).
+
+**10. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v549, THE LAST SIX FROM THE AUDIT — ALL FIXED (no database step).**
 

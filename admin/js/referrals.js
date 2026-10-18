@@ -297,7 +297,12 @@ export function couponOnAny(state, orders) {
     && (c.role === "friendOff"
       // THE FRIEND'S, come off the first order it names — and `orderCode` IS that order, so
       // matching on it is exact, exactly as it has been since v322.
-      ? wore(c.orderCode)
+      // ⚠️⚠️ AND IT ALSO COUNTS ON THE ORDER SHE PRESSED APPLY ON (v550). ⭐ A friend's coupon is left
+      // UNUSED when the first order carried a code (the code wins) — and it was still matched only
+      // against the order it was BORN on, so **the customer's next order could not use it at all:**
+      // pressing Apply marked it spent and took RM0 off. ⭐ **The referrer's reward has read `appliedTo`
+      // since v336; the friend's never did** — one rule applied to one of two kinds of coupon.
+      ? (wore(c.orderCode) || (!!c.usedAt && !!c.appliedTo && wore(c.appliedTo)))
       // ★★ THE REFERRER'S REWARD, WHICH IS A DIFFERENT KIND OF THING (v336). Hers is earned on
       // the FRIEND's order and spent on one of HER OWN, later — so **its `orderCode` names the
       // order that earned it and must NOT be matched against this one.** What says it belongs

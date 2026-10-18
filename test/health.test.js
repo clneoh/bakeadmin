@@ -311,6 +311,14 @@ test("★★★ an order that leaves the phone is caught — the fault that cost
   assert.deepEqual(r.detail, ["#D4E5F6"], "★ the check does not name the order that went missing");
   assert.match(r.why, /Removed list/, "★ it does not say the app has no record of taking the order off");
   assert.match(r.why, /copy saved on/, "★ it does not say which copy it looked at");
+  // ⚠️⚠️ AND IT NAMES ALL THREE INNOCENT CASES (v550). ⭐ It named two, and her own screen showed a third:
+  // **an order removed on her OTHER phone while this phone had never received it** — this phone has nothing
+  // to record, so a deliberate removal on the other phone reads here as a loss.
+  assert.match(r.why, /THREE innocent cases/,
+    "★ the reason does not say how many innocent explanations there are, so she cannot tell whether hers is one");
+  assert.match(r.why, /OTHER phone/,
+    "★ the reason does not name an order removed on her other phone — **the one case a second phone makes, "
+    + "and this phone cannot record it at all**");
   assert.ok(r.fix, "★ a fault with no way out is a dead end");
 });
 

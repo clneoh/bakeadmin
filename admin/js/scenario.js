@@ -2335,7 +2335,15 @@ export function hoursAndMinutes(mins) {
 // A minute of the day as a clock reading she would recognise, so a start time
 // reads "7:30 am" rather than "450".
 export function clockOf(mins) {
-  const m = Math.max(0, Math.round(num(mins))) % (24 * 60);
+  // ⚠️⚠️ A MINUTE BEFORE MIDNIGHT IS YESTERDAY'S CLOCK, NOT MIDNIGHT (v550). `Math.max(0, …)` CLAMPED a
+  // negative minute to zero, so **every start that falls before midnight was printed as "12:00 am"** —
+  // ⭐ MEASURED: pans at the oven at 3:20 am, the mix goes in 239 minutes earlier at **11:21 pm the night
+  // before**, and the card said **12:00 am** — **telling her to mix 39 minutes LATE, which is the
+  // over-fermented dough this whole timetable exists to prevent.**
+  // ⭐ It wraps now, so the reading is the real clock; the sentence around it already says "…minutes
+  // before", which is what carries the day.
+  const day = 24 * 60;
+  const m = ((Math.round(num(mins)) % day) + day) % day;
   const h24 = Math.floor(m / 60);
   const mm = m % 60;
   const ampm = h24 < 12 ? "am" : "pm";

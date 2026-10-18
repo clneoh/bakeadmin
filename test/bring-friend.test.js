@@ -251,6 +251,30 @@ test("a code on the order wins, and the friend's coupon is NOT spent", () => {
   assert.equal(friend.usedAt, null, "but NOT spent — a code paid for this order, not the coupon");
 });
 
+test("★★★ a friend's coupon a code left unused CAN be spent on their next order", () => {
+  // ⚠️⚠️ THE FAULT (v550): the coupon survived the first order (a code won, so it was not spent) — and it
+  // was still matched only against the order it was BORN on, so **their next order could not use it:**
+  // pressing Apply marked it spent and took RM0 off. ⭐ **The referrer's reward has read `appliedTo` since
+  // v336; the friend's never did.**
+  const first = { ...P22, credits: [], orders: orderFor({ referredBy: "60199999999", promo: "FRESH10" }) };
+  const made = giveCredits(first, { orders: first.orders }, first.settings.referrals);
+  const friend = made.rows.find((c) => c.role === "friendOff");
+  assert.equal(friend.usedAt, null, "precondition: the code won, so the coupon was left unspent");
+
+  // …their NEXT order, with no code, and she presses Apply on it.
+  const next = [{ id: "orddef456", groupId: "ordgdef456", deliveryDateId: "d18", deliveryDate: "2026-09-18",
+    fulfillment: "collect", whatsapp: "60123456789", productId: "p1", qty: 2,
+    productName: "Focaccia", unitPrice: 15, status: "new" }];
+  friend.usedAt = "2026-09-20T00:00:00.000Z";
+  friend.appliedTo = orderCode(next[0]);
+  const st = { ...P22, orders: next, credits: [friend] };
+  const parts = customerTotal(st, { orders: next });
+  assert.equal(parts.coupon, 3,
+    "★ the coupon was spent on this order and took nothing off — **the customer was promised RM3 and got "
+    + "nothing, and the coupon is gone**");
+  assert.equal(parts.total, 27, "and the total she asks for is the lower figure");
+});
+
 test("with no code, the friend's coupon is spent the moment it is made", () => {
   const st = { ...P22, credits: [], orders: orderFor({ referredBy: "60199999999" }) };
   const r = giveCredits(st, { orders: st.orders }, st.settings.referrals);

@@ -1292,7 +1292,7 @@ export function renderDeliveryRun(root, state, params) {
         // booked, because a throw on the way back cannot tell her which side of it we are on.
         await guarded({
           hold: (v) => { busy = v; },
-          work: () => bookRunNow(q, groups, amounts, w),
+          work: () => bookRunNow(q, groups, amounts, w, who),
           said: (s) => { statusLine.textContent = s; paintPrices(); },
           trouble: `The booking could not be finished — check the run in ${courier.label} before pressing again, in case it went through`,
         });
@@ -1301,7 +1301,20 @@ export function renderDeliveryRun(root, state, params) {
     );
   }
 
-  async function bookRunNow(q, groups, amounts, w) {
+  async function bookRunNow(q, groups, amounts, w, who) {
+    // ★★★ ONE PAYER, CHOSEN ONCE (v550).
+    // ⚠️⚠️ `who` was read BEFORE the courier was asked, and the amounts were worked out for THAT payer. The
+    // booking then re-read the live box, so **switching it while "1 of 3" was on screen booked the old
+    // prices under the new payer** — her books got a different figure from the one she was shown. ⭐ And
+    // with NO payer chosen, writing the charge DELETED one that was already there (a fee of 0 removes the
+    // row), which is a record that existed before she pressed anything.
+    const whoNow = pay && pay.payer ? pay.payer() : who;
+    if (whoNow !== who) {
+      busy = false;
+      statusLine.textContent = "The payer changed while the courier was being asked, so nothing was booked. Price the run again with the payer you want.";
+      paintPrices();
+      return;
+    }
     busy = true;
     paintPrices();
     const holder = courierByKey(courier.key) || courier;
@@ -1340,7 +1353,15 @@ export function renderDeliveryRun(root, state, params) {
     // is the one runChargeAmounts chose: the customer's OWN doorstep cost when they bear
     // it, so the saving from going together stays with her, or their apportioned part of
     // the run's fee when she bears it — which sums to exactly what she was charged.
-    if (pay) groups.forEach((g, i) => writeCourierCharge(state, g.orders, g, pay.read(amounts[i])));
+    if (pay) groups.forEach((g, i) => {
+      const a = pay.read(amounts[i]);
+      // ⚠️⚠️ NO PAYER MEANS NO DECISION — LEAVE THIS ORDER'S CHARGE EXACTLY AS IT WAS (v550). ⭐ Writing a
+      // charge with no payer is not "nothing": a fee of 0 **removes** the order's charge AND its
+      // Delivery & fuel row, so booking a run with the box left on "Not recorded" quietly deleted a
+      // record that was there before she pressed anything.
+      if (!a || !String(a.who || "")) return;
+      writeCourierCharge(state, g.orders, g, a);
+    });
     busy = false;
     save(state);
     maybeSync(state);
