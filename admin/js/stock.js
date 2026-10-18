@@ -310,7 +310,14 @@ export function applyBake(state, product, dayIso, delta) {
     logStock(ing, {
       delta: round2((Number(ing.onHand) || 0) - before),
       why: "produced",
-      what,
+      // ⚠️⚠️ AND WHEN THE GIVE-BACK IS CAPPED, THE ROW SAYS SO (v560). ⭐ Her own card showed
+      // **"Extra bake corrected — 10 × Focaccia"** against **+2 kg**: the label named the size of the
+      // correction while the change was only what that day's bake had actually taken off. ⭐ **A row whose
+      // two numbers describe different things is the fault this app keeps meeting** — so the capped row
+      // stops quoting the pans and says what came back.
+      what: (n < 0 && give < base)
+        ? `Extra bake correction — ${name}, only what this day's bake took`
+        : what,
       ref: String(dayIso || ""),
       productId: pid,
     });

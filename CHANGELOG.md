@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v559)
+# Jienluv2bake — change history (v54 → v560)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v560, THE STOCK CARD THAT DOES NOT ADD UP — AND THE ANSWER TO YOUR TWO "0 g TO 10 kg" ROWS (no database step).**
+
+**Your words:** __"This strong flour stock card like questionable"__ — and it is.
+
+**1. ⚠️⚠️ YOUR CARD, MEASURED.** The eight rows add to **+14 kg**. The card says **On hand: 10 kg.** ⭐ **The amount at the top is right; the history over-counts by 4 kg** — and that is what looks wrong, because it is.
+
+**2. ⭐⭐ AND HERE IS WHAT MADE THE DUPLICATES — THE ANSWER TO THE QUESTION I COULD NOT ANSWER IN OCTOBER.** Look at the rows that appear **twice, identically**: two **"Stocktake — 0 g to 10 kg · +10 kg"** on 17 Oct, and two **"Baked extra — 2 × Focaccia · −1 kg"** at 05:32.
+- ⭐ **A stocktake sets an amount; it does not add one.** So if two phones both hold the shelf at 0 and each sets 10 kg, **each writes "+10 kg"** — and the shelf, which is an amount rather than a total, takes the 10 **once**.
+- ⭐ **Reproduced exactly:** two phones, one stocktake each, and the card shows two "+10 kg" rows over one 10 kg shelf. That is why the rows could never add up, and **your Mac and your phone gave two answers for the same day.**
+
+**3. ⚠️⚠️ SO DO NOT PRESS THE ✕ ON THOSE ROWS.** Removing a "+10 kg" row would take **10 kg off a shelf that never gained it.** ⭐ Your shelf is correct; only the history over-states it.
+
+**4. ⭐ AND NOW SOMETHING CHECKS IT.** **Check my system has a new line: "The stock card adds up to the shelf."** ⭐ It names every ingredient whose rows do not add up to the amount at the top, with both figures — ⚠️ and a card with more movements than the history keeps is **skipped and says so**, never reported as adding up.
+
+**5. ⚠️ AND ONE ROW ON YOUR CARD THAT SAID TWO THINGS.** **"Extra bake corrected — 10 × Focaccia · +2 kg"**: the label named the size of the correction while the change was only what that day's bake had actually taken. ⭐ The change was right (2 kg is all the day had taken); the **label** was wrong. ⭐ A correction that can only give part back now reads **"only what this day's bake took"** instead of quoting pans it cannot account for.
+
+**6. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v559, ONE PRESS THAT PUTS THE PHONE ON EVERY OLD TRACKING CARD (no database step).**
 

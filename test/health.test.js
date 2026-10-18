@@ -77,9 +77,9 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  assert.equal(res.total, 22, `the check list is no longer twenty-two checks (it is ${res.total})`);
+  assert.equal(res.total, 23, `the check list is no longer twenty-three checks (it is ${res.total})`);
   // 17 since v548: "This phone could read its saved copy" joins the page.
-  assert.equal(res.passedChecks, 22);
+  assert.equal(res.passedChecks, 23);
   assert.equal(res.failed, 0);
 });
 
@@ -210,7 +210,7 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
     "★ shared data that could not be read was reported as a pass by the reverse check too");
   assert.equal(resultOf(res, "waiting").status, "pass",
     "the waiting count is a local number and does not need the cloud to be readable");
-  assert.equal(res.passedChecks, 14, "a skipped check was counted among the passes");
+  assert.equal(res.passedChecks, 15, "a skipped check was counted among the passes");
   assert.equal(res.skippedChecks, 8, "the skipped checks were not counted separately");
   assert.match(String(resultOf(res, "reached").why || ""), /shared data/i,
     "the skipped check does not say why it could not look");
@@ -284,8 +284,8 @@ test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 22, "the checks did not all run on an empty book");
-  assert.equal(localChecks(bare).length, 12, "the local checks are not twelve");
+  assert.equal(res.total, 23, "the checks did not all run on an empty book");
+  assert.equal(localChecks(bare).length, 13, "the local checks are not thirteen");
   assert.equal(registerChecks(bare, []).length, 2, "the register checks are not two");
   assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");
 });
@@ -839,4 +839,39 @@ test("★★★ two orders on one order number are NAMED — the code that two c
     "★ two orders wearing one number were not reported — **their tracking card and receipt number are the same**");
   assert.deepEqual(r.detail, ["#1A2B3C"], "★ the check does not name the number to look up");
   assert.ok(r.fix, "★ a fault with no way out is a dead end");
+});
+
+test("★★★ a stock card whose rows do not add up to the shelf is NAMED — her own strong flour", () => {
+  // ⚠️⚠️ HER CARD, VERBATIM: eight rows summing to +14 kg under an "On hand" of 10 kg, with two identical
+  // "0 g to 10 kg" stocktakes and two identical "Baked extra — 2 ×" rows. ⭐ **The amount at the top is
+  // right; the history over-counts** — the fingerprint of one action recorded on two phones.
+  const st = healthy();
+  // ⚠️ The units decide how the figures are WORDED — without them the check would print raw base amounts,
+  // and this test would be asserting a format the app never shows her.
+  st.uoms = [{ id: "g", name: "g", family: "weight", toBase: 1 },
+    { id: "kg", name: "kg", family: "weight", toBase: 1000 }];
+  st.ingredients = [{ id: "i1", name: "Strong flour", unit: "kg", uomId: "kg", onHand: 10000,
+    stockLog: [
+      { delta: -6000 }, { delta: 10000 }, { delta: 10000 }, { delta: -5000 },
+      { delta: 5000 }, { delta: -1000 }, { delta: -1000 }, { delta: 2000 },
+    ] }];
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "stockAddsUp");
+  assert.equal(r.status, "fail",
+    "★ her card's rows add to 14 kg under a shelf of 10 kg and the check said nothing");
+  assert.match(String(r.detail[0]), /Strong flour/, "★ the check does not name the ingredient");
+  assert.match(String(r.detail[0]), /14 kg/, "★ it does not say what the rows add to");
+  assert.match(String(r.detail[0]), /10 kg/, "★ it does not say what the shelf holds");
+  // ⭐ AND THE WAY OUT MUST NOT BE THE ✕ — removing a duplicated row would take 10 kg off a shelf that
+  // never gained it.
+  assert.match(r.fix, /DO NOT remove|Do NOT remove/, "the check does not warn against the ✕");
+});
+
+test("★★ and a card with too many movements to add up is SKIPPED, never passed", async () => {
+  const st = healthy();
+  const { STOCK_LOG_CAP } = await import("../admin/js/stock.js");
+  st.ingredients = [{ id: "i1", name: "Flour", unit: "g", uomId: "g", onHand: 0,
+    stockLog: Array.from({ length: STOCK_LOG_CAP }, () => ({ delta: 1 })) }];
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "stockAddsUp");
+  assert.equal(r.status, "skipped",
+    "★ a stock card whose oldest rows are gone was reported as ADDING UP — **nobody could have looked**");
 });

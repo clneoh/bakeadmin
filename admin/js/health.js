@@ -21,12 +21,14 @@
 // ⚠️ AND IT NEVER NAMES A CAUSE. It reports what it found and what it means. What removed an order is not
 // knowable from the data that is left — which is the whole reason v444 keeps a copy of it.
 
-import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, duplicateOrderCodes, PHONE_STORE_LIMIT, PHONE_STORE_ALERT } from "./state.js";
+import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, duplicateOrderCodes, round2, PHONE_STORE_LIMIT, PHONE_STORE_ALERT } from "./state.js";
 import { isCollected } from "./money.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { listFields } from "./sync.js";
 import { unaccountedOrders } from "./backups.js";
 import { dayMonth } from "./dates.js";
+import { fmtStockAmount } from "./purchasing.js";
+import { STOCK_LOG_CAP } from "./stock.js";
 
 // The order-level facts every row of ONE order must agree on. ⚠️ DELIBERATELY NOT THE PER-LINE ONES —
 // `qty`, `unitPrice`, `unitCost` and `lineNote` are each row's own business, and a check that flagged
@@ -227,6 +229,47 @@ export function localChecks(state) {
       } else {
         out.push({ ...pass("room", "There is room on this phone for your data"), detail: [size] });
       }
+    }
+  }
+
+  // ── 10b · the stock card adds up to the shelf (v560) ───────────────────
+  //
+  // ⚠️⚠️ HER OWN CARD ASKED THE QUESTION. The strong-flour card showed **eight rows summing to +14 kg under
+  // an "On hand" of 10 kg**, with two identical "0 g to 10 kg" stocktakes and two identical "Baked extra —
+  // 2 ×" rows at the same minute. ⭐ **The amount at the top is right; the history over-counts.**
+  // ⭐ THE MECHANISM, REPRODUCED: a stocktake sets an ABSOLUTE amount. Two phones holding the shelf at 0
+  // each set 10 kg, so each writes "+10 kg" — the shelf merges to one 10 kg, the journal keeps both rows.
+  // ⚠️ **Nothing looked at the relationship between the two, and it is the one invariant a stock card has:
+  // every row is one movement, so the rows must add up to the amount at the top.**
+  // ⚠️ A log that has hit its cap cannot add up by construction — those are SKIPPED and said so, never
+  // passed, and never called a fault.
+  {
+    const bad = [];
+    const capped = [];
+    for (const ing of (Array.isArray(state && state.ingredients) ? state.ingredients : [])) {
+      if (!ing) continue;
+      const log = Array.isArray(ing.stockLog) ? ing.stockLog : [];
+      if (!log.length) continue;
+      // ⚠️ A log that has hit its cap has lost its oldest rows, so its sum cannot match by construction —
+      // it cannot be JUDGED, which is not the same as being right.
+      if (log.length >= STOCK_LOG_CAP) { capped.push(String(ing.name || "an ingredient")); continue; }
+      const sum = round2(log.reduce((acc, e) => acc + (Number(e && e.delta) || 0), 0));
+      const on = round2(Number(ing.onHand) || 0);
+      if (Math.abs(sum - on) > 0.01) {
+        bad.push(`${ing.name} — on hand ${fmtStockAmount(state, ing, on)}, the rows add to ${fmtStockAmount(state, ing, sum)}`);
+      }
+    }
+    if (bad.length) {
+      out.push(fail("stockAddsUp", "The stock card adds up to the shelf", bad,
+        "Every row on a stock card is one movement of your shelf, so the rows must add up to the amount at the top. On these they do not. The AMOUNT AT THE TOP IS RIGHT — it is the history that over-counts. That happens when the same action was recorded on two phones: a stocktake sets an amount rather than adding one, so each phone writes its own row while the shelf takes the amount once.",
+        "Do NOT remove the duplicated rows with the ✕ — that would move your shelf by an amount that was never there. Your shelf is already correct. Use Adjust only when the real amount changes, and check the day's baked figures on BOTH phones rather than one after the other."));
+    } else if (capped.length) {
+      // ⭐ A real mismatch outranks this, so it is asked first; with none, part of her book still could not
+      // be judged, and the rule this page is built on is that "I could not look" is never a pass.
+      out.push(skipped("stockAddsUp", "The stock card adds up to the shelf",
+        `Too many movements on ${capped.join(", ")} to add up — a stock card keeps its newest ${STOCK_LOG_CAP}.`));
+    } else {
+      out.push(pass("stockAddsUp", "The stock card adds up to the shelf"));
     }
   }
 
