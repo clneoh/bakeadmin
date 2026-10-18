@@ -26,7 +26,7 @@ globalThis.localStorage.setItem("bakeadmin.supabase",
 
 const { receiptNoOf, receiptLabel, receiptLine, isRefunded, receiptStatus,
   copyKnowsCode, lastSeenIn, registerRows, registerSummary, voidedIndex } = await import("../admin/js/receipts.js");
-const { claimReceipt, pullReceiptRegister } = await import("../admin/js/supabase.js");
+const { claimReceipt, pullReceiptRegister, refundReceipt } = await import("../admin/js/supabase.js");
 const { journalSheet } = await import("../admin/js/journal.js");
 const { orderCode } = await import("../admin/js/state.js");
 
@@ -404,4 +404,23 @@ test("the register is read from the receipts table, oldest number first", async 
   assert.equal(r.rows.length, 1);
   assert.match(seen, /\/rest\/v1\/receipt_numbers\?/, "the register was not read from the receipts table");
   assert.match(seen, /order=number\.asc/, "the run was asked for in an order a register cannot be read in");
+});
+
+test("★★★ a refund the register did NOT change is not reported as done", async () => {
+  // ⚠️⚠️ THE FAULT (v553): the receipt functions return the number they changed, and **NULL when no
+  // register row matches** — still with HTTP 200. ⭐ The app read only `res.ok`, so it stamped "refunded"
+  // on the order while the register row was untouched: **the register showed the sale as unrefunded, and
+  // the invoice drew a number with no mark.** ⭐ HTTP 200 is not "it happened".
+  const st = stateWith();
+  const order = { id: "ordabc123", groupId: "ordgabc123", status: "paid" };
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (String(url).includes("/rpc/refund_receipt")) return { ok: true, json: async () => null };
+    return { ok: true, json: async () => [] };
+  };
+  const ok = await refundReceipt(st, order, 5);
+  assert.equal(ok, false,
+    "★ a refund that changed nothing in the register was reported as done — **her register and her order "
+    + "now disagree about money that went back**");
+  assert.equal(order.refundedAt, undefined, "★ and the order was stamped refunded anyway");
 });

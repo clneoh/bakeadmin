@@ -546,9 +546,12 @@ function initReviews() {
     if (error) error.textContent = text;
   }
 
-  function showThanks(critical) {
+  // ⚠️⚠️ A PICTURE THAT DID NOT UPLOAD MUST NOT BE THANKED FOR (v553). ⭐ The review went out with
+  // `photo: ""` and the thanks said **"your review and photo reached the baker"** — so the customer believed
+  // a picture had arrived that never did, and the moderation card had none. ⭐ The words tell the truth now.
+  function showThanks(critical, photoFailed = false) {
     if (!thanks) return;
-    const parts = [tHome("rvThanksMain")];
+    const parts = [tHome(photoFailed ? "rvThanksNoPhoto" : "rvThanksMain")];
     if (critical) parts.push(tHome("rvThanksHonest"));
     thanks.textContent = parts.join(" ");
     thanks.hidden = false;
@@ -570,11 +573,14 @@ function initReviews() {
     setError("");
     const critical = rating <= 3;
     let photo = "";
+    let photoFailed = false;   // she chose a picture and it did not make it — say so afterwards
     if (chosenFile) {
-      // Shrink first so any phone photo is a small upload; an unreadable file
-      // just means the review goes out without a picture.
+      // Shrink first so any phone photo is a small upload. ⚠️ An unreadable file, or an upload that comes
+      // back empty, means the review goes out WITHOUT a picture — and the thanks no longer pretends
+      // otherwise (v553).
       const ready = await shrinkReviewPhoto(chosenFile);
-      if (ready) photo = await uploadPhoto(ready);
+      if (ready) { photo = await uploadPhoto(ready); if (!photo) photoFailed = true; }
+      else photoFailed = true;
     }
     const res = await submitReview({ name, stars: rating, message: message.value, lang, photo });
     if (submitBtn) {
@@ -594,7 +600,7 @@ function initReviews() {
     langBtns.forEach((x) => x.classList.toggle("is-on", x.dataset.lang === "en"));
     if (preview) preview.replaceChildren();
     clearPicked();
-    showThanks(critical);
+    showThanks(critical, photoFailed);
   });
 
   paintStars();

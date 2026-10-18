@@ -625,6 +625,11 @@ function buildEditor(state, product) {
   // again on both sides of the publish (storefront-fields.js) so a malformed one
   // is dropped rather than shipped.
   let thumb = String(product?.thumb || "");
+  // ⚠️⚠️ A PICTURE SHE HAS JUST CHOSEN IS NOT SAVED YET (v553). ⭐ Reading a 12-megapixel photo takes a
+  // moment, and Save reads `thumb` — so **pressing Update before it finished wrote the OLD picture while
+  // the screen said "Product updated", and the one she picked was gone.** ⭐ This holds the press for
+  // that moment, and says why.
+  let thumbPending = false;
   const thumbFile = el("input", { type: "file", accept: "image/*", style: "display:none" });
   const thumbPreview = el("div", { class: "thumb-preview" });
   const drawThumb = () => {
@@ -640,7 +645,9 @@ function buildEditor(state, product) {
   thumbFile.addEventListener("change", () => {
     const f = thumbFile.files && thumbFile.files[0];
     if (!f) return;
+    thumbPending = true;
     readPhoto(f, (dataUrl) => {
+      thumbPending = false;
       if (dataUrl) { thumb = dataUrl; drawThumb(); toast("Photo added"); }
       else toast("That file couldn't be read as a photo");
     }, 360);
@@ -989,6 +996,10 @@ function buildEditor(state, product) {
   // Reads the form; returns { error } or { values, tr } ready to save.
   function collect() {
     const pname = name.value.trim();
+    // ⚠️ THE PICTURE COMES FIRST, because saving without it loses it silently (v553).
+    if (thumbPending) {
+      return { error: "The picture is still being prepared — give it a second, then press Update again." };
+    }
     if (!pname) return { error: "Product needs a name" };
     const unitVal = unit.value.trim();
     if (!unitVal) {

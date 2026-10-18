@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateUpcomingDates } from "../admin/js/dates.js";
-import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable, stuckOrders, forgetStuckOrders, whyUnimportable, isPendingPhoto, reviewPhotoKey, publishReviewWithPhoto, takeDownReviewWithPhoto, deletePublicReviewPhoto, pendingPhotoUrl } from "../admin/js/supabase.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable, stuckOrders, forgetStuckOrders, whyUnimportable, isPendingPhoto, reviewPhotoKey, publishReviewWithPhoto, takeDownReviewWithPhoto, deletePublicReviewPhoto, pendingPhotoUrl, fetchReviews } from "../admin/js/supabase.js";
 import { groupOrders, orderCode } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
@@ -2231,5 +2231,42 @@ test("⚠️ a picture that can be neither signed nor read SAYS SO rather than s
     const r = await pendingPhotoUrl(photoCloudState(), PENDING);
     assert.equal(r.ok, false);
     assert.ok(r.reason && r.reason.length > 4, "no reason was given for a picture that cannot be shown");
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test("★★★ a reply this app cannot read is NOT an empty list of reviews", async () => {
+  // ⚠️⚠️ A 200 whose body is a proxy or a captive-portal page parsed to nothing, and the app reported
+  // `ok: true` with no reviews — ⭐ **so the screen said there are none, which is the opposite of "I could
+  // not ask".** ⭐ The same rule the register keeps.
+  const st = makeState();
+  st.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, json: async () => ({ not: "an array" }) };
+  };
+  try {
+    const r = await fetchReviews(st);
+    assert.equal(r.ok, false,
+      "★ an unreadable reply was reported as a successful read with no reviews — **the screen says there "
+      + "are none when nobody could look**");
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test("★★★ the label-open counts are read in PAGES — past 1,000 rows they do not stop", async () => {
+  // ⚠️⚠️ One row per code per DAY: forty codes over a month is 1,200 rows, and one unpaged read is capped
+  // at 1,000 — ⭐ **so "Opened N times" and the 28-day strip undercounted, with nothing saying so.**
+  const st = visitsState();
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    const offset = Number((String(url).match(/[?&]offset=(\d+)/) || [])[1] || 0);
+    const n = offset === 0 ? 1000 : 2;          // a full page, then the last one
+    return { ok: true, json: async () => Array.from({ length: n }, (_, i) => ({ code: "FRESH10", day: `2026-10-${String((offset + i) % 28 + 1).padStart(2, "0")}`, n: 1 })) };
+  };
+  try {
+    const out = await fetchPromoVisits(st, [{ code: "FRESH10" }]);
+    assert.equal(out.ok, true);
+    assert.equal(out.byCode.get("FRESH10").total, 1002,
+      "★ the counts stopped at the server's ceiling — **every label's open count is short, and the strip "
+      + "under-reports the days**");
   } finally { globalThis.fetch = realFetch; }
 });

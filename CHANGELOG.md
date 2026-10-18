@@ -1,8 +1,36 @@
-# Jienluv2bake — change history (v54 → v552)
+# Jienluv2bake — change history (v54 → v553)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v553, THE LAST EIGHT: SEVEN FIXED, ONE HELD BACK ON PURPOSE (no database step).**
+
+**Your words:** __"fix the eight open ones."__ Seven are done. The eighth is the order code, and **I have not touched it — the reason is at the end, and it is a decision for you.**
+
+**1. ⚠️⚠️ A PICTURE YOU HAD JUST CHOSEN COULD BE LOST WHILE THE SCREEN SAID IT SAVED.** Reading a 12-megapixel photo takes a moment, and Save read the picture that was there before it. ⭐ Measured: choose a photo, press **Update product** at once — **the old picture was written and "Product updated" appeared, and the one she picked was gone.** ⭐ Save now waits for the picture and says why. The same in a customer's profile.
+
+**2. ⚠️⚠️ A REVIEW PHOTO THAT FAILED WAS THANKED FOR ANYWAY.** If the picture could not be uploaded, the review went out without one — and the customer read **"your review and photo reached the baker"**. ⭐ The words tell the truth now, in all three languages: the words reached you, **the picture did not**.
+
+**3. ⚠️⚠️ A REFUND COULD BE REPORTED AS DONE WHEN THE REGISTER NEVER CHANGED.** The register's own functions answer with the number they changed — and with **nothing** when no row matches, still as a success. ⭐ The app read only "did the request succeed", so it marked the order refunded while **the register went on showing the sale as unrefunded**. ⭐ A reply that changed nothing is now a failure.
+
+**4. ⚠️⚠️ THE PASSWORD HAD NO PAUSE AT ALL.** Four digits, tried as fast as a thumb can tap, on an app that ships with a published default. ⭐ Three tries are free — a thumb mistypes — and then the wait doubles, up to half a minute. ⚠️ **It is a pause on the screen, not a lockout:** a reload starts again, which is the honest limit of what a page can enforce, and it is not claimed to be more.
+
+**5. ⚠️⚠️ THE UNLOCK BUTTON COULD LOCK HER OUT FOR GOOD.** It disabled itself and then waited on a check that **fails on an insecure address** — so the correct password failed, the button never came back, and nothing was said. ⭐ Caught, the press returned, and the message names the fix: open the app on its https address.
+
+**6. ⚠️ TWO COUNTS STOPPED AT 1,000.** The number of reviews waiting for you, and each label's "opened" count, were read as lists — and a list read is capped at 1,000. ⭐ The waiting count is now **asked for** (one row, and the exact total in the reply's own header); the label counts are read in pages.
+
+**7. ⚠️ A REPLY THIS APP COULD NOT READ WAS TAKEN AS AN EMPTY ONE.** A proxy or a hotel-Wi-Fi page answers with a page instead of reviews — and the screen said **there are none**, which is the opposite of "I could not ask". ⭐ An unreadable answer is a failed read now, the same rule the register has always kept.
+
+**8. ⚠️ A NAMELESS ORDER OPENED "Hi !".** An order with a number but no name is ordinary — neither form requires one — and every message she sent began **"Hi ! Your order…"**. ⭐ One reading now, used by the confirmation and all three later messages, so they cannot word it differently.
+
+**9. ⚠️⚠️ AND THE ONE I HAVE HELD BACK: THE ORDER CODE CAN COLLIDE.** The code a customer quotes is the last six characters of the order's own id — about **3% by 1,000 orders**, and two orders sharing one code would share **one tracking card and one receipt number**.
+- ⭐ **Why I have not changed it:** the code is stamped on receipts, quoted in WhatsApp and printed on cards. **v441 was the fault where an order's code MOVED, and it cost a live receipt, a confirmation message and a search that found nothing.** Lengthening it would move every code she has already given out.
+- ⭐ **What I would do, with your yes:** leave every existing code exactly as it is, and **refuse to publish a second order that would land on a code already taken** — so a collision becomes a sentence on her screen instead of two customers quietly sharing a card. That needs no SQL and moves nobody's code.
+
+**10. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v552, THE THIRD SWEEP: FOUR FIXED, EIGHT SAID PLAINLY (no database step).**
 

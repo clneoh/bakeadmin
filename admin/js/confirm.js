@@ -20,7 +20,7 @@ import { fulfillmentText, pointAddressFor } from "./points.js";
 import { dayLine, vanLine } from "./courier_job.js";
 // The one place the opening line is worded, so the confirmation cannot lean over
 // while the three later messages do not (2 Oct 2026).
-import { greeting } from "./messages.js";
+import { greeting, hello } from "./messages.js";
 
 // Returns { recipient, message }, or null when the group has no orders.
 // `trackUrl` is the storefront track link (with ?track=CODE) for the message.
@@ -72,7 +72,7 @@ export function buildConfirmation(state, group, trackUrl) {
   const bakery = sf.name || "";
   const qr = String(sf.tngQr || "").trim();
 
-  let msg = `${greeting(state, `Hi ${first.customerName || ""}! Your order from ${bakery} is confirmed.`)}\n`;
+  let msg = `${greeting(state, `${hello(first.customerName)} Your order from ${bakery} is confirmed.`)}\n`;
   msg += `Order #${orderCode(first)}\n`;
   msg += `${day.label}: ${date} - ${fulfillment}${address}\n`;
   msg += `Items: ${items}\n`;

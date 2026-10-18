@@ -993,7 +993,17 @@ async function receiptRpc(state, order, fn, extra = {}) {
       },
       body: JSON.stringify({ p_order_code: code, ...extra }),
     });
-    return !!(res && res.ok);
+    if (!res || !res.ok) return false;
+    // ⚠️⚠️ HTTP 200 IS NOT "IT HAPPENED" (v553). ⭐ The receipt functions return the number they changed
+    // — and **NULL when no `receipt_numbers` row matches**, still with a 200. ⭐ This read only `res.ok`, so
+    // the app stamped "refunded" on the order while the register row was untouched: **the register showed
+    // the sale as unrefunded and counted nothing marked**, and the invoice drew a number with no mark.
+    // ⚠️ That happens to an order whose receipt was never claimed (it was claimed while the phone was
+    // offline), or one grouped before v441 whose code has moved — ⭐ **the register's reader accepts the old
+    // code as an alias, but this writer only knows today's.** A null body is the honest "nothing matched".
+    let body = null;
+    try { body = await res.json(); } catch { body = null; }
+    return body != null;
   } catch { return false; }
 }
 
@@ -1485,8 +1495,14 @@ export async function fetchReviews(state) {
       `${c.url}/rest/v1/reviews?select=id,name,stars,message,lang,photo,published,created_at&order=created_at.desc`,
       { headers: await reviewAuth(c) });
     if (!res.ok) return { ok: false, reason: `Reviews failed to load (HTTP ${res.status})`, reviews: [] };
-    const rows = await res.json().catch(() => []);
-    return { ok: true, reviews: Array.isArray(rows) ? rows : [] };
+    // ⚠️⚠️ A REPLY THIS APP CANNOT READ IS NOT AN EMPTY LIST (v553). ⭐ A 200 whose body is a proxy or a
+    // captive-portal page parsed to nothing, and this reported `ok: true` with no reviews — ⭐ **so the
+    // screen said there are none, which is the opposite of "I could not ask".** The rule this file already
+    // keeps for the register, applied here: **an unreadable answer is a FAILED read, never an empty one.**
+    let rows = null;
+    try { rows = await res.json(); } catch { rows = null; }
+    if (!Array.isArray(rows)) return { ok: false, reason: "The reviews came back in a form this app could not read", reviews: [] };
+    return { ok: true, reviews: rows };
   } catch (err) {
     return { ok: false, reason: reviewErr(err, "Couldn't reach Supabase"), reviews: [] };
   }
@@ -1581,11 +1597,23 @@ export async function pendingReviewCount(state) {
   const c = cfg(state);
   if (!ready(c)) return null;
   try {
+    // ⚠️⚠️ A COUNT READ AS ROWS STOPS AT THE SERVER'S CEILING (v553). ⭐ One read of every unpublished id
+    // is capped at 1,000, so **the badge said "1000" and never moved again** — and with 1,005 reviews the
+    // ones among the oldest could never be found at all. ⭐ The count is ASKED FOR now, not counted by
+    // hand: one row, and the exact total comes back in the reply's own header.
+    const auth = await reviewAuth(c);
     const res = await fetch(
-      `${c.url}/rest/v1/reviews?select=id&published=eq.false`,
-      { headers: await reviewAuth(c) });
+      `${c.url}/rest/v1/reviews?select=id&published=eq.false&limit=1`,
+      { headers: { ...auth, Prefer: "count=exact" } });
     if (!res.ok) return null;
-    const rows = await res.json().catch(() => null);
+    const range = res.headers && typeof res.headers.get === "function" ? res.headers.get("content-range") : "";
+    const total = Number(String(range || "").split("/")[1]);
+    if (Number.isFinite(total)) return total;
+    // ⚠️ A SERVER THAT SENT NO HEADER gets the OLD question asked again in full — the one row above was
+    // asked only for its count and is not a list to count.
+    const again = await fetch(`${c.url}/rest/v1/reviews?select=id&published=eq.false`, { headers: auth });
+    if (!again.ok) return null;
+    const rows = await again.json().catch(() => null);
     return Array.isArray(rows) ? rows.length : null;
   } catch {
     return null;
@@ -1616,12 +1644,25 @@ export async function fetchPromoVisits(state, codes) {
     .filter(Boolean);
   if (!wanted.length) return { ok: true, byCode: new Map() };
   try {
-    const res = await fetch(
-      `${c.url}/rest/v1/promo_visit_days?select=code,day,n&code=in.(${wanted.join(",")})`,
-      { headers: await reviewAuth(c) });
-    if (!res.ok) return { ok: false, reason: `Supabase said ${res.status}` };
-    const rows = await res.json().catch(() => null);
-    if (!Array.isArray(rows)) return { ok: false, reason: "Supabase sent something unreadable" };
+    // ⚠️⚠️ AND IT IS READ IN PAGES (v553). ⭐ The view is one row per code per DAY, so forty codes over a
+    // month is 1,200 rows — and one unpaged read is capped at 1,000, ⭐ **so "Opened N times" and the
+    // 28-day strip undercounted with nothing on screen to say so.** ⚠️ `order=code,day` is what makes
+    // `offset` paging safe: a day's count never moves once written.
+    const PAGE = 1000;
+    const MAX_PAGES = 20;
+    const rows = [];
+    const auth = await reviewAuth(c);
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const res = await fetch(
+        `${c.url}/rest/v1/promo_visit_days?select=code,day,n&code=in.(${wanted.join(",")})`
+        + `&order=code.asc,day.asc&limit=${PAGE}&offset=${rows.length}`,
+        { headers: auth });
+      if (!res.ok) return { ok: false, reason: `Supabase said ${res.status}` };
+      const got = await res.json().catch(() => null);
+      if (!Array.isArray(got)) return { ok: false, reason: "Supabase sent something unreadable" };
+      rows.push(...got);
+      if (got.length < PAGE) break;
+    }
     const byCode = new Map();
     for (const r of rows) {
       const code = normCode(r && r.code);

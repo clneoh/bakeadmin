@@ -553,6 +553,9 @@ function editProfilePopup(state, r, afterSave, opts = {}) {
   const p = profileFor(state, r._key) || {};
   let close = () => {};
   let photo = String(p.dogPhoto || "");
+  // ⚠️⚠️ THE PICTURE IS NOT SAVED YET (v553) — see `saveProfile`. Reading a large photo takes a moment,
+  // and pressing Save before it finished wrote the OLD one while the screen said "Profile saved".
+  let photoPending = false;
 
   const name = el("input", { class: "input", value: p.name != null ? p.name : (r.name && r.name !== "(no name)" ? r.name : "") });
   const whatsapp = el("input", { class: "input", type: "tel", value: p.whatsapp != null ? p.whatsapp : (r.whatsapp || "") });
@@ -588,13 +591,20 @@ function editProfilePopup(state, r, afterSave, opts = {}) {
   file.addEventListener("change", () => {
     const f = file.files && file.files[0];
     if (!f) return;
+    photoPending = true;
     readPhoto(f, (dataUrl) => {
+      photoPending = false;
       if (dataUrl) { photo = dataUrl; draw(); toast("Photo added"); }
       else toast("That file couldn't be read as a photo");
     });
   });
 
   const saveProfile = () => {
+    // ⚠️ THE PICTURE COMES FIRST — saving without it loses it silently (v553).
+    if (photoPending) {
+      toast("The picture is still being prepared — give it a second, then press Save again");
+      return;
+    }
     const prof = upsertProfile(state, {
       id: p.id || "",
       name: name.value,
