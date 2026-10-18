@@ -11,7 +11,7 @@ import { publishOccasions } from "./occasion_catalog.js";
 import { flattenTree, primaryCategoryId, productsInCategory } from "./productCategories.js";
 import { isThumb, lineNoteOf } from "../../storefront-fields.js";
 import { costOf, effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
-import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, stampOrderLine } from "./state.js";
+import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, stampOrderLine, duplicateOrderCodes } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { customerTotal } from "./courier.js";
 // The promo-code engine. Only two things are asked of it here: what the shop may
@@ -883,6 +883,11 @@ export async function claimReceipt(state, order) {
   if (!ready(c)) return false;
   const code = String(orderCode(order) || "").trim();
   if (!code) return false;
+  // ⚠️⚠️ AND NEVER TOUCH A REGISTER ROW ANOTHER ORDER IS ALREADY WEARING (v554). ⭐ The register keys its
+  // serials by the code, so two orders on one code would be given **the same receipt number** — and the
+  // invoice for each would print the other's serial. ⚠️ Refusing here is not silent: the invoice then says
+  // the number could not be drawn, and Check my system names the two orders and the number they share.
+  if (duplicateOrderCodes(state && state.orders).some((d) => d.code === code)) return false;
   let token = cachedToken();
   if (!token) {
     try { token = await login(c.url, c.anonKey, c.email, c.password); }
@@ -978,6 +983,11 @@ async function receiptRpc(state, order, fn, extra = {}) {
   if (!ready(c)) return false;
   const code = String(orderCode(order) || "").trim();
   if (!code) return false;
+  // ⚠️⚠️ AND NEVER TOUCH A REGISTER ROW ANOTHER ORDER IS ALREADY WEARING (v554). ⭐ The register keys its
+  // serials by the code, so two orders on one code would be given **the same receipt number** — and the
+  // invoice for each would print the other's serial. ⚠️ Refusing here is not silent: the invoice then says
+  // the number could not be drawn, and Check my system names the two orders and the number they share.
+  if (duplicateOrderCodes(state && state.orders).some((d) => d.code === code)) return false;
   let token = cachedToken();
   if (!token) {
     try { token = await login(c.url, c.anonKey, c.email, c.password); }

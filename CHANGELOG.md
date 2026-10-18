@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v553)
+# Jienluv2bake — change history (v54 → v554)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v554, THE ORDER NUMBER THAT TWO ORDERS COULD SHARE — now found, and never written twice (no database step).**
+
+**Your words:** __"yes, fix it"__ — the eighth fault, which I had held back.
+
+**1. ⚠️⚠️ TWO ORDERS CAN WEAR THE SAME ORDER NUMBER.** It is the last six characters of the order's own id: about **3% by 1,000 orders**. That number is what a customer quotes, what their tracking card answers to, and what the receipt register keys its serials by — **so two orders on one number would share one tracking card and one receipt number, and each invoice would print the other's serial.**
+
+**2. ⭐ AND NOTHING ALREADY GIVEN OUT HAS MOVED.** The number cannot be lengthened, because that would change every code already printed on a receipt and quoted in a WhatsApp message — **v441 was exactly that fault, and it cost a live receipt and a confirmation that pointed nowhere.** So the fix is the one you approved:
+- ⭐ **Check my system has a new line: "No two orders wear the same order number."** It names the number, and says plainly not to delete either order — both are real sales.
+- ⭐ **And the app will not draw a receipt number for a code another live order is already wearing.** The invoice then says the number could not be drawn, and the check names the two orders and the number they share — **instead of two customers quietly sharing one serial.**
+
+**3. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v553, THE LAST EIGHT: SEVEN FIXED, ONE HELD BACK ON PURPOSE (no database step).**
 

@@ -77,9 +77,9 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  assert.equal(res.total, 21, `the check list is no longer twenty-one checks (it is ${res.total})`);
+  assert.equal(res.total, 22, `the check list is no longer twenty-two checks (it is ${res.total})`);
   // 17 since v548: "This phone could read its saved copy" joins the page.
-  assert.equal(res.passedChecks, 21);
+  assert.equal(res.passedChecks, 22);
   assert.equal(res.failed, 0);
 });
 
@@ -210,7 +210,7 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
     "★ shared data that could not be read was reported as a pass by the reverse check too");
   assert.equal(resultOf(res, "waiting").status, "pass",
     "the waiting count is a local number and does not need the cloud to be readable");
-  assert.equal(res.passedChecks, 13, "a skipped check was counted among the passes");
+  assert.equal(res.passedChecks, 14, "a skipped check was counted among the passes");
   assert.equal(res.skippedChecks, 8, "the skipped checks were not counted separately");
   assert.match(String(resultOf(res, "reached").why || ""), /shared data/i,
     "the skipped check does not say why it could not look");
@@ -284,8 +284,8 @@ test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 21, "the checks did not all run on an empty book");
-  assert.equal(localChecks(bare).length, 11, "the local checks are not eleven");
+  assert.equal(res.total, 22, "the checks did not all run on an empty book");
+  assert.equal(localChecks(bare).length, 12, "the local checks are not twelve");
   assert.equal(registerChecks(bare, []).length, 2, "the register checks are not two");
   assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");
 });
@@ -822,4 +822,21 @@ test("★★⚠️ and a record with NO number says so — the shape that cannot
   const r = resultOf(runHealthChecks(st, { ...emptyExtras(), waiting: 1, queued: new Set(["orders:undefined"]) }), "waiting");
   assert.deepEqual(r.detail, ["an order with no number"],
     "★ a record that has no name said nothing useful about itself");
+});
+
+test("★★★ two orders on one order number are NAMED — the code that two customers would share", () => {
+  // ⚠️⚠️ The code is six hex characters of the order's own id — about 3% by 1,000 orders — and the shared
+  // data keys the tracking card AND the receipt register by it. ⭐ Two orders on one code would share one
+  // tracking card and one receipt number, so this must be a sentence on her screen, not a silent merge.
+  const st = healthy();
+  const base = st.orders[0];
+  st.orders = [
+    { ...base, id: "ord_123456aaaaaa1a2b3c", groupId: "" },
+    { ...base, id: "ord_987654bbbbbb1a2b3c", groupId: "" },
+  ];
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "dupCode");
+  assert.equal(r.status, "fail",
+    "★ two orders wearing one number were not reported — **their tracking card and receipt number are the same**");
+  assert.deepEqual(r.detail, ["#1A2B3C"], "★ the check does not name the number to look up");
+  assert.ok(r.fix, "★ a fault with no way out is a dead end");
 });

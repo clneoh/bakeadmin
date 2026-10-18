@@ -424,3 +424,20 @@ test("★★★ a refund the register did NOT change is not reported as done", a
     + "now disagree about money that went back**");
   assert.equal(order.refundedAt, undefined, "★ and the order was stamped refunded anyway");
 });
+
+test("★★★ no receipt number is drawn for a code ANOTHER ORDER is already wearing", async () => {
+  // ⚠️⚠️ The register keys its serials by the order code, so two orders on one code are given THE SAME
+  // number — ⭐ **and each invoice would print the other's serial.** The refusal is not silent: the invoice
+  // says the number could not be drawn, and Check my system names the two orders and the number.
+  const st = stateWith();
+  st.orders = [
+    { id: "ord_123456aaaaaa1a2b3c", groupId: "", paidReceived: true, status: "paid" },
+    { id: "ord_987654bbbbbb1a2b3c", groupId: "", paidReceived: true, status: "paid" },
+  ];
+  let called = false;
+  globalThis.fetch = async () => { called = true; return { ok: true, json: async () => [] }; };
+  const ok = await claimReceipt(st, st.orders[0]);
+  assert.equal(ok, false,
+    "★ a number was drawn for a code two orders share — **both invoices would print the same serial**");
+  assert.equal(called, false, "it should not even ask the register");
+});

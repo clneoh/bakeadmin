@@ -21,7 +21,7 @@
 // ⚠️ AND IT NEVER NAMES A CAUSE. It reports what it found and what it means. What removed an order is not
 // knowable from the data that is left — which is the whole reason v444 keeps a copy of it.
 
-import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, PHONE_STORE_LIMIT, PHONE_STORE_ALERT } from "./state.js";
+import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, duplicateOrderCodes, PHONE_STORE_LIMIT, PHONE_STORE_ALERT } from "./state.js";
 import { isCollected } from "./money.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { listFields } from "./sync.js";
@@ -230,7 +230,22 @@ export function localChecks(state) {
     }
   }
 
-  // ── 11 · this phone could read its own saved copy (v548) ────────────────
+  // ── 11 · no two orders wear the same number (v554) ─────────────────────
+  //
+  // ⚠️⚠️ THE CODE IS SIX HEX CHARACTERS of the order's own id — about **3% by 1,000 orders** — and the
+  // shared data keys BOTH the tracking card and the receipt register by it. ⭐ **Two orders on one code
+  // share one tracking card and one receipt number: two customers reading each other's bread.** ⚠️ It
+  // cannot be lengthened without moving every code already given out (v441's fault), so this FINDS it.
+  {
+    const dup = duplicateOrderCodes(orders);
+    out.push(dup.length
+      ? fail("dupCode", "No two orders wear the same order number", dup.map((d) => `#${d.code}`),
+        "Two or more orders carry the same order number. That number is what a customer quotes, what their tracking card answers to, and what the receipt register keys its serials by — so those orders would share one card and one receipt number between them.",
+        "Do not delete either order — each one is a real sale. This one needs the helper: send the numbers above, and a new number can be given to ONE of them without moving the other.")
+      : pass("dupCode", "No two orders wear the same order number"));
+  }
+
+  // ── 12 · this phone could read its own saved copy (v548) ────────────────
   //
   // ⚠️⚠️ THE FAULT THIS ANSWERS. A damaged stored book used to make the app come up EMPTY and say nothing —
   // the only trace was a `console.warn`, and the next save wrote the empty book over the only local copy.

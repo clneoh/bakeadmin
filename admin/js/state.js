@@ -1192,6 +1192,29 @@ export function orderCode(order) {
   return hex || "??????";
 }
 
+// ★★★ NO TWO ORDERS MAY WEAR THE SAME NUMBER (v554).
+//
+// ⚠️⚠️ THE CODE IS THE LAST SIX HEX CHARACTERS of the order's own id — about **3% by 1,000 orders** — and
+// the shared data keys BOTH the tracking card and the receipt register by it. ⭐ **Two orders landing on
+// one code would share one tracking card and one receipt number: two customers reading each other's
+// bread.** ⚠️ It cannot simply be lengthened, because that would MOVE every code already given out —
+// **v441 was exactly that fault, and it cost a live receipt and a confirmation that pointed nowhere.**
+// ⭐ So this FINDS the collision instead of preventing it, and the app can say so on her screen.
+// Answers one `{ code, ids }` per code worn twice, in the order the codes first appear.
+export function duplicateOrderCodes(orders) {
+  const byCode = new Map();
+  for (const g of groupOrders(Array.isArray(orders) ? orders : [])) {
+    const first = (g.orders || [])[0];
+    if (!first) continue;
+    const code = orderCode(first);
+    if (!code || code === "??????") continue;
+    const row = byCode.get(code) || { code, ids: [] };
+    row.ids.push(String(first.groupId || first.id || ""));
+    byCode.set(code, row);
+  }
+  return [...byCode.values()].filter((r) => r.ids.length > 1);
+}
+
 // ★ THE CODE AN ORDER CARRIED BEFORE IT WAS EVER GROUPED (v441) — the id-only derivation, kept for
 // ONE job: a receipt written before this fix holds THAT code, and the register must still be able to
 // find the order it belongs to. ⚠️ It is a look-up alias and nothing else — `orderCode` is what every
