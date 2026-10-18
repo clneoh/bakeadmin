@@ -2024,7 +2024,12 @@ export function scenarioPlanPatch(saved, plan) {
 
   const mix = byJob.mix;
   if (mix) {
-    take("mixMin", "Minutes to mix one tub of dough", mix.touchMin, "min");
+    // ⚠️⚠️ THE MIX'S OWN DURATION, NOT HER HANDS (v551). ⭐ The plan's `mixMin` is "mixing the dough in the
+    // tub, ONE mix — spread over the batch", and its own default is **20**. ⚠️ This wrote the mixer's
+    // `touchMin` — **the 6 minutes her hands are on it** — so importing a scenario **replaced her 20 with
+    // 6** and the whole timetable shifted 14 minutes earlier. ⭐ `cycleMin` is the time the tub is occupied;
+    // `touchMin` stays the hands, which the plan does not ask for here.
+    take("mixMin", "Minutes to mix one tub of dough", mix.cycleMin, "min");
     take("mixerPans", "Pans one tub of dough makes", mix.batch, "pans");
   }
 

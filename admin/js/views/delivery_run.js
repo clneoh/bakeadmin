@@ -767,6 +767,11 @@ export function renderDeliveryRun(root, state, params) {
   // point is a new one she has just chosen and which therefore carries no old stamp at all.
   function keepPin(order, place, fromCustomer = false, road = "") {
     setDropPlace(state, order, place, fromCustomer ? "customer" : "hand", road);
+    // ★★★ A DOOR IS PART OF WHAT WAS PRICED (v551). ⚠️⚠️ `stale()` compared only WHICH rows were ticked,
+    // so switching a customer's door after pricing left the price standing — the row named the new door
+    // while **the trip was bought for the old one.** ⭐ Ticking a row, changing the day and changing the
+    // time all throw the price away; a door is the same kind of change.
+    priceAgain();
     save(state);
     maybeSync(state);
     paintList();
@@ -1270,6 +1275,18 @@ export function renderDeliveryRun(root, state, params) {
     const load = loadOf(state, groups);
     const cur = state.settings.currency;
     const amounts = runChargeAmounts(who, q.amount, originals, groups.length);
+    // ⚠️⚠️ A SHARED DOORSTEP CANNOT CARRY A PER-CUSTOMER PRICE (v551). ⭐ The courier is asked for ONE
+    // separate price per STOP, and a Self collection Point carrying two customers is ONE stop — so those
+    // prices cannot be matched to the customers one each. ⚠️ Booked anyway, **no charges were written at
+    // all** while the confirmation promised "each customer is charged what their own doorstep costs on its
+    // own". ⭐ Stopping here says so BEFORE a real vehicle is on a real road.
+    if (who === "customer" && amounts.length !== groups.length) {
+      statusLine.textContent = "This run has one doorstep carrying more than one customer — a collection Point — "
+        + "so the courier's separate prices cannot be given to them one each. Nothing was booked. "
+        + "Either choose that you paid it, or tick one customer at a time.";
+      paintPrices();
+      return;
+    }
     const answers = pay && amounts.length ? pay.read(amounts[0]) : null;
     const w = windowNow();
     const when = w ? ` Customers will be told ${fmtWindow(w)}.` : "";

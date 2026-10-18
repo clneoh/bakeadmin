@@ -477,7 +477,13 @@ test("the clock reads the way she would say it", () => {
 
 test("the seeded modules carry the line's own numbers across", () => {
   const p = scenarioPlanPatch(DEFAULT_SCENARIO, {});
-  // The mixer's 6 minutes a mix, its 28-pan tub; the wash module's 18 minutes and
+  // ⚠️⚠️ THE MIXER CROSSES ITS **CYCLE**, NOT ITS HANDS (v551). ⭐ This test pinned `mixMin: 6` and said
+  // "the mixer's 6 minutes a mix" — but 6 is `touchMin`, **the minutes her hands are on it**, and the
+  // plan's `mixMin` is "mixing the dough in the tub, ONE mix", whose own default is **20**. ⚠️ Importing a
+  // scenario therefore replaced her 20 with 6 and moved every step of the day 14 minutes earlier.
+  // ⭐ A test that pins a wrong mapping is worse than none — this one is rewritten, not deleted.
+  //
+  // The mixer's 20-minute cycle and its 28-pan tub; the wash module's 18 minutes and
   // the top's 8; the oven module's 4 minutes of hands, its 6 pans and its
   // 15-minute turn. Every one of them is a number she typed.
   //
@@ -489,7 +495,7 @@ test("the seeded modules carry the line's own numbers across", () => {
   // seeded day is laid out so one pair covers every job, module by module.
   assert.deepEqual(p.patch, {
     target: 36, people: 1,
-    mixMin: 6, mixerPans: 28,
+    mixMin: 20, mixerPans: 28,
     scaleMin6: 18, topMin6: 8, coolMin6: 12,
     swapMin6: 4, ovenPans: 6, ovenMin: 15,
   });

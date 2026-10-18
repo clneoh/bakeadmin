@@ -5444,6 +5444,11 @@ function refundOrder(state, group, first, { root, dateId, fromEdit = false } = {
             // the flag is what stops it being counted twice. ⭐ Cleared by any ordinary refund, because a
             // later real refund is a real one.
             if (fromEdit) o.refundFromEdit = true; else delete o.refundFromEdit;
+            // ★★★ AND WHETHER THIS UNDID THE WHOLE SALE (v551). ⭐ The box's own cap IS the bill, so
+            // "everything went back" is known HERE and nowhere else — and the two books that must not
+            // count a refunded sale (the referral ledger and a promo code's quota) cannot work it out
+            // for themselves without a cycle. ⭐ **A fact is written where it is known.**
+            if (!fromEdit && value >= cap) o.refundedFull = true; else delete o.refundedFull;
             if (items.length) o.refundItems = items; else delete o.refundItems;
             if (why) o.refundNote = why; else delete o.refundNote;
           }

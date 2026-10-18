@@ -114,7 +114,14 @@ export function invoiceSheet(state, group, { from = "", bakery = "", printed = "
     from,
     printed,
     lines,
-    totals: [{ label: "Total", amount: t.total }],
+    // ⚠️⚠️ THE TOTAL IS WHAT THE LINES ABOVE IT ADD UP TO (v551). ⭐ MEASURED: two lines at RM0.005 each
+    // printed as "RM 0.01" and "RM 0.01" — a reader's sum of **RM0.02** — under **Total RM0.01**, because
+    // each line was rounded for printing while the Total was worked out on the unrounded figures.
+    // ⭐ An invoice whose lines do not add up to its own Total is not an invoice (this file's own rule
+    // above the coupon line). ⚠️ It only shows with a sub-cent price — and a price she typed is a price
+    // the document has to honour.
+    totals: [{ label: "Total",
+      amount: round2(lines.reduce((s, l) => s + (l.dir === "out" ? -l.amount : l.amount), 0)) }],
     empty: "No items on this order.",
   };
 }

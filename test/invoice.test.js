@@ -44,6 +44,18 @@ const line = (over = {}) => ({
   unitPrice: 15, status: "ready", ...over,
 });
 
+test("★★★ the printed lines add up to the printed Total, even at half a cent a loaf", () => {
+  // ⚠️⚠️ MEASURED (v551): two lines sold at RM0.005 each printed as "RM 0.01" and "RM 0.01" — a reader's
+  // sum of RM0.02 — under **Total RM0.01**, because each line was rounded for printing while the Total was
+  // worked out on the unrounded figures. ⭐ **An invoice whose lines do not add up to its own Total is not
+  // an invoice** — this file's own rule, broken by rounding rather than by arithmetic.
+  const { st, g } = cart([{ unitPrice: 0.005, qty: 1 }, { unitPrice: 0.005, qty: 1 }]);
+  const inv = invoiceSheet(st, g);
+  const sum = inv.lines.reduce((s, l) => s + (l.dir === "out" ? -l.amount : l.amount), 0);
+  assert.equal(Math.round(sum * 100), Math.round(inv.totals[0].amount * 100),
+    "★ the invoice's lines do not add up to the Total printed under them");
+});
+
 // A cart that really lives in `state.orders`, because that is where the money and the
 // order's own identity are read from.
 function cart(rows = [{}], st = state()) {

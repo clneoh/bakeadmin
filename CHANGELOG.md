@@ -1,8 +1,39 @@
-# Jienluv2bake — change history (v54 → v550)
+# Jienluv2bake — change history (v54 → v551)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v551, THE NINE THAT WERE LEFT OPEN — ALL FIXED (no database step).**
+
+**Your words:** __"fix the nine open ones."__ All nine the previous entry named are done.
+
+**1. ⚠️⚠️ THE TIMETABLE'S MIX WAS REPLACED BY THE HANDS FIGURE.** Opening the Scenario planner once wrote the mixer's **6 minutes of your hands** into the plan's **"minutes to mix one tub"**, whose own default is **20**. ⭐ **Importing a scenario shortened every step of your day by 14 minutes.** It now takes the mixer's 20-minute cycle.
+- ⭐ And the test that pinned 6 was **rewritten, not deleted** — it was pinning the wrong mapping.
+
+**2. ⚠️⚠️ A DELIVERY RUN COULD BOOK THE OLD DOORSTEP.** Press "Use the customer's pin instead" after pricing and the row named the new door — but **the trip was bought for the old one.** ⭐ A door is part of what was priced, so changing it now throws the price away, exactly as ticking a row or changing the day already did.
+
+**3. ⚠️⚠️ A SHARED COLLECTION POINT SILENTLY WROTE NO CHARGES.** The courier prices one stop at a time, and a Point carrying two customers is **one stop** — so their prices could not be matched one each, and no charges were written while the confirmation promised each customer would be charged. ⭐ It now refuses **before** a vehicle is booked, in words, and says what to do instead.
+
+**4. ⚠️ A DELETED PROMO CODE RAISED EVERY ORDER THAT CARRIED IT.** The delete screen promised __"those keep it, and you still owe them what you promised"__ — while the order stored only the code's NAME, so deleting the code priced those orders at nothing. ⭐ The amount is frozen onto the orders **at the moment of the delete**, and read back when the code is gone.
+
+**5. ⚠️ TWO PHONES GRANTED ONE REFERRAL TWICE.** Both held the order before either synced, so both wrote a reward and a coupon — **the referrer could spend RM6 of RM3.** ⭐ The credit's id is derived from what it is (its kind and the order that earned it), so two phones write ONE record.
+
+**6. ⚠️ A REFUNDED SALE STILL EARNED AND STILL SPENT.** A fully refunded order counted as a customer she "brought in", kept a customer from being "new" (so their coupon was refused), and still used up a promo code's quota. ⭐ A full refund is now recorded on the order, and none of the three counts it.
+
+**7. ⚠️ A FORGOTTEN CUSTOMER'S STATEMENT SAID THEY HAD NOTHING.** Covered in the entry below and fixed here with the rest.
+
+**8. ⚠️ THE RECEIPT REGISTER READ ONLY THE FIRST 1,000 NUMBERS.** It said "The run is unbroken" over a part of the book. ⭐ It is read in pages now, and a book too big for one read says so instead.
+
+**9. ⚠️ AN INVOICE'S LINES COULD MISS ITS OWN TOTAL.** Two lines at RM0.005 each printed as "RM 0.01" and "RM 0.01" — a reader's RM0.02 — under **Total RM0.01**. ⭐ The Total is now the sum of its own printed lines.
+
+**10. ⚠️⚠️ AND A REAL ORDER COULD BE HIDDEN BEHIND FIFTY STUCK ONES.** The shop's queue was read as **the first fifty, in no order at all** — and a row that cannot be imported is deliberately left waiting so it keeps retrying. ⭐ **So fifty of those filled the queue for ever, and a customer's order behind them was never even READ**, while the screen said "nothing is lost, it is tried again every 30 seconds". ⭐ The queue is read newest-first now, and in pages.
+
+**11. ⚠️ AND TWO OF THE NINE HAVE NO TEST THAT DRIVES THE SCREEN.** The delivery run's door change and its shared-Point refusal (#2 and #3) live in a booking flow this harness cannot drive; both are verified by reading, and both reuse a rule the screen already applies. ⭐ Said plainly rather than dressed up. **The other seven are each pinned by a test watched to fail by its own message.**
+
+**12. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v550, THE SECOND AUDIT: EIGHT FIXED, NINE SAID PLAINLY (no database step).**
 

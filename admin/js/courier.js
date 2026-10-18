@@ -143,7 +143,21 @@ export function promoOn(state, orders) {
   const rows = Array.isArray(orders) ? orders : [];
   const first = rows[0];
   if (!first) return { code: "", money: 0 };
-  return promoValue(state, first.promo, basketItems(state, rows), customerCourierFee(first));
+  const live = promoValue(state, first.promo, basketItems(state, rows), customerCourierFee(first));
+  if (live.money > 0) return live;
+  // ⚠️⚠️ A CODE SHE HAS SINCE DELETED KEEPS ITS DISCOUNT (v551). ⭐ Her delete screen PROMISES it —
+  // __"those keep it, and you still owe them what you promised"__ — and the app dated that promise: an
+  // order stores only the code's NAME, so once the code was gone it priced at nothing and **every order
+  // that carried it went UP.** ⭐ The amount is frozen onto the orders when the code is deleted
+  // (`promoRM`), so the promise is kept by the same rows that made it.
+  // ⚠️ ONLY when the code cannot be FOUND at all: a code that still exists and now gives nothing (ended,
+  // paused, basket below its minimum) is a live judgement, not a deleted one.
+  if (findCode(codesOf(state), first.promo)) return live;
+  const frozen = Number(first.promoRM);
+  if (Number.isFinite(frozen) && frozen > 0) {
+    return { code: String(first.promo || ""), money: round2(frozen), frozen: true };
+  }
+  return live;
 }
 
 // A code the order CARRIED that gave nothing, and why — the customer typed it into the

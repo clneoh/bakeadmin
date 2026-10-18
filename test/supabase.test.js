@@ -633,6 +633,40 @@ test("pullIncoming imports storefront orders, marks and deletes the rows", async
   }
 });
 
+test("★★★ fifty unimportable rows no longer hide a REAL order behind them", async () => {
+  // ⚠️⚠️ THE FAULT (v551): one read of the first 50, with no order at all, and a row that cannot be
+  // imported is deliberately left `new` so it keeps retrying. ⭐ **So fifty such rows filled the ceiling for
+  // ever, and a real customer's order behind them was never even READ** — while the screen said "nothing
+  // is lost, it is tried again every 30 seconds".
+  storageShim(new Map());
+  const state = makeState();
+  state.products = [{ id: "prd_1", name: "Focaccia", active: true }];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const stuckRow = (i) => ({ id: `stuck-${i}`,
+    data: JSON.stringify({ customer: "X", date: "2026-09-04", total: 1,
+      lines: [{ name: "A product she paused", qty: 1, price: 1 }] }) });
+  const good = { id: "good-1",
+    data: JSON.stringify({ customer: "Ain", date: "2026-09-04", total: 15,
+      lines: [{ name: "Focaccia", qty: 1, price: 15 }] }) };
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (opts && opts.method === "PATCH") return { ok: true, json: async () => [{}] };
+    if (opts && opts.method === "DELETE") return { ok: true, json: async () => [] };
+    const offset = Number((String(url).match(/[?&]offset=(\d+)/) || [])[1] || 0);
+    return { ok: true, json: async () => (offset === 0 ? Array.from({ length: 50 }, (_, i) => stuckRow(i)) : [good]) };
+  };
+  try {
+    const r = await pullIncoming(state);
+    assert.equal(r.ok, true);
+    assert.ok(r.imported.includes("good-1"),
+      "★ a real order behind fifty unimportable rows was never imported — **the queue could only ever see "
+      + "the same fifty**");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
 // ── ★★ v364: AN ORDER THE INTAKE COULD NOT READ MUST NOT BE INVISIBLE ───────
 const intakeState = () => {
   const st = makeState();

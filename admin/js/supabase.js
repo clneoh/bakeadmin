@@ -941,14 +941,30 @@ export async function pullReceiptRegister(state) {
     catch { return { ok: false, rows: [] }; }
   }
 
+  // ★★★ AND IT IS READ IN PAGES (v551). ⚠️⚠️ It was ONE request with no limit — and the server answers at
+  // most 1,000 rows, so **past receipt #001000 the register simply ended**: the screen said "Receipts
+  // #000001 to #001000 — 1,000 issued" and "The run is unbroken", and a receipt beyond the ceiling was
+  // invisible. ⭐ **A cap on her records is not a capacity, it is an expiry date** — the same lesson the
+  // sync learned in v531. ⚠️ `order=number.asc` is what makes `offset` paging safe here: a receipt number
+  // never moves.
+  const PAGE = 1000;
+  const MAX_PAGES = 50;                       // a hard stop so a runaway can never spin
+  const rows = [];
   try {
-    const res = await fetch(
-      `${c.url}/rest/v1/receipt_numbers?select=number,order_code,issued_at,refunded_at,refunded_amount&order=number.asc`,
-      { headers: { apikey: c.anonKey, Authorization: `Bearer ${token}` } });
-    if (!res || !res.ok) return { ok: false, rows: [] };
-    const rows = await res.json().catch(() => null);
-    if (!Array.isArray(rows)) return { ok: false, rows: [] };
-    return { ok: true, rows };
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const res = await fetch(
+        `${c.url}/rest/v1/receipt_numbers?select=number,order_code,issued_at,refunded_at,refunded_amount`
+        + `&order=number.asc&limit=${PAGE}&offset=${rows.length}`,
+        { headers: { apikey: c.anonKey, Authorization: `Bearer ${token}` } });
+      if (!res || !res.ok) return { ok: false, rows: [] };
+      const got = await res.json().catch(() => null);
+      if (!Array.isArray(got)) return { ok: false, rows: [] };
+      rows.push(...got);
+      if (got.length < PAGE) return { ok: true, rows };
+    }
+    // ⚠️ A READ THAT HIT THE CEILING IS NOT A SUCCESS — the register would present a part as the whole.
+    return { ok: false, rows: [],
+      reason: `The register holds more than ${(PAGE * MAX_PAGES).toLocaleString("en")} receipts, which is more than one read can take.` };
   } catch { return { ok: false, rows: [] }; }
 }
 
@@ -1104,11 +1120,26 @@ export async function pullIncoming(state) {
 
   try {
     const auth = { apikey: c.anonKey, Authorization: `Bearer ${token}` };
-    const res = await fetch(
-      `${c.url}/rest/v1/incoming_orders?select=id,data&status=eq.new&limit=50`,
-      { headers: auth });
-    if (!res.ok) return { ok: false, imported: [] };
-    const rows = await res.json().catch(() => []);
+    // ★★★ NEWEST FIRST, AND IN PAGES (v551). ⚠️⚠️ THE FAULT: one read of the first 50 — **with no order
+    // at all** — and a row that cannot be imported is deliberately left `new` so it keeps retrying. ⭐ **So
+    // fifty such rows filled the ceiling for ever, and a real customer's order behind them was never even
+    // READ:** the app said "nothing is lost, it is tried again every 30 seconds" while it could not see it.
+    // ⭐ Newest-first puts a fresh order at the front of the first page; the pages cover a backlog behind
+    // it. ⚠️ The cap is reported, never silently applied.
+    const PAGE = 50;
+    const MAX_PAGES = 4;
+    const rows = [];
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const res = await fetch(
+        `${c.url}/rest/v1/incoming_orders?select=id,data&status=eq.new`
+        + `&order=created_at.desc&limit=${PAGE}&offset=${rows.length}`,
+        { headers: auth });
+      if (!res.ok) return { ok: false, imported: [] };
+      const got = await res.json().catch(() => []);
+      if (!Array.isArray(got)) return { ok: false, imported: [] };
+      rows.push(...got);
+      if (got.length < PAGE) break;
+    }
     const imported = [];
     // ★ AND EVERY ROW THAT COULD NOT BE READ IS KEPT, IN WORDS (v364) — see `stuckOrders`.
     const stuck = [];

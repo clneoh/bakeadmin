@@ -82,6 +82,22 @@ function ordered(code = mkCode(), order = {}) {
 
 const confirm = (st, g) => buildConfirmation(st, g, "https://x/track").message;
 
+test("★★★ an order KEEPS its discount after the code is deleted", () => {
+  // ⚠️⚠️ THE FAULT (v551): the delete screen promises "those keep it, and you still owe them what you
+  // promised" — and the order stored only the code's NAME, so once the code was gone it priced at nothing
+  // and **every order that carried it went UP.**
+  const { st, g } = ordered();
+  const before = customerTotal(st, g);
+  assert.equal(before.total, 20, "precondition: RM30 of goods less the RM10 the code gives");
+  // Deleting the code freezes what it was worth onto the orders, then removes it.
+  for (const o of g.orders) o.promoRM = before.promo;
+  st.promoCodes = [];
+  const after = customerTotal(st, g);
+  assert.equal(after.promo, 10,
+    "★ deleting the code raised this order by RM10 — **she promised those orders would keep it**");
+  assert.equal(after.total, 20, "and the Total the customer was quoted stands");
+});
+
 // ── the discount reaches the customer ────────────────────────────────────────
 test("the confirmation names the code and takes it off the Total", () => {
   const { st, g } = ordered();

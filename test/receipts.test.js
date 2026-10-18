@@ -372,6 +372,26 @@ test("★ an unreadable register is NEVER reported as an empty one", async () =>
   assert.equal(calls, 0, "the register was asked for with the cloud switched off");
 });
 
+test("★★★ the register is read in PAGES — past 1,000 receipts it does not silently stop", async () => {
+  // ⚠️⚠️ THE FAULT (v551): one request with no limit, and the server answers at most 1,000 rows. ⭐ Past
+  // #001000 the register simply ended, the screen said **"The run is unbroken"**, and a receipt beyond
+  // the ceiling was invisible. ⭐ **A cap on her records is not a capacity, it is an expiry date.**
+  const st = stateWith();
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    const offset = Number((String(url).match(/[?&]offset=(\d+)/) || [])[1] || 0);
+    const n = offset === 0 ? 1000 : 1;          // a full page, then the last one
+    return { ok: true, json: async () => Array.from({ length: n }, (_, i) => raw(offset + i + 1, "AAAAAA")) };
+  };
+  const r = await pullReceiptRegister(st);
+  assert.equal(r.ok, true);
+  assert.equal(r.rows.length, 1001,
+    "★ the register stopped at the server's own ceiling — **receipt 1,001 is invisible and the run is "
+    + "reported unbroken**");
+  assert.ok(urls.length >= 2, "the register was read in one request, so it cannot have seen past the ceiling");
+});
+
 test("the register is read from the receipts table, oldest number first", async () => {
   const st = stateWith();
   let seen = null;
