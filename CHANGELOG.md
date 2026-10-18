@@ -1,8 +1,25 @@
-# Jienluv2bake — change history (v54 → v572)
+# Jienluv2bake — change history (v54 → v573)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v573, THE PDF THAT WOULD HAVE SENT "?????" TO YOUR CHINESE CUSTOMER (no database step).**
+
+**Your words:** __"fix the rest"__ — the open items from the last three sweeps.
+
+**1. ⚠️⚠️ A CUSTOMER'S CHINESE NAME ARRIVED IN THE PDF AS "?????".** The file the app makes for WhatsApp can only draw English letters and numbers — every other character becomes a question mark — ⭐ **while the screen and the paper print were right, so the fault only reached the customer.** ⭐ **The app no longer makes that file.** It sends the words instead, which carry 中文 perfectly, and says why in one sentence. ⭐ **To send a PDF anyway, press Print and choose "Save as PDF"** — the browser's own printer keeps every character.
+- ⭐ An English document is untouched: it still arrives as a PDF, as it always has. ⚠️ The same rule now covers the "save to this phone" path.
+
+**2. ⚠️ AN EDITED RECORD WAS REPORTED MISSING FROM THE CLOUD BEFORE IT HAD BEEN SENT.** "Everything on this phone has reached your shared data" flagged an order the moment it was edited — ⚠️ **the same record the waiting-count line already reported**, so one change showed as two faults. ⭐ A change still in the queue is not a loss, and neither is a deletion whose tombstone has not landed yet: both are excused now.
+
+**3. ⚠️ THE REPAIR PRESS COULD LAND ON A FULL CARD.** "Put the missing line on each card" wrote one more row to a card at 49 — ⭐ **which fills it to the cap, where the check can no longer judge it, so the line turned "could not run" instead of green.** ⭐ That card is now left alone and named.
+
+**4. ⭐ AND TWO SMALLER ONES.** The content check now warns that a phone which has just been set up is the one that is behind, so "press Save" cannot overwrite the other phone's newer copy. And the import error no longer says that deleting a cloud copy frees this phone — ⭐ **it does not, and the check page has said so since v569.**
+
+**5. Nothing of yours was rewritten, and there is no database step. ⭐ 3,612 tests green (was 3,610); every new rule was put back to its fault and seen to fail.**
+
+---
 
 **18 Oct 2026 — engine v572, THE INVOICE THAT COULD NOT SAY WHO IT WAS FOR — AND THREE FAULTS IN MY OWN LAST FIX (no database step).**
 

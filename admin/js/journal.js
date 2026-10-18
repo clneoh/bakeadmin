@@ -17,7 +17,7 @@
 import { el, button, copyText, toast } from "./ui.js";
 import { fmtRM } from "./state.js";
 import { longDate, todayISO } from "./dates.js";
-import { A4, makePdf, textWidth, wrapText } from "./pdf.js";
+import { A4, canDrawAll, makePdf, textWidth, wrapText } from "./pdf.js";
 
 // The rule a plain-text journal draws between its head, its rows and its totals. A fixed
 // width deliberately: a rule that stretched with the longest row would drift line to line
@@ -475,6 +475,8 @@ export function journalPdfName(sheet) {
 // API at all, which is the honest answer rather than a broken object.
 function journalFile(s, cur) {
   if (typeof File !== "function" || typeof Blob !== "function") return null;
+  // ⚠️⚠️ A FILE THAT WOULD MISSPELL HER CUSTOMER'S NAME IS NOT MADE (v573) — see `canDrawAll`.
+  if (!canDrawAll(buildJournalText(s, cur))) return null;
   try {
     return new File([journalPdf(s, cur)], journalPdfName(s), { type: "application/pdf" });
   } catch (err) {
@@ -485,6 +487,8 @@ function journalFile(s, cur) {
 // The last resort on a phone with no share sheet: the document is saved to the phone instead,
 // so she still ends up with the PDF she asked for rather than a block of text she did not.
 function saveJournalPdf(s, cur) {
+  // ⚠️ The same rule for the save-to-phone path (v573).
+  if (!canDrawAll(buildJournalText(s, cur))) return false;
   if (typeof document === "undefined" || typeof URL === "undefined"
     || typeof URL.createObjectURL !== "function") return false;
   let url = "";
@@ -563,6 +567,9 @@ export async function shareJournal(sheet, cur = "RM") {
   const file = journalFile(s, cur);
 
   const cancelled = (err) => !!(err && err.name === "AbortError");
+  // ⚠️⚠️ AND IF THE PDF WOULD MISSPELL IT, SAY SO RATHER THAN SENDING "?????" (v573).
+  const canPdf = canDrawAll(text);
+  const whyNoPdf = "This one has 中文 (or another character the app's PDF cannot draw) in it, so no PDF was made — it would arrive as ?????. The text went instead; to send a PDF, press Print and choose Save as PDF.";
 
   if (nav && typeof nav.share === "function") {
     // `canShare` is what the phone answers with, and it is asked rather than assumed: a phone
@@ -583,6 +590,7 @@ export async function shareJournal(sheet, cur = "RM") {
     }
     try {
       await nav.share({ title: s.title, text });
+      if (!canPdf) toast(whyNoPdf);
       return;
     } catch (err) {
       if (cancelled(err)) return;
@@ -593,6 +601,7 @@ export async function shareJournal(sheet, cur = "RM") {
     toast("Saved as a PDF — send it from WhatsApp");
     return;
   }
+  if (!canPdf) { copyText(text, whyNoPdf); return; }
   copyText(text, "Journal copied — paste it into WhatsApp or an email");
 }
 

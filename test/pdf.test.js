@@ -267,3 +267,18 @@ test("the sheet is drawn inside the page, in A4", () => {
     assert.ok(y >= 0 && y <= A4.h, `y ${y} is on the page`);
   }
 });
+
+test("★★★ a document with 中文 is NOT turned into a PDF full of ????? (v573)", async () => {
+  // ⚠️⚠️ THE FAULT: the file is WinAnsi, so every character outside it became "?" — ⭐ **a Chinese customer's
+  // name arrived in the WhatsApp PDF as "?????" while the screen and the paper print were right.** ⭐ The app
+  // now declines to make that file, shares the text instead, and says which way through there is.
+  const { canDrawAll } = await import("../admin/js/pdf.js");
+  assert.equal(canDrawAll("Aunty Bee · RM 32.00"), true);
+  assert.equal(canDrawAll("陈阿姨 · RM 32.00"), false,
+    "★ a Chinese name was reported as printable — **the PDF would carry ????? instead of her name**");
+  assert.equal(canDrawAll("中文"), false);
+  // ⭐ A question mark she actually typed is not the same as one the encoder would invent.
+  assert.equal(canDrawAll("Is this right?"), true);
+  // ⚠️ And the em dash / arrow the journals already sanitize are handled, not refused.
+  assert.equal(canDrawAll("A — B → C"), true);
+});

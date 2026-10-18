@@ -609,7 +609,7 @@ export function saveCheck(saveFail) {
 // the one question her report is about: is what is on this phone actually IN the shared data?**
 // ⚠️ And the journal records a change as handed over when it is QUEUED, not when it leaves — so a change
 // whose queue was lost would sit here for ever with nothing to say so. **This is what says so.**
-export function reachedCloudCheck(state, cloud, local) {
+export function reachedCloudCheck(state, cloud, local, queued = null) {
   const TITLE = "Everything on this phone has reached your shared data";
   if (!cloud || !cloud.ok) {
     return [skipped("reached", TITLE,
@@ -628,7 +628,10 @@ export function reachedCloudCheck(state, cloud, local) {
     return [skipped("reached", TITLE, "What this phone holds could not be listed, so nothing could be compared.")];
   }
   const held = cloud.keys instanceof Set ? cloud.keys : new Set(Array.isArray(cloud.keys) ? cloud.keys : []);
-  const missing = local.filter((k) => !held.has(k));
+  // ⚠️⚠️ A CHANGE THAT HAS NOT BEEN SENT YET IS NOT A LOSS (v573). ⭐ `waiting` reports it once; this check
+  // reported the same record a second time as "not in your shared data" the instant it was edited.
+  const wait = queued instanceof Set ? queued : new Set();
+  const missing = local.filter((k) => !held.has(k) && !wait.has(k));
   // ⭐ NAMED THE WAY SHE CAN LOOK THEM UP — an order by its number, a bake day by its date.
   const nameOf = (key) => {
     const at = String(key).indexOf(":");
@@ -662,7 +665,7 @@ export function reachedCloudCheck(state, cloud, local) {
 // stays in the shared data until the tombstone lands** — so **anything on this phone's own Removed list is
 // excluded**, the same carve-out the receipt check makes. ⭐ A warning that fires on a deliberate removal is
 // one she learns to ignore.
-export function cloudOnlyCheck(state, cloud, local) {
+export function cloudOnlyCheck(state, cloud, local, queued = null) {
   const TITLE = "Nothing is sitting in your shared data that is not on this phone";
   if (!cloud || !cloud.ok) {
     return [skipped("cloudOnly", TITLE,
@@ -677,12 +680,15 @@ export function cloudOnlyCheck(state, cloud, local) {
   }
   const held = cloud.keys instanceof Set ? cloud.keys : new Set(Array.isArray(cloud.keys) ? cloud.keys : []);
   const here = new Set(Array.isArray(local) ? local : []);
+  // ⚠️⚠️ AND A DELETION STILL IN THE QUEUE IS STILL IN THE CLOUD — BY DESIGN (v573). ⭐ Without this, removing
+  // an order raised a red X until the tombstone landed, then cleared itself.
+  const wait = queued instanceof Set ? queued : new Set();
   // ⚠️ THE SHELF IS THE EXPLANATION FOR A RECORD THAT IS NOT IN THE LIVE LIST, so it is allowed for.
   const shelf = new Set();
   for (const r of (state && state.removedOrders) || []) {
     if (r && r.id) { shelf.add(`orders:${r.id}`); shelf.add(`orders:${codeOf(r)}`); }
   }
-  const extra = [...held].filter((k) => !here.has(k) && !shelf.has(k));
+  const extra = [...held].filter((k) => !here.has(k) && !shelf.has(k) && !wait.has(k));
   const nameOf = (key) => {
     const at = String(key).indexOf(":");
     const kind = String(key).slice(0, at);
@@ -751,7 +757,7 @@ export function contentCheck(state, cloud, payloads, pending) {
   return [differing.length
     ? fail("content", TITLE, differing.map(nameOf),
       `${differing.length} record${differing.length === 1 ? " is" : "s are"} on this phone AND in your shared data, but ${differing.length === 1 ? "holds" : "hold"} different facts — so this phone and your other one would show the same record differently. Nothing is missing; the two copies simply disagree.`,
-      "Open each of these on this phone and press Save. That writes this phone's copy up to your shared data, and your other device then picks it up. If the other device is showing the RIGHT version, save it THERE instead.")
+      "Open each of these on this phone and press Save. That writes this phone's copy up to your shared data, and your other device then picks it up. If the other device is showing the RIGHT version, save it THERE instead. ⚠️ And on a phone that has just been set up, let its first sync finish before saving anything — until it has, this phone's copy is the one that is behind.")
     : pass("content", TITLE)];
 }
 
@@ -865,8 +871,8 @@ export function runHealthChecks(state, extra = {}) {
     ...registerChecks(state, extra.register, state && state.voidedReceipts),
     ...copyChecks(extra.copies),
     ...backupChecks(state, extra.copy, extra.copyWhen),
-    ...reachedCloudCheck(state, extra.cloud, extra.local),
-    ...cloudOnlyCheck(state, extra.cloud, extra.local),
+    ...reachedCloudCheck(state, extra.cloud, extra.local, extra.queued),
+    ...cloudOnlyCheck(state, extra.cloud, extra.local, extra.queued),
     ...contentCheck(state, extra.cloud, extra.payloads, extra.queued),
     ...recordsCheck(extra.count, extra.ceiling),
     ...saveCheck(extra.saveFail),

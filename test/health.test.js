@@ -966,3 +966,18 @@ test("★★ and a card with too many movements to add up is SKIPPED, never pass
   assert.equal(r.status, "skipped",
     "★ a stock card whose oldest rows are gone was reported as ADDING UP — **nobody could have looked**");
 });
+
+test("★★★ a change still in the queue is not reported as missing from the cloud (v573)", () => {
+  // ⚠️ A record edited a moment ago is queued, not lost — and a record DELETED a moment ago is still in the
+  // cloud until its tombstone lands. ⭐ Both used to raise a second red X beside `waiting`, which already
+  // reports the queue once.
+  const st = healthy();
+  const cloud = { ok: true, keys: new Set(["orders:ord_old"]), data: new Map(), complete: true };
+  const local = ["orders:ord_old", "orders:ord_new"];
+  const queued = new Set(["orders:ord_new"]);
+  assert.equal(resultOf(runHealthChecks(st, { ...emptyExtras(), cloud, local, queued }), "reached").status,
+    "pass", "★ a queued change was reported as not having reached the shared data");
+  const gone = { ...cloud, keys: new Set(["orders:ord_old", "orders:ord_zapped"]), data: new Map([["orders:ord_zapped", "{}"]]) };
+  assert.equal(resultOf(runHealthChecks(st, { ...emptyExtras(), cloud: gone, local: ["orders:ord_old"], queued: new Set(["orders:ord_zapped"]) }), "cloudOnly").status,
+    "pass", "★ a deletion still in the queue was reported as a record in the cloud that is not on this phone");
+});

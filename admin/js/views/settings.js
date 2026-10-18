@@ -1,7 +1,7 @@
 // views/settings.js — defaults, export/import backup, clear data.
 
 import { el, button, confirmDialog, toast } from "../ui.js";
-import { LS_KEY, newId, save } from "../state.js";
+import { LS_KEY, newId, save, unreadableCopy, dropUnreadableCopy } from "../state.js";
 import { hashPin, isPin, hasStoredPin } from "../pin.js";
 import { parseImport } from "../validate.js";
 import { generateUpcomingDates, todayISO } from "../dates.js";
@@ -560,7 +560,7 @@ export function renderSettings(root, state) {
           } catch (err) {
             const full = err && (err.name === "QuotaExceededError" || err.code === 22);
             return toast(full
-              ? "This phone has no room for that file — nothing was imported. Delete a cloud copy or free space on the phone, then try again."
+              ? "This phone has no room for that file — nothing was imported. Deleting a cloud copy does NOT free this phone; free space elsewhere on it, then try again."
               : `The file could not be saved on this phone (${(err && err.message) || "unknown reason"}). Nothing was imported.`);
           }
           // ⚠️⚠️ AND THE READ CURSOR IS FORGOTTEN: the whole book has just jumped, so `lastSeq` no longer
@@ -692,6 +692,26 @@ export function renderSettings(root, state) {
       fillBackups();
     }, "soft");
     const kids = [line(status), el("div", { class: "btn-row", style: "margin-top:8px" }, btn)];
+    // ⚠️⚠️ AND THE KEPT COPY OF A DAMAGED BOOK CAN BE CLEARED (v574). ⭐ Since v548 a phone that could not
+    // read its saved book keeps that text rather than losing it — ⭐ **but nothing could ever remove it, so it
+    // counted toward the phone's storage for ever.** ⭐ It is her decision, with the cost said plainly.
+    const kept = unreadableCopy();
+    if (kept) {
+      const kb = Math.max(1, Math.round(kept.bytes / 1024));
+      kids.push(el("p", { class: "card-sub", style: "margin:12px 0 0" },
+        `⚠️ This phone also keeps about ${kb} KB of text from a saved book it could not read. That copy is the only remnant of whatever was on the phone at that moment.`));
+      kids.push(el("div", { class: "btn-row", style: "margin-top:6px" },
+        button("Delete the kept copy", () => {
+          confirmDialog(
+            `Delete the kept copy (about ${kb} KB)? It is the only remnant of whatever was on this phone when its saved book could not be read — if that was the only place it existed, it is gone for good. Your orders, your shared data and your cloud copies are not touched.`,
+            () => {
+              const gone = dropUnreadableCopy(state);
+              toast(gone ? "The kept copy is deleted" : "There was nothing left to delete");
+              fillBackups();
+            },
+            { danger: true, yesLabel: "Delete it" });
+        }, "ghost small")));
+    }
     if (rows.length) {
       kids.push(el("p", { class: "card-sub", style: "margin:12px 0 4px" }, "All your copies (newest first)"));
       kids.push(...rows.map(rowEl));

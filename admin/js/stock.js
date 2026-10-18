@@ -166,7 +166,9 @@ export function reconcileCards(state) {
     // there is no history to add up, so writing an "opening" line to it would report a fault nobody found and
     // push a card at 49 rows to the cap, where the check flips to SKIPPED.
     if (!stockLogOf(ing).length) continue;
-    if (stockLogOf(ing).length >= STOCK_LOG_CAP) { skipped.push(String(ing.name || "an ingredient")); continue; }
+    // ⚠️⚠️ AND NOT THE ONE THAT WOULD LAND ON THE CAP (v573): a card at 49 rows goes to 50, where the check
+    // can no longer judge it — ⭐ **the press said "1 card put back in step" and the line turned SKIPPED.**
+    if (stockLogOf(ing).length >= STOCK_LOG_CAP - 1) { skipped.push(String(ing.name || "an ingredient")); continue; }
     const gap = closeCardGap(ing);
     if (gap) done.push({ name: String(ing.name || "an ingredient"), gap });
   }
