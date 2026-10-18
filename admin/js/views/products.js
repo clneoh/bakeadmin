@@ -61,12 +61,24 @@ export function renderProducts(root, state) {
   return () => openCards.clear();
 }
 
-function renderAll(root, state) {
+// ★ THE NEW PRODUCT CARD THAT IS ON THE SCREEN (v556) — see `renderAll`'s keepForm.
+let liveNewCard = null;
+
+function renderAll(root, state, { keepForm = false } = {}) {
   const live = state.products.filter(isLive);
   const drafts = state.products.filter(isDraft);
   const hidden = state.products.filter(isHidden);
 
-  const form = newProductCard(state, root);
+  // ★★★ A ROW ACTION MUST NOT WIPE THE NEW-PRODUCT CARD (v556).
+  // ⚠️⚠️ Pressing Hide, Publish or Delete on ANOTHER product redraws this whole screen — and the ＋ New
+  // product card was built afresh, ⭐ **so a half-typed name, recipe and every box she had filled in were
+  // gone, with no warning.** ⭐ The card already on the page is put back instead of a new one: its values
+  // and its handlers stay hers. ⚠️ Adding a product still builds a fresh card, because the next one starts
+  // clean — that caller does not ask to keep it.
+  // ⚠️ BY REFERENCE, not by a selector: the cards are built here and this is the one on the page, and a
+  // query would make the behaviour depend on whether a given DOM can match a class.
+  const kept = keepForm && liveNewCard ? liveNewCard : null;
+  const form = kept || newProductCard(state, root);
   // The page scroll is read and put back around the swap below, the way the
   // Categories screen does it: publishing a product or hiding one redraws this
   // whole screen, and without this the list she was looking at jumps back to
@@ -1149,7 +1161,7 @@ function setProductState(state, p, target, root) {
     save(state);
     maybeSyncStorefront(state);
     toast(wasDraft ? `"${p.name}" is on the shop now` : `"${p.name}" back on the menu`);
-    renderAll(root, state);
+    renderAll(root, state, { keepForm: true });
     if (wasDraft) kickoffAutoTranslate(state, p);
   } else {
     p.active = false;
@@ -1157,7 +1169,7 @@ function setProductState(state, p, target, root) {
     save(state);
     maybeSyncStorefront(state);
     toast(`"${p.name}" hidden — history kept`);
-    renderAll(root, state);
+    renderAll(root, state, { keepForm: true });
   }
 }
 
@@ -1254,7 +1266,8 @@ function newProductCard(state, root) {
   // has to re-register for the outside tap that folds it.
   if (newFormOpen) { controller.open = true; controller.close = shut; openCards.add(controller); }
 
-  const card = el("div", { class: "card" }, head, body);
+  const card = el("div", { class: "card new-prod-card" }, head, body);
+  liveNewCard = card;
   controller.card = card;
   editor.renderRecipeLines();
   return card;
@@ -1280,7 +1293,7 @@ function openEditProductPopup(state, product, root) {
           save(state);
           if (wasLive) maybeSyncStorefront(state); // live text changed → shop gets it
           close();
-          renderAll(root, state);
+          renderAll(root, state, { keepForm: true });
           kickoffAutoTranslate(state, product); // fill / refresh translations online
         }, "primary")));
     editor.renderRecipeLines();
@@ -1564,6 +1577,6 @@ function deleteProduct(state, p, usedBy, usedInSets, root) {
     }
     save(state);
     maybeSyncStorefront(state); // keep the storefront menu in sync
-    renderAll(root, state);
+    renderAll(root, state, { keepForm: true });
   }, protect ? { yesLabel: "Hide it" } : { danger: true, yesLabel: "Delete" });
 }

@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v555)
+# Jienluv2bake — change history (v54 → v556)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v556, THE HALF-TYPED PRODUCT IS SAFE (no database step).**
+
+**Your words:** __"fix the last one."__
+
+**1. ⚠️⚠️ A HALF-TYPED NEW PRODUCT WAS WIPED BY ANY REPAINT.** Press **Hide**, **Publish** or **Delete** on another product while the ＋ New product card was half filled in, and the whole screen redrew — ⭐ **the name, the recipe and every box she had filled in came back empty, with no warning.**
+- ⭐ **Now a row's own action puts back the card that is already on the page** instead of building a new one, so what she typed — and the buttons that know what to do with it — stay hers.
+- ⭐ **Adding a product still starts the next one on a clean card**, which is what she asked for when the card first shipped.
+
+**2. ⚠️ AND HOW THE FIRST ATTEMPT FAILED, BECAUSE IT IS THE USEFUL PART.** Keeping the card on **every** redraw broke fifteen of the app's own tests — ⚠️ **a kept card still holds the handlers from when it was built, which is exactly the fault v555 fixed in the drag-then-edit.** ⭐ So the card is kept **only** for the presses that change another row, and the test that proves it re-reads the card **from the screen** after the press — an assertion on the old node would have passed with the card empty.
+
+**3. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v555, THE FOURTH SWEEP: SEVEN FIXED, ONE LEFT OPEN (no database step).**
 

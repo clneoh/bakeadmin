@@ -1779,3 +1779,34 @@ test("editing a saved product reopens with its own category already ticked", () 
   assert.deepEqual(state.products[0].categories, ["cat_drink", "cat_food"],
     "the heading it already had stays first — ticking another does not displace it");
 });
+
+test("★★★ a half-typed New product survives pressing Hide on ANOTHER product", () => {
+  // ⚠️⚠️ Pressing Hide, Publish or Delete on another product redraws this whole screen, and the ＋ New
+  // product card was built afresh — ⭐ **so the name, the recipe and every box she had filled in were gone,
+  // with no warning.** ⭐ A row action puts the card already on the page back instead of building a new
+  // one, so what she typed and the handlers holding it both stay hers.
+  const st = freshState();
+  st.products = [{ id: "p1", name: "Focaccia", active: true, unit: "loaf", uomId: "u_loaf", price: 16, recipe: [] }];
+  const root = render(st);
+  const f = formHandles(root);
+  f.name.value = "Half typed";
+  const hide = walk(root).find((n) => n.tagName === "BUTTON"
+    && (n.children || []).some((c) => c.text === "Hide"));
+  assert.ok(hide, "precondition: the product row offers Hide");
+  fire(hide);
+  // ⚠️ RE-READ THE CARD FROM THE SCREEN, not the handle from before the press — the old node still holds
+  // her words whatever happened, and an assertion on it would pass with the card rebuilt and empty.
+  assert.equal(formHandles(root).name.value, "Half typed",
+    "★ the New product card was rebuilt by another row's press and wiped what she had typed");
+});
+
+test("★★★ and ADDING a product still starts the next one on a clean card", () => {
+  const st = freshState();
+  const root = render(st);
+  const f = formHandles(root);
+  f.name.value = "Focaccia";
+  f.unit.value = "u_loaf";        // the card will not add a product without its selling unit
+  fire(f.add);
+  const g = formHandles(root);
+  assert.equal(g.name.value, "", "★ the card kept the product she just added — the next one starts dirty");
+});
