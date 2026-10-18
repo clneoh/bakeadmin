@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v569)
+# Jienluv2bake — change history (v54 → v570)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v570, THE CORRECTION THAT STOPPED WORKING AFTER TWO MONTHS — AND THE COPIES YOU COULD NOT REACH (no database step).**
+
+**Your words:** __"fix them"__ — the five the last sweep put next.
+
+**1. ⚠️⚠️ CORRECTING AN OLD BAKE SILENTLY STOPPED MOVING STOCK.** A stock card keeps only its newest **50 rows**, and a correction was bounded by those rows — ⭐ so on a busy flour they fall off inside about two months, and reducing that day's bake then **gave nothing back, wrote no row, and still recorded itself as corrected**. ⭐ **The figure now lives on the baking day's own record, which is not capped.** ⚠️ And the ✕ on a bake row keeps that record in step, so a row she removes is never given back twice.
+
+**2. ⚠️⚠️ YOUR WEEKLY AND MONTHLY COPIES WERE INVISIBLE.** The Backup & safety list asked for **eight copies**, and seven dailies are always newer than any weekly — ⭐ **so a copy from a month ago existed in the cloud and could not be reached from the screen.** ⭐ The list shows **all** of them now (newest first), so restoring to an older copy is a press rather than an impossibility.
+
+**3. ⚠️ AN IMPORT THAT FAILED SAID NOTHING AT ALL.** The write had no guard: on a large book the browser refuses it, the error went nowhere and the page did not reload — ⭐ **the import simply did nothing, while a "Before import" copy had already been saved.** ⭐ It says what happened now, and says nothing was imported.
+
+**4. ⚠️ THE REMOVED LIST CLEARED ITS OLDEST ROWS IN SILENCE.** Your 30 days is the rule and the screen says so; the app's own 200-row guard was invisible — ⭐ **an order you could still have put back simply vanished.** ⭐ It still bounds the list, and now **says how many it has cleared**.
+
+**5. ⭐ AND A DATE CAN BE TYPED FROM TWO YEARS AGO, not one.** ⚠️ The date field's arrows stopped at twelve months, so **a receipt or an expense from thirteen months ago could not be entered at all**, and opening an older date clamped the calendar to today-12. ⭐ Two years either way.
+
+**6. ⭐ ONE MORE ON THE CUSTOMER'S CARD: a collection at a Point now shows the day the VAN arrives.** The Delivery run writes its day onto every order it carries and the reminder has used it since v429 — ⚠️ but the card kept the BAKE day, so a run reaching the Point the morning after the bake **told the customer one day on the card and another in the message**.
+
+**7. ⚠️ ONE THING I DID NOT DO: the card still calls every bring-a-friend discount "you were sent"**, even when it is the reward she earned. ⭐ The figures agree; only the words differ. Fixing it honestly needs one new column in your shared data — ⭐ **say the word and I will write the SQL for you to run first.**
+
+**8. Nothing of yours was rewritten, and there is no database step. ⭐ 3,605 tests green (was 3,603); every new rule was put back to its fault and seen to fail by its own message.**
+
+---
 
 **18 Oct 2026 — engine v569, THE CHECK THAT WOULD HAVE CRIED WOLF IN TEN WEEKS — AND THE PHONE THAT WAS NEVER MENTIONED (no database step).**
 

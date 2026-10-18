@@ -772,7 +772,14 @@ export function trackingSnapshot(state, group) {
     // (the van's day and window ride `whenText`) and **named neither**.
     // ⭐ A COLLECTION KEEPS THE BARE DATE: for a collection the bake day IS the day they get their
     // bread, and the word "Delivery" on that line is honest.
-    delivery: `${date ? (courierDayOf(first) ? `Bake ${shortDate(date)}` : shortDate(date)) : ""} · ${fulfillment}${address}${whenText}`,
+    // ⚠️⚠️ A POINT ORDER ON A VAN RUN IS READY THE DAY THE VAN ARRIVES (v570). ⭐ The delivery run writes a
+    // courier day onto every order it carries, including Point orders — and the reminder has used it since
+    // v429 — ⚠️ **but the card kept the BAKE day, so a run reaching the Point the morning after the bake told
+    // the customer one day on the card and another in the message.** ⭐ A collection shows the van's day when
+    // there is one, and the bake day when there is not (the common case, unchanged).
+    delivery: `${(courier ? date : (courierDayOf(first) || date))
+      ? (courier && courierDayOf(first) ? `Bake ${shortDate(date)}` : shortDate(courier ? date : (courierDayOf(first) || date)))
+      : ""} · ${fulfillment}${address}${whenText}`,
     items,
     total,
     customer: String(first.customerName || ""),

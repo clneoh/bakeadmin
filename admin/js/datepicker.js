@@ -20,7 +20,10 @@ import { longDate, todayISO } from "./dates.js";
 // How many months the free date field's arrows reach either way from today.
 // Wide enough to record an order she took last week or plan one well ahead,
 // narrow enough that the arrows always stop somewhere sensible.
-const SPAN = 12;
+// ⚠️⚠️ TWENTY-FOUR, NOT TWELVE (v570). ⭐ Twelve months meant a receipt or an expense from **thirteen months
+// ago could not be entered at all**, and opening an existing older date clamped the grid to today-12. ⭐ Two
+// years either way still stops somewhere sensible, and it covers every date her own book holds.
+const SPAN = 24;
 
 function monthOf(iso) {
   const d = new Date(`${iso}T00:00:00`);

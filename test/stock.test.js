@@ -600,3 +600,39 @@ test("★★★ the correction line Check my system writes CANNOT be undone into
   assert.equal(normal.repair, undefined);
   assert.equal(normal.now, 0);
 });
+
+test("★★★ a correction still works after the stock card has FORGOTTEN the day (v570)", () => {
+  // ⚠️⚠️ THE FAULT: the bound on a correction was the day's `produced` ROWS, and a stock card keeps only its
+  // newest 50. ⭐ On a busy flour those rows fall off inside two months — and the correction then gave nothing
+  // back, wrote no row, **and still recorded itself as applied on the bake row**, so the book said one thing
+  // and the shelf another. ⭐ The figure now lives on the bake row, which is not capped.
+  const st = baseState([], []);
+  st.ingredients = [{ id: "i1", name: "Flour", unit: "g", uomId: "g", onHand: 10000, stockLog: [] }];
+  const p = { id: "p1", name: "Focaccia", active: true, unit: "pc", recipe: [{ ingredientId: "i1", qty: 250, unit: "g" }] };
+  st.products = [p];
+
+  setBakedTotal(st, p, "2026-10-17", 10);           // 2,500 g taken
+  assert.equal(st.ingredients[0].onHand, 7500, "precondition: the bake came off the shelf");
+  const row = st.bakedDays.find((r) => r.id === "bake_2026-10-17_p1");
+  assert.equal(row.items.p1.took.i1, 2500, "★ the bake row does not remember what it took");
+
+  // The card forgets the day — the cap, or a card she cleared by hand.
+  st.ingredients[0].stockLog = [];
+
+  // A PARTIAL correction: 10 pans down to 6 gives back four pans (1,000 g) and keeps the rest owed.
+  setBakedTotal(st, p, "2026-10-17", 6);
+  assert.equal(st.ingredients[0].onHand, 8500,
+    "★★ the correction gave NOTHING back once the journal was gone — **the bake row said 6 and the shelf stayed short**");
+  assert.equal(row.items.p1.applied, 6);
+  assert.equal(row.items.p1.took.i1, 1500, "★ what is left to give back is not being spent down");
+
+  // And down to nothing gives the rest, then the 0/0 row is cleared away as it always has been.
+  setBakedTotal(st, p, "2026-10-17", 0);
+  assert.equal(st.ingredients[0].onHand, 10000);
+  assert.equal(st.bakedDays.some((r) => r.id === "bake_2026-10-17_p1"), false,
+    "★ a cleared day left a record of nothing behind");
+
+  // ⚠️ And it still cannot invent stock: correcting again gives nothing more.
+  setBakedTotal(st, p, "2026-10-17", 0);
+  assert.equal(st.ingredients[0].onHand, 10000);
+});

@@ -211,13 +211,26 @@ export function stockRowUndo(ingredient, entry) {
 }
 
 // Take that line off the card and put its movement back, in one step.
-export function undoStockRow(ingredient, entry) {
+export function undoStockRow(ingredient, entry, state = null) {
   const plan = stockRowUndo(ingredient, entry);
   if (!plan) return null;
   // ⚠️ A REFUSAL CHANGES NOTHING AT ALL — the row stays on the card and the shelf does not move (v546).
   if (plan.blocked || plan.repair) return plan;
   ingredient.onHand = plan.now;
   stockLogOf(ingredient).splice(stockLogOf(ingredient).indexOf(entry), 1);
+  // ⚠️⚠️ AND THE BAKE ROW FORGETS IT TOO (v570). ⭐ Taking a `produced` row off the card puts the shelf back —
+  // so if the bake row kept saying "this day took 1,000 g", a later correction would give that 1,000 g back
+  // AGAIN. ⭐ Two records of one movement, and this is where they are kept in step.
+  const day = String(entry.ref || "");
+  const pid = String(entry.productId || "");
+  const took = Math.abs(Number(entry.delta) || 0);
+  if (state && entry.why === "produced" && day && pid && took > 0 && Array.isArray(state.bakedDays)) {
+    const row = state.bakedDays.find((r) => r && r.id === bakeId(day, pid));
+    const item = row && row.items && row.items[pid];
+    if (item && item.took && typeof item.took[ingredient.id] === "number") {
+      item.took[ingredient.id] = round2(Math.max(0, item.took[ingredient.id] - took));
+    }
+  }
   return plan;
 }
 
@@ -321,7 +334,12 @@ function orderConsumption(state, order) {
 //
 // ⚠️ A DELTA OF ZERO IS REFUSED, because `logStock` refuses a movement of nothing — a row saying a
 // shelf moved by 0 is a row that makes the journal harder to read, not easier.
-export function applyBake(state, product, dayIso, delta) {
+// ⚠️⚠️ `took` IS WHAT THIS DAY'S BAKE ACTUALLY TOOK OFF EACH INGREDIENT (v570). ⭐ The correction's bound
+// used to be the day's `produced` ROWS — and the journal keeps only the newest 50 per ingredient, ⚠️ **so on a
+// busy flour those rows fall off inside two months, and a correction then gave nothing back, wrote no row, and
+// still recorded itself as applied.** ⭐ The figure is kept on the BAKE ROW now, which is not capped, and the
+// journal remains the fallback for rows written before this.
+export function applyBake(state, product, dayIso, delta, took = null) {
   const n = Number(delta) || 0;
   if (!n) return;
   const amounts = productConsumption(state, product, Math.abs(n));
@@ -357,17 +375,27 @@ export function applyBake(state, product, dayIso, delta) {
       // own kitchen: when a thing stops being per-day and becomes per-product, every per-day filter must
       // be re-read. ⚠️ Rows stored before v548 carry no product id and are still counted, or an old
       // correction would suddenly refuse to give anything back.
-      const taken = stockLogOf(ing)
-        .filter((e) => e && e.why === "produced" && String(e.ref || "") === day && Number(e.delta) < 0
-          && (!e.productId || String(e.productId) === pid))
-        .reduce((s, e) => s - (Number(e.delta) || 0), 0);
-      give = Math.min(base, round2(taken));
+      // ⭐ THE BAKE ROW'S OWN FIGURE FIRST; the journal only when it has none (an older record).
+      const remembered = took && typeof took[ingredientId] === "number" ? round2(took[ingredientId]) : null;
+      let available;
+      if (remembered != null) {
+        available = Math.max(0, remembered);
+      } else {
+        available = stockLogOf(ing)
+          .filter((e) => e && e.why === "produced" && String(e.ref || "") === day && Number(e.delta) < 0
+            && (!e.productId || String(e.productId) === pid))
+          .reduce((s, e) => s - (Number(e.delta) || 0), 0);
+      }
+      give = Math.min(base, round2(available));
       if (!(give > 0)) continue; // nothing was taken that day — nothing to give back, and no row
+      if (remembered != null) took[ingredientId] = round2(Math.max(0, remembered - give));
     }
     // ⚠️ `Math.max(0, …)` mirrors `consumeOrder`: stock never goes below zero, so a bake against an empty
     // shelf moves nothing — and the row records the movement that HAPPENED, never the recipe's figure,
     // or the journal stops summing to the number it explains.
     ing.onHand = round2(Math.max(0, before + (n > 0 ? -base : give)));
+    // ⭐ AND WHAT THIS BAKE TOOK IS KEPT ON THE BAKE ROW (v570) — the figure a later correction is bounded by.
+    if (n > 0 && took) took[ingredientId] = round2((Number(took[ingredientId]) || 0) + Math.max(0, before - ing.onHand));
     logStock(ing, {
       delta: round2((Number(ing.onHand) || 0) - before),
       why: "produced",
@@ -451,7 +479,10 @@ export function setBakedTotal(state, product, dayIso, total) {
   // that double-counted every order made after the bake.**
   const wanted = Math.max(0, Number(total) || 0);
   const delta = wanted - (Number(entry.applied) || 0);
-  applyBake(state, product, day, delta);   // ⭐ a delta of 0 is refused inside, so nothing is journalled
+  // ⭐ The bake row carries what each ingredient's bake actually took, so a correction does not depend on a
+  // journal that keeps only its newest rows (v570).
+  if (!entry.took || typeof entry.took !== "object") entry.took = {};
+  applyBake(state, product, day, delta, entry.took);   // ⭐ a delta of 0 is refused inside, so nothing is journalled
   entry.total = Number(total) || 0;
   entry.applied = wanted;
 

@@ -422,8 +422,13 @@ export async function listMeta(state) {
 }
 
 // The Settings card list — adds the human label/summary, still no heavy data.
+// ⚠️⚠️ EIGHT ROWS HID EVERYTHING BUT THE DAILIES (v570). ⭐ Retention keeps 7 daily, 4 weekly, 3 monthly,
+// plus her manual copies and the "Before restore/import" ones — ⚠️ **seven dailies are always newer than any
+// weekly, so the weekly and monthly copies were never on the screen at all: restoring to a month ago was
+// impossible from the app even though the copy existed in the cloud.** ⭐ The list asks for enough to show
+// the whole ladder; the screen renders what it gets.
 export async function listBackups(state) {
-  return getRows(state, "id,kind,label,engine,created_at,summary", 8);
+  return getRows(state, "id,kind,label,engine,created_at,summary", 60);
 }
 
 // The one full copy (with data) — fetched on tap for Download or Restore only.

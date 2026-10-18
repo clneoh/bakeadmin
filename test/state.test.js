@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalize, defaultState, loadState, save, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase, productUnitOptions, productUsesUnit, sameNameIngredient, duplicateIngredientPlan } from "../admin/js/state.js";
+import { normalize, defaultState, removeOrders, loadState, save, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase, productUnitOptions, productUsesUnit, sameNameIngredient, duplicateIngredientPlan } from "../admin/js/state.js";
 import { lockEnabled } from "../admin/js/pin.js";
 import { planOf } from "../admin/js/production.js";
 import { planBackwards } from "../admin/js/bakeday.js";
@@ -765,4 +765,15 @@ test("★★★ the storage figure counts EVERY copy the app keeps, not only the
   const fb = phoneUsage({ orders: [{ id: "o1" }], settings: {} });
   assert.equal(fb.fallback, true);
   assert.ok(fb.total > 0);
+});
+
+test("★★★ the Removed shelf SAYS when its own size guard cleared the oldest (v570)", () => {
+  // ⚠️ Her 30-day rule is stated on the screen; the 200-row guard is the app's own and was silent. ⭐ A row it
+  // cleared is an order she can no longer put back, so it is said rather than done quietly.
+  const st = defaultState();
+  st.orders = Array.from({ length: 250 }, (_, i) => ({ id: `ord_${i}`, status: "new", qty: 1 }));
+  for (const o of st.orders) removeOrders(st, [o.id], "test");
+  assert.equal(st.removedOrders.length, 200, "the shelf is not bounded any more");
+  assert.equal(st.removedTrim && st.removedTrim.total, 50,
+    "★ 50 rows were cleared off the Removed shelf and nothing recorded it");
 });

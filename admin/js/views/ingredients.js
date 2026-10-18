@@ -618,7 +618,7 @@ function stockRowDelete(state, ing, entry, refresh) {
   confirmDialog(
     `Remove this line from the card? Your ${ing.name} is ${fmtStockAmount(state, ing, plan.was)} now, and taking this movement back leaves ${fmtStockAmount(state, ing, plan.now)}. This cannot be undone.`,
     () => {
-      undoStockRow(ing, entry);
+      undoStockRow(ing, entry, state);
       save(state);
       toast(`${ing.name} is now ${fmtStockAmount(state, ing, Number(ing.onHand) || 0)}`);
       refresh();

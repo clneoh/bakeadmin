@@ -1064,7 +1064,18 @@ export function removeOrders(state, ids, reason = "") {
 function pruneRemovedOrders(state) {
   const list = Array.isArray(state.removedOrders) ? state.removedOrders : [];
   const cut = new Date(Date.now() - REMOVED_KEEP_HOURS * 3600000).toISOString();
-  state.removedOrders = list.filter((r) => r && String(r.removedAt || "") >= cut).slice(0, REMOVED_MAX);
+  // ⚠️ The 30-day window is HER rule and is stated on the screen. The SIZE guard is the app's own, and until
+  // v570 it cut the oldest rows off in silence — ⭐ so an order she could still have put back simply vanished.
+  // ⭐ It still bounds the shelf, and it now SAYS it did.
+  const withinTime = list.filter((r) => r && String(r.removedAt || "") >= cut);
+  state.removedOrders = withinTime.slice(0, REMOVED_MAX);
+  const dropped = withinTime.length - state.removedOrders.length;
+  if (dropped > 0) {
+    // ⭐ EVERY REMOVAL PAST THE 200th CLEARS ONE MORE, so the number that matters is how many have been cleared
+    // IN ALL — `n` is this event, `total` is what the screen says.
+    const before = Number(state.removedTrim && state.removedTrim.total) || 0;
+    state.removedTrim = { at: new Date().toISOString(), n: dropped, total: before + dropped };
+  }
 }
 
 // ★★★ AND A SHELF ROW FOR AN ORDER THAT IS BACK IS STALE BY DEFINITION (v474).

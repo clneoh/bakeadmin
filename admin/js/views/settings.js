@@ -552,7 +552,17 @@ export function renderSettings(root, state) {
             const safe = await backups.saveSafetyCopy(state, `Before import · ${backups.localWhen()}`);
             if (!safe.ok) return toast(`Couldn't save a "before" copy first: ${safe.reason}. Nothing was imported.`);
           }
-          localStorage.setItem(LS_KEY, JSON.stringify(data));
+          // ⚠️⚠️ AND A WRITE THAT FAILS MUST SAY SO (v570). ⭐ This call had no guard at all: on a large book
+          // the browser refuses the write, the error went nowhere, the page did not reload, and **the import
+          // looked like it had simply done nothing** — while the "Before import" copy had already been saved.
+          try {
+            localStorage.setItem(LS_KEY, JSON.stringify(data));
+          } catch (err) {
+            const full = err && (err.name === "QuotaExceededError" || err.code === 22);
+            return toast(full
+              ? "This phone has no room for that file — nothing was imported. Delete a cloud copy or free space on the phone, then try again."
+              : `The file could not be saved on this phone (${(err && err.message) || "unknown reason"}). Nothing was imported.`);
+          }
           // ⚠️⚠️ AND THE READ CURSOR IS FORGOTTEN: the whole book has just jumped, so `lastSeq` no longer
           // describes it — **and a read that asked "after that number" would never see the older records again.**
           sync.forgetCursor();
@@ -683,7 +693,7 @@ export function renderSettings(root, state) {
     }, "soft");
     const kids = [line(status), el("div", { class: "btn-row", style: "margin-top:8px" }, btn)];
     if (rows.length) {
-      kids.push(el("p", { class: "card-sub", style: "margin:12px 0 4px" }, "Recent copies (newest first)"));
+      kids.push(el("p", { class: "card-sub", style: "margin:12px 0 4px" }, "All your copies (newest first)"));
       kids.push(...rows.map(rowEl));
     }
     show(...kids);

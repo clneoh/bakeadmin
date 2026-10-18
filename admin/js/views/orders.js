@@ -5578,7 +5578,10 @@ function removedOrdersEl(state, root) {
       el("p", { class: "card-sub", style: "margin:0 0 6px" },
         // ⚠️ THE WINDOW COMES FROM THE CONSTANT (v530) — a second copy of the number here is a screen that
         // can say "48 hours" while the app keeps them for a month.
-        `Kept for ${removedKeepWords()} so a mistake can be put right. Nothing here is lost.`),
+        `Kept for ${removedKeepWords()} so a mistake can be put right. Nothing here is lost.`
+        + (state.removedTrim && Number(state.removedTrim.total) > 0
+          ? ` ⚠️ This list keeps its newest 200 rows; ${Number(state.removedTrim.total)} of the oldest have been cleared from it.`
+          : "")),
       el("div", { class: "btn-row", style: "margin:0" },
         button(open ? "Hide them" : "Show them", () => { open = !open; paint(); }, "ghost small")),
       ...(open ? rows : []));

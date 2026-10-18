@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 
 import { priceItems, baseFactorOf } from "../admin/js/purchasing.js";
 import { explodePicks } from "../admin/js/bom.js";
-import { productConsumption, setBakedTotal } from "../admin/js/stock.js";
+import { productConsumption, setBakedTotal, undoStockRow } from "../admin/js/stock.js";
 import { defaultState, loadState, normalize } from "../admin/js/state.js";
 
 const base = () => {
@@ -109,10 +109,11 @@ test("★★★ and a bake row she DELETED leaves nothing to correct — no stoc
     recipe: [{ ingredientId: "i1", qty: 250, unit: "g" }] }];
   setBakedTotal(st, st.products[0], "2026-10-17", 4);
   assert.equal(st.ingredients[0].onHand, 4000, "precondition");
-  // she deletes the row by hand — the shelf goes back, and the journal is emptied
-  st.ingredients[0].onHand = 5000;
-  st.ingredients[0].stockLog = [];
-  setBakedTotal(st, st.products[0], "2026-10-17", 0);   // now "correct" the bake she already undid by hand
+  // ⚠️ She deletes the row with the ✕ — the shelf goes back, and the bake row must FORGET what it took
+  // (v570), or the correction below would give it back a second time.
+  undoStockRow(st.ingredients[0], st.ingredients[0].stockLog[0], st);
+  assert.equal(st.ingredients[0].onHand, 5000, "precondition: the ✕ put the shelf back");
+  setBakedTotal(st, st.products[0], "2026-10-17", 0);   // now "correct" the bake she already undid
   assert.equal(st.ingredients[0].onHand, 5000,
     "★ correcting a bake whose row was deleted ADDED stock — **there was nothing left to give back**");
 });
