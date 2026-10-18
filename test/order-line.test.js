@@ -63,6 +63,17 @@ test("stampOrderLine accepts a storefront line (its own name/price) and ignores 
   assert.deepEqual(untouched, { productName: "keep me" });
 });
 
+test("★★★ the frozen price is money, so it is kept to the cent (v577)", () => {
+  // ⚠️⚠️ MEASURED: two lines frozen at RM0.005 each printed "RM 0.01" and "RM 0.01" — the invoice added
+  // its printed lines and demanded RM0.02, while the confirmation and the tracking card rounded the sum
+  // and said RM0.01. ⚠️ **One sale, two totals, both on paper.** The half-cent came from a 3-decimal
+  // product price shown rounded and stored unrounded. ⭐ Rounded where it is FROZEN, so every surface
+  // reads one number and no stored line is rewritten.
+  const o = {};
+  stampOrderLine(o, { name: "Sample", price: 0.005 });
+  assert.equal(o.unitPrice, 0.01, "★ a half-cent price is frozen unrounded, so the paper can disagree with itself");
+});
+
 test("stampOrderLine leaves a blank name or an absent price off rather than writing a guess", () => {
   const o = {};
   stampOrderLine(o, { name: "   ", price: null });

@@ -17,10 +17,10 @@
 // she takes back out is DRAWINGS; both move cash, neither changes profit. That is
 // why "My own withdrawal" is its own class here even though it lives in the same
 // money-out list as the rest.
-import { byId, groupOrders, orderLineName, orderLinePrice, round2 } from "./state.js";
+import { byId, groupOrders, orderCode, orderLineName, orderLinePrice, round2 } from "./state.js";
 import { costOf } from "./bom.js";
 import { categoriesOf, classOfCategory } from "./accounts.js";
-import { orderNet, refundedInFull, refundOf } from "./money.js";
+import { orderTakings, refundDayOf, refundOf } from "./money.js";
 import { customerTotal } from "./courier.js";
 import { isWithin } from "./dates.js";
 
@@ -78,22 +78,18 @@ export function profitBetween(state, from, to) {
   let lines = 0;
   let uncosted = 0;
   // ⚠️ SALES ARE SUMMED BY **GROUP**, COST BY **LINE** (v370), and the difference is deliberate.
-  // Sales was `qty × price` per row — the goods at their face price, with any discount left in
-  // and any refund ignored, which is what the Money screen used to do too. `orderNet` is what the
-  // customer's money for this order actually was, less what went back — the SAME number the till
-  // shows, so the statement and the Money screen cannot disagree about a sale.
+  // Sales is what the customer's money for the goods actually was — the face price less any
+  // discount she gave (v370's rule, and the same number the till counts).
   //
-  // ★ AND A SALE REFUNDED IN FULL STILL DISAPPEARS WHOLE. `orderNet` is 0 for it and the group is
-  // dropped before a single line is counted, which is precisely what the v361 skip did — so no
-  // refund made before this version moves a single figure on this statement.
+  // ⚠️⚠️ AND A REFUND IS A MOVEMENT OF ITS OWN, IN THE MONTH IT WENT BACK (v578). ⭐ Her answer to how a
+  // refund should read: **"Money out in the month it went back."** ⚠️ Before this a refund was subtracted
+  // from the SALE — so September's profit fell in October and October never took the hit. ⭐ Now the sale
+  // keep its own month's takings, and the money going back is taken off the statement of the month it was
+  // given in, in the loop after this one.
   for (const g of groupOrders(state.orders || [])) {
     const first = (g.orders || [])[0];
     if (!first || !isWithin(orderDay(state, first), from, to)) continue;
-    // ⚠️ ONLY A REFUND CANCELS A SALE — never a zero. An order whose product carries no price
-    // nets to zero too, and it must go on being counted as a line with no price (see
-    // `refundedInFull`).
-    if (refundedInFull(state, g)) continue;
-    sales += orderNet(state, g);
+    sales += orderTakings(state, g);
     for (const o of g.orders) {
       // ⚠️ COST IS NOT REFUNDED. The ingredients went into the bread whether or not the bread
       // came back, so a partly refunded order costs what it always cost.
@@ -102,6 +98,18 @@ export function profitBetween(state, from, to) {
       cost += lined;
       lines++;
     }
+  }
+
+  // ⭐ THE REFUNDS GIVEN IN THIS STRETCH — as a figure of their OWN, whatever month their sale was
+  // delivered in (v578). ⚠️ An edit's refund is already out of its sale (v549), so `refundOf` answers 0
+  // for it. ⭐ It is its own line rather than a smaller Sales figure, because a month with only a refund in
+  // it would otherwise read **Sales −RM15**, and a statement line cannot be allowed to read as a fault.
+  let refunds = 0;
+  for (const g of groupOrders(state.orders || [])) {
+    const back = refundOf(state, g);
+    if (back <= 0) continue;
+    const day = refundDayOf(g, state);
+    if (day && isWithin(day, from, to)) refunds += back;
   }
 
   const byCategory = new Map();
@@ -130,8 +138,9 @@ export function profitBetween(state, from, to) {
 
   return {
     sales,
+    refunds,
     cost,
-    gross: sales - cost,
+    gross: sales - refunds - cost,
     lines,
     uncosted,
     // The chart of accounts in order, so the statement always reads the same way
@@ -144,7 +153,7 @@ export function profitBetween(state, from, to) {
       .filter(([label]) => !categoriesOf(state).some((c) => c.label === label))
       .map(([label, amount]) => ({ label, amount })),
     expensesTotal,
-    net: sales - cost - expensesTotal,
+    net: sales - refunds - cost - expensesTotal,
     capital,
     drawings,
   };
@@ -191,20 +200,16 @@ export function expenseRows(state, from, to, label = null) {
 // rows always add up to the line above them, exactly as expenseRows does.
 export function tradingRows(state, from, to) {
   const rows = [];
-  // ★★ THE ROWS STILL HAVE TO ADD UP TO THE LINE ABOVE THEM, and from v370 the line is
-  // `orderNet` — the goods less the discount less anything refunded. A row per order line at its
-  // face price would therefore sum to MORE than the line. So the two things that make the
-  // difference are drawn as rows of their own: **a discount and a refund are visible in the
-  // journal rather than folded invisibly into the total**, which is the better answer for a book
-  // she is meant to be able to check.
+  // ★★ THE ROWS STILL HAVE TO ADD UP TO THE LINE ABOVE THEM, and from v578 the line is
+  // **this stretch's sales less the refunds given in it.** A row per order line at its face price
+  // would sum to MORE than the line, so the things that make the difference are rows of their own:
+  // **a discount and a refund are visible in the journal rather than folded invisibly into the
+  // total**, and a refund is dated the day it went back, which is what makes the two months agree.
   for (const g of groupOrders(state.orders || [])) {
     const first = (g.orders || [])[0];
     if (!first || !isWithin(orderDay(state, first), from, to)) continue;
-    // A sale refunded in full is dropped whole — no line rows and no adjustment rows — so the
-    // journal keeps saying exactly what it said before this version about a past refund.
-    // ⚠️ And ONLY a refund drops it: a line nothing can price nets to zero and still belongs here,
-    // marked "no price recorded".
-    if (refundedInFull(state, g)) continue;
+    // ⚠️ A REFUNDED SALE IS NOT DROPPED (v578): its lines belong to the month it was delivered, and the
+    // refund is drawn below on the day it went back — which may be a different statement altogether.
     const customer = String(first.customerName || "").trim();
     for (const o of g.orders) {
       const qty = Number(o.qty) || 0;
@@ -230,7 +235,6 @@ export function tradingRows(state, from, to) {
       });
     }
     const t = customerTotal(state, g);
-    const back = refundOf(state, g);
     // ⚠️ `price: 0`, NOT null — `openTradingJournal` reads a null price as "no price recorded"
     // and would print that beside a discount, which has no price by nature rather than by
     // omission. `qty: 0` keeps them out of anything that counts pieces.
@@ -247,7 +251,32 @@ export function tradingRows(state, from, to) {
     });
     if (t.promo > 0) adjust("promo", `Code ${t.promoCode || ""}`.trim(), t.promo);
     if (t.coupon > 0) adjust("coupon", "Bring-a-friend discount", t.coupon);
-    if (back > 0) adjust("refund", "Refunded to the customer", back);
+    // ★★ THE REFUND'S ROW IS DATED THE DAY IT WENT BACK, NOT THE DAY OF THE SALE (v578) — and it is
+    // drawn by the second loop below, which walks every order rather than only this stretch's sales.
+  }
+
+  rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  return rows;
+}
+
+// ⭐ THE ROWS BEHIND THE "REFUNDS GIVEN" LINE (v578) — every refund given in the stretch, on the day it
+// went back, whatever day its sale was delivered. ⭐ Its own journal, because it is its own line: the Sales
+// journal is the orders delivered here, and a refund from an older month is not one of those.
+export function refundRows(state, from, to) {
+  const rows = [];
+  for (const g of groupOrders(state.orders || [])) {
+    const back = refundOf(state, g);
+    if (back <= 0) continue;
+    const day = refundDayOf(g, state);
+    if (!day || !isWithin(day, from, to)) continue;
+    const first = (g.orders || [])[0] || {};
+    rows.push({
+      id: `${first.id}-refund`,
+      date: day,
+      what: `Order #${orderCode(first)}`,
+      customer: String(first.customerName || "").trim(),
+      amount: round2(back),
+    });
   }
   rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   return rows;

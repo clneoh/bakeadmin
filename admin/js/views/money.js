@@ -6,7 +6,7 @@
 
 import { el, button, select, showPopup, toast, confirmDialog, wireRowReorder } from "../ui.js";
 import { byId, fmtRM, newId, round2, save } from "../state.js";
-import { accountBalance, accountsBetween, depositsBetween, expensesBetween, investmentOf, journalFor, moneyBetween } from "../money.js";
+import { accountBalance, accountsBetween, depositsBetween, expensesBetween, investmentOf, journalFor, moneyBetween, refundsBetween } from "../money.js";
 import { clearCourierCharge } from "../courier.js";
 import { categoriesOf, categoryLabels, classOfCategory, drawingLabel, isCash, isLockedAccount, isOther, isTng, methodLabel, methodRank, methodsOf, moveListEntry, sourcesOf } from "../accounts.js";
 import { entryForm, moveAccountRecords, newEntryChip, openMoveAccount, removeEntry } from "./accountsEditor.js";
@@ -307,7 +307,7 @@ function openBooks(state, from, to, stretchLabel) {
   // Every way she has on her list, plus any way that moved here but is no longer on it —
   // a method she renamed still has money in the books, so it still gets a door.
   const moved = new Set();
-  for (const t of [moneyBetween(state, from, to), depositsBetween(state, from, to), expensesBetween(state, from, to)]) {
+  for (const t of [moneyBetween(state, from, to), depositsBetween(state, from, to), expensesBetween(state, from, to), refundsBetween(state, from, to)]) {
     for (const label of (t.byMethod ? t.byMethod.keys() : [])) moved.add(label);
   }
   const labels = [...new Set([...methodsOf(state), ...moved])]
@@ -1026,6 +1026,9 @@ export function renderMoney(root, state) {
     const m = moneyBetween(state, from, to);
     const out = expensesBetween(state, from, to);
     const mine = depositsBetween(state, from, to);
+    // ⭐ AND THE MONEY THAT WENT BACK, IN THIS STRETCH (v578) — her answer: money out in the month it
+    // went back. ⚠️ It is a movement of its own, so it leaves the account it was paid into, on its own day.
+    const refunds = refundsBetween(state, from, to);
     // ★★ NET IS THE WHOLE BUSINESS NOW (v480), NOT THE TIN.
     //
     // Her words: __"can it be treated like cash and TNG? any problem or impact?"__ — and, shown the
@@ -1046,7 +1049,7 @@ export function renderMoney(root, state) {
     // holds.** ⚠️ **This is what replaced the four special Cash/TNG rows and the `Paid by X` lines
     // under them** — two different shapes for one idea, which is what made her ask twice what the
     // difference was.
-    const accounts = accountsBetween(state, [m, mine], [out]);
+    const accounts = accountsBetween(state, [m, mine], [out, refunds]);
     // ⚠️ ALL of her own money that came in this stretch, through ANY account — the sub-line under
     // the blocks. It read `mine.cash + mine.tng`, which was the same two-accounts-only mistake.
     const mineTotal = [...(mine.byMethod || new Map()).values()].reduce((s, v) => s + v, 0);

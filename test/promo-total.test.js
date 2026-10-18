@@ -29,7 +29,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { customerTotal, moneyLines, promoOn, promoValue } = await import("../admin/js/courier.js");
+const { customerTotal, moneyLines, promoOn, promoValue, freezePromoOnOrders, paymentShift } = await import("../admin/js/courier.js");
 const { round2 } = await import("../admin/js/state.js");
 const { buildConfirmation } = await import("../admin/js/confirm.js");
 const { buildPaymentReminder, buildShippedMessage } = await import("../admin/js/messages.js");
@@ -405,4 +405,43 @@ test("the smallest basket is judged while the code's dates are not", () => {
   const reached = ordered(minCode(30, { state: "ended", when: { from: "", to: "2026-09-01" } }));
   assert.equal(customerTotal(reached.st, reached.g).promo, 10,
     "and an ended code still keeps what it gave on a basket that did reach it");
+});
+
+test("★★★ deleting a code FREEZES what each carrying order was promised (v577)", () => {
+  // ⚠️⚠️ THE FAULT: the freeze compared two `normalizeCode` OBJECTS, so it matched nothing — ⚠️ **deleting
+  // FRESH10 (RM5 off) left the order pricing at nothing and its Total went UP by RM5**, after the dialog had
+  // promised "those keep it, and you still owe them what you promised".
+  const st = state();
+  st.promoCodes = [{
+    id: "c1", code: "FRESH10", state: "live", vis: "public", frozen: false,
+    who: { type: "all" }, when: { from: "", to: "" }, basket: { type: "none", amount: 0 },
+    gives: { type: "rm", value: 5, cap: 0 }, often: { type: "unlimited", n: 0, maxRM: 0 },
+    beside: { type: "anything" }, say: "", sayZh: "", sayMs: "", used: 0, given: 0,
+  }];
+  st.orders = orders({ promo: "FRESH10" });
+  assert.equal(promoOn(st, st.orders).money, 5, "precondition: the code takes RM5 off");
+
+  // ⭐ A typed code arrives from the shop in any spelling; the match must not care.
+  const frozen = freezePromoOnOrders(st, " fresh10 ");
+  assert.equal(frozen, 1, "★ the freeze matched nothing — **two normalizeCode objects are never equal**");
+  assert.equal(st.orders[0].promoRM, 5, "★ the order was not told what it is owed");
+
+  // And with the code gone from her list, the order still prices at the amount it was promised.
+  st.promoCodes = [];
+  assert.equal(promoOn(st, st.orders).money, 5,
+    "★★ deleting the code took the discount off the order — **its Total goes up by RM5**");
+});
+
+test("★★★ an edit on a PAID order says which way the money moved (v577)", () => {
+  // ⚠️⚠️ Only the SHORTFALL was asked about. ⚠️ **Measured: RM16 paid by Cash, a second RM16 loaf added to the
+  // order, and Money counted RM32 of takings while the row still said Paid · Cash with no Pay press left.**
+  // ⭐ One helper answers both directions, so neither can be forgotten again.
+  assert.deepEqual(paymentShift(16, 32), { dir: "extra", amount: 16 },
+    "★ an edit UP on a paid order is silent — the extra is counted as money received");
+  assert.deepEqual(paymentShift(32, 16), { dir: "short", amount: 16 });
+  assert.deepEqual(paymentShift(16, 16), { dir: "", amount: 0 });
+  // ⚠️ An UNPAID order has no shift to ask about, whatever the number does.
+  assert.deepEqual(paymentShift(0, 32), { dir: "", amount: 0 },
+    "★ an order that was never paid was asked a question about its money");
+  assert.deepEqual(paymentShift(16, null), { dir: "", amount: 0 });
 });

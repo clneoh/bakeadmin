@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "576";
+export const SHOP_BUILD = "578";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -3661,7 +3661,9 @@ function clearFieldMarks() {
     for (const [n, q] of cart) {
       const p = CONFIG.products.find((x) => x.name === n);
       if (!p) continue;
-      const line = { name: n, qty: q, price: p.price };
+      // ⚠️ THE PRICE IS A MONEY AMOUNT, SO IT IS KEPT TO THE CENT (v577) — a 3-decimal product price shown
+      // as "RM0.01" and stored as 0.005 made one sale carry two different totals on paper.
+      const line = { name: n, qty: q, price: Math.round(Number(p.price) * 100) / 100 };
       // The customer's own words for this item (v236), when they wrote any. The
       // key is written only when there IS something to send, so an order with no
       // notes posts byte-for-byte the payload this page has always posted — the

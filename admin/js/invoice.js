@@ -19,8 +19,11 @@
 // There is no address on the storefront and there cannot be — `cleanStorefront`
 // whitelists the settings keys and would drop one added there.
 //
-// ★ THE INVOICE NUMBER IS THE ORDER'S OWN CODE, and it is worth saying why that is
-// better than a running number rather than merely simpler:
+// ★ THE INVOICE NUMBER IS THE REGISTER'S SERIAL once the money is recorded, and the
+// order's own code until then (v577 — ⚠️ the consolidated page numbered by the serial
+// while this document numbered by the code, so ONE SALE CARRIED TWO INVOICE NUMBERS).
+// The code is still what an unnumbered order is called, and why that avoids a counter
+// shared between two phones is worth saying:
 //
 //   · The order code is unique BY CONSTRUCTION — the last six hex of the order's own id
 //     (`orderCode`, state.js). Two invoices cannot collide the way a counter shared by
@@ -45,6 +48,7 @@
 import { customerTotal } from "./courier.js";
 import { orderDateOf } from "./customers.js";
 import { fmtRM } from "./state.js";
+import { receiptNoOfGroup } from "./receipts.js";
 import { orderCode, orderLineName, orderLinePrice, round2 } from "./state.js";
 import { longDate } from "./dates.js";
 
@@ -66,9 +70,16 @@ export function invoiceLineAmount(state, o) {
 // The number this order's invoice carries, and the only one it can ever carry. Read
 // straight off the order, exactly as the order row's own tag reads it and as the
 // confirmation message reads it — one identifier for one order, in one place.
+// ★★★ ONE SALE, ONE INVOICE NUMBER (v577). ⚠️⚠️ The consolidated filing page calls the RECEIPT SERIAL the
+// invoice number (her own ask in v376: "a column for order no. and a column for invoice no"), while this
+// document numbered itself by the ORDER CODE — ⭐ **so one sale carried two invoice numbers on two papers.**
+// ⭐ The serial is the legal number and it wins when the register has one; an order with none yet is numbered
+// by its code, which is what the receipt line already says beneath the title.
 export function invoiceNo(group) {
   const first = (group && group.orders && group.orders[0]) || null;
-  return first ? orderCode(first) : "";
+  if (!first) return "";
+  const serial = receiptNoOfGroup((group && group.orders) || []);
+  return serial ? String(serial) : orderCode(first);
 }
 
 // One order, as an invoice sheet. Everything the paper says, and nothing it does not.
@@ -93,8 +104,25 @@ export function invoiceSheet(state, group, { from = "", bakery = "", printed = "
   // receipt both say "Courier charge RM 8.00 — COD". ⚠️ **The paper said Total RM16 and the customer handed the
   // driver RM24.** ⭐ It is a note, not a line: it is not part of what this invoice's Total adds up to, and a
   // line would make the sheet's own arithmetic wrong.
+  const cur = (state.settings && state.settings.currency) || "RM";
   const codNote = (Number(t.cod) || 0) > 0
-    ? `Courier charge ${fmtRM(t.cod, (state.settings && state.settings.currency) || "RM")} is paid to the driver on delivery (cash on delivery).`
+    ? `Courier charge ${fmtRM(t.cod, cur)} is paid to the driver on delivery (cash on delivery).`
+    : "";
+
+  // ⚠️⚠️ A REFUNDED SALE'S INVOICE NEVER SAID SO (v577). ⭐ The caller always passes a serial, so
+  // `receiptNote` — the only place the refund wording could appear — was blank, and the paper read exactly
+  // like an unrefunded one. ⭐ **The Total stays the sale's own Total**: the invoice states what was sold and
+  // owed; money going back is a LATER event and belongs in a sentence with its own date, never subtracted
+  // from a total the lines above it do not add up to. Scanned across every row of the group, because the
+  // stamp is written to all of them and a slice may start anywhere (the v445 lesson).
+  const refunded = rows.find((o) => o && o.refundedAt) || null;
+  const moved = refunded ? round2(Number(refunded.refundAmountRM) || 0) : 0;
+  const refundDay = refunded && String(refunded.refundedAt).slice(0, 10);
+  const when = refunded && /^\d{4}-\d{2}-\d{2}$/.test(refundDay) ? ` on ${longDate(refundDay)}` : "";
+  const refundNote = refunded
+    ? (moved > 0
+      ? `${refunded.refundedFull ? "Refunded in full" : "Refunded"}: ${fmtRM(moved, cur)} returned${when}.`
+      : `The money on this order was refunded${when}.`)
     : "";
   // The code, taken off. Drawn with `dir: "out"` because that is what prints the
   // minus in front of the figure on all four renderings — the sheet has one way of
@@ -107,8 +135,8 @@ export function invoiceSheet(state, group, { from = "", bakery = "", printed = "
   if (t.coupon > 0) lines.push({ what: t.couponRole === "reward" ? "Bring-a-friend reward" : "Bring-a-friend discount", amount: t.coupon, dir: "out" });
 
   return {
-    // The order's own code IS the invoice number, so the title and the order's tag
-    // every other screen shows are the same characters.
+    // ★ THE REGISTER'S SERIAL when the sale has one, the order's own code until then (v577) — the same
+    // number the consolidated filing page's Invoice column shows, so one sale cannot be quoted two ways.
     title: `Invoice #${invoiceNo(group)}`,
     // ★ THE RECEIPT'S OWN SERIAL, BESIDE THE ORDER'S CODE (v360). **Both are needed and
     // neither replaces the other:** the serial is what proves the receipt sequence has no
@@ -131,7 +159,7 @@ export function invoiceSheet(state, group, { from = "", bakery = "", printed = "
     bakery,
     from,
     printed,
-    note: codNote,
+    note: [codNote, refundNote].filter(Boolean).join("\n\n"),
     lines,
     // ⚠️⚠️ THE TOTAL IS WHAT THE LINES ABOVE IT ADD UP TO (v551). ⭐ MEASURED: two lines at RM0.005 each
     // printed as "RM 0.01" and "RM 0.01" — a reader's sum of **RM0.02** — under **Total RM0.01**, because

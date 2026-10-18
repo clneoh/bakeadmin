@@ -137,6 +137,45 @@ function basketItems(state, orders) {
   }, 0);
 }
 
+// ★★★ WHAT AN EDIT DOES TO A PAID ORDER (v577). ⭐ One question, in one place, because the two directions
+// are not symmetric and only ONE of them was asked about: ⚠️ an edit DOWN asks her to refund the difference,
+// while an edit UP silently counted the whole new total as received — **measured: RM16 paid by Cash, a second
+// RM16 loaf added, and Money showed RM32 of takings with the row still reading Paid · Cash and no Pay press
+// left.** ⭐ `amount` is positive in both directions; `dir` says which way the money moved.
+export function paymentShift(paidWas, now) {
+  const was = round2(Number(paidWas) || 0);
+  const n = Number(now);
+  if (!(was > 0) || now == null || !Number.isFinite(n)) return { dir: "", amount: 0 };
+  const diff = round2(n - was);
+  if (diff > 0) return { dir: "extra", amount: diff };
+  if (diff < 0) return { dir: "short", amount: round2(-diff) };
+  return { dir: "", amount: 0 };
+}
+
+// ★★★ FREEZE WHAT EACH CARRYING ORDER IS OWED, BEFORE THE CODE IS DELETED (v577).
+//
+// ⚠️⚠️ THE FAULT IT REPLACES, AND IT WAS THE WHOLE PROMISE OF THE DELETE SCREEN. The view compared
+// `normalizeCode(first.promo) !== name` — but **`normalizeCode` returns an OBJECT**, and it was handed two
+// different call shapes (a string and a string), so **two freshly-built objects were never equal and the loop
+// skipped EVERY order.** ⚠️ **Measured: deleting FRESH10 (RM5 off) left the order pricing at nothing and its
+// Total went UP by RM5** — the delete screen had just promised "those keep it, and you still owe them".
+// ⭐ The comparison is the CODE NAME, read the one way the app reads one (`normCode`), and the arithmetic is
+// `promoOn` — run while the code is still in the list, which is why this is called BEFORE the delete.
+export function freezePromoOnOrders(state, codeName) {
+  const wanted = normCode(codeName);
+  let frozen = 0;
+  for (const g of groupOrders((state && state.orders) || [])) {
+    const first = (g && g.orders || [])[0];
+    if (!first || normCode(first.promo) !== wanted) continue;
+    const owed = promoOn(state, g.orders).money;
+    if (owed > 0) {
+      for (const o of g.orders) o.promoRM = owed;
+      frozen += 1;
+    }
+  }
+  return frozen;
+}
+
 // The same, read off a saved order group rather than a figure handed in — what every
 // screen showing a SAVED order asks, so none of them works the basket out itself.
 export function promoOn(state, orders) {

@@ -233,7 +233,11 @@ export function emptyState(title, hint) {
     hint ? el("p", { class: "muted" }, hint) : null);
 }
 
-export function confirmDialog(message, onYes, { danger = false, yesLabel = "Confirm" } = {}) {
+// ⚠️⚠️ AND IT CAN OFFER A SECOND REAL ANSWER (v577). ⭐ A question like "has the extra been paid too?"
+// has no neutral Cancel — closing the card would leave her question unanswered while the order saves
+// either way. ⚠️ `onNo` makes the left-hand button an ANSWER (`noLabel`) instead of a dismissal, so both
+// outcomes are spoken rather than one being the absence of a press.
+export function confirmDialog(message, onYes, { danger = false, yesLabel = "Confirm", onNo = null, noLabel = "Cancel" } = {}) {
   const layer = document.getElementById("confirm-layer");
   const textId = `confirm-text-${++popupSeq}`;
   const card = el("div", {
@@ -241,7 +245,7 @@ export function confirmDialog(message, onYes, { danger = false, yesLabel = "Conf
   },
     el("p", { class: "confirm-text", id: textId }, message),
     el("div", { class: "confirm-actions" },
-      button("Cancel", () => close(), "ghost"),
+      button(noLabel, () => { close(); if (onNo) onNo(); }, "ghost"),
       button(yesLabel, () => { close(); onYes(); }, danger ? "danger" : "primary")));
   layer.replaceChildren(card);
   layer.hidden = false;

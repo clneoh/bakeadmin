@@ -1,8 +1,55 @@
-# Jienluv2bake — change history (v54 → v576)
+# Jienluv2bake — change history (v54 → v578)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v578, A REFUND IS MONEY OUT IN THE MONTH IT WENT BACK (no database step).**
+
+**Your words:** I asked how a refund should read in your books, and you chose __"Money out in the month it went back"__.
+
+**1. ⚠️⚠️ UNTIL NOW A REFUND QUIETLY REDUCED THE SALE IT BELONGED TO.** ⚠️ **A RM15 order paid by Cash in September and refunded on 10 October made October's Cash show nothing leaving the tin — and September's takings fell months later, when you looked back at a month that had already been reported.** ⭐ **The sale now keeps what it took, and the money going back is a movement of its own, on the day it went back.**
+
+**2. ⭐ SEEN ON THE REAL SCREENS** with a September sale and an October refund:
+- **September · Cash:** In **RM15.00**, Out **RM0.00**, Holds **RM15.00** — untouched.
+- **October · Cash:** In **RM0.00**, Out **RM15.00** — the tin shows the money leaving.
+- **October · Profit:** Sales **RM0.00**, **Refunds given RM−15.00**, and pressing that line lists **"10 Oct · Order #ABC123 · Aunty Bee — RM−15.00"**.
+
+**3. ⭐ PROFIT HAS ITS OWN "REFUNDS GIVEN" LINE, with its own journal.** ⚠️ It is not folded into Sales: a month whose only movement is a refund would otherwise read **"Sales −RM15"**, and a statement line must never look like a fault. The Sales journal still adds up to the Sales line, and the new line adds up to the refunds.
+
+**4. ⭐ THE WEEKLY REPORT AND THE HOME TILE NO LONGER REWRITE A PAST WEEK.** A refund given later cannot make a week that has already been reported smaller. The week keeps what it sold.
+
+**5. ⭐ AND AN OLD REFUND WITH NO DATE recorded against it still appears** — it sits with its sale rather than vanishing, because a refund that disappears is money you handed back that the books never saw.
+
+**6. Nothing of yours was rewritten, and there is no database step. ⭐ 3,637 tests green; every rule above has a test that fails without it, including a sale in September refunded in October.**
+
+---
+
+**18 Oct 2026 — engine v577, ONE SALE NOW CARRIES ONE INVOICE NUMBER (no database step).**
+
+**Your words:** __"push it, then go on with money"__ — group 2 of the complete audit, the money that is promised and not given, or counted twice.
+
+**1. ⚠️⚠️ ONE SALE CARRIED TWO INVOICE NUMBERS.** The filing page's **Invoice** column numbered the sale by its **receipt serial** (your own ask: "a column for order no. and a column for invoice no"), while the invoice itself numbered itself by the **order code** — ⚠️ **so an order was #000003 on one paper and #ABC123 on the other.** ⭐ **The invoice now carries the serial too**, and the order code rides beside it, exactly as the register does it. Until a receipt number is drawn — an unpaid order — the code is still its number.
+
+**2. ⚠️⚠️ A REFUNDED ORDER'S INVOICE NEVER MENTIONED THE REFUND.** The paper read exactly like an unrefunded one. ⭐ It now says, for example, **"Refunded: RM 5.00 returned on 17 Oct 2026."** — and the **Total stays the sale's own Total**, because the invoice states what was sold and owed; the money going back is a later event with its own date, not a discount.
+
+**3. ⚠️⚠️ THE RECEIPT NUMBER WAS MISSING FROM THE COPIES THE CUSTOMER KEEPS.** The screen and the paper drew **"Receipt #000003 · Order #ABC123"**; ⚠️ **the text that goes into WhatsApp and the PDF did not.** ⭐ The number that proves the receipts have no gaps is now on all four.
+
+**4. ⚠️ THE INVOICE COULD SAY TWO OPPOSITE THINGS ABOUT ITS OWN NUMBER.** Numbered from **any row** of the sale but drawing its receipt line from the **first row** only — ⚠️ **so a numbered sale printed "Invoice #000007" directly above "No receipt number yet".** ⭐ Both now read the whole sale, and a refund stamped on a later row is found too.
+
+**5. ⚠️ THE INVOICE SCREEN COULD PRINT "NaN NaN NaN" AS THE DATE.** An order with no placed-date fell through to a raw timestamp. ⭐ Seen live while checking this version: it now reads **"placed 15 Oct 2026"**, or says nothing where there is no date.
+
+**6. ⚠️ A PRICE WITH HALF A CENT IN IT MADE THE PAPER DISAGREE WITH ITSELF.** Two lines at RM0.005 each printed "RM 0.01" and "RM 0.01", and the invoice demanded **RM 0.02** while the confirmation message said **RM 0.01**. ⭐ **A price is money, so it is kept to the cent where it is frozen** — in her own order form and in the shop — and no stored order was rewritten.
+
+**7. ⚠️ "UNDO REFUND" LEFT ONE FLAG BEHIND, so the sale was both refunded and not.** ⚠️ A fully refunded **referred first order**, undone, offered the customer **a second "new friend" coupon** while Money and Profit counted the sale again. ⭐ Undo clears every flag the refund set.
+
+**8. ⚠️ EDITING A PAID ORDER UPWARD MARKED THE WHOLE INCREASE AS RECEIVED.** ⚠️ **Measured: RM16 paid by Cash, a second RM16 loaf added — the row still said "Paid · Cash" and Money counted RM32 of takings**, with the Pay press gone. ⭐ It now asks: **"THE MONEY IS IN — this order was paid RM16 and now comes to RM32. Has the extra RM16 been paid too?"** — **Yes, paid too** keeps it paid; **Not yet** marks it unpaid so you can take the money properly. ⭐ And the refund card that question opens now has **the figure already in its box**, instead of 0 making you retype the number the dialog just named.
+
+**9. ⚠️ DELETING A PROMO CODE DID NOT PROTECT THE ORDERS THAT USED IT.** The delete said **"those keep it, and you still owe them what you promised"** — ⚠️ **then the order's Total went UP by the discount.** ⭐ The orders are now frozen at what they were promised, as the dialog says.
+
+**10. Nothing of yours was rewritten, and there is no database step. ⭐ 3,636 tests green (was 3,625); every fix has a test that fails without it.**
+
+---
 
 **18 Oct 2026 — engine v576, THE SIX THAT COULD DESTROY YOUR RECORDS (no database step; the `wish-mail` function must be deployed again).**
 

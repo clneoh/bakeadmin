@@ -134,21 +134,6 @@ export function orderNet(state, group) {
   return round2(Math.max(0, orderTakings(state, group) - refundOf(state, group)));
 }
 
-// ★★ WHETHER A REFUND HAS UNDONE THE ORDER ENTIRELY (v370) — and this is the ONLY thing that makes
-// a book skip an order.
-//
-// ⚠️⚠️ IT IS NOT "net is zero", AND THE DIFFERENCE COST A REGRESSION WHILE THIS WAS BEING BUILT.
-// An order whose product carries **no price** also nets to zero — and the app goes out of its way to
-// keep `null` (nothing can price this) apart from `0` (this is free), so the journal can say "no
-// price recorded" rather than print a confident RM 0.00. Skipping on "net is zero" made those orders
-// vanish from the trading journal entirely. **A refund is what cancels an order; a price that is
-// missing never did and never will.**
-export function refundedInFull(state, group) {
-  // ⚠️ THE MARK IS THE TEST, and the arithmetic only asks whether anything SURVIVED it. Gating on
-  // "some money went back" instead would have missed an order whose bill is RM0 — one whose product
-  // carries no price — and quietly let a refunded sale back into the books as a line.
-  return isRefunded(group) && orderNet(state, group) <= 0;
-}
 
 // The method as it should be read: the list's own label, whichever spelling the row
 // was written with ("Cash" and "cash" are the same thing to the books), or "" for a
@@ -209,6 +194,45 @@ export function paidOf(state, group) {
   return deliveryOf(state, group);
 }
 
+// ★★★ THE DAY THE MONEY WENT BACK (v578). ⭐ Her answer, asked in these words: **"Money out in the month it
+// went back"** — before this, a refund quietly reduced the sale it belonged to, so ⚠️ **October's Cash showed
+// nothing leaving the tin while September's takings silently fell months later.** ⭐ The sale now keeps the
+// takings it really had, and the money going back is a movement of its own, on the day it moved.
+// ⚠️ `refundedAt` is an instant, so it is read in HER day, exactly as `paidOf` reads `paidAt`.
+export function refundDayOf(group, state = null) {
+  const at = String(firstOf(group).refundedAt || "");
+  // ⚠️ AN AMOUNT WITH NO MARK IS STILL A REFUND (the rule `refundOf` states). It has no day of its own,
+  // so it sits with the sale rather than vanishing — ⚠️ **a refund that disappears is money she handed
+  // back that the books never saw.**
+  if (!at) return state ? paidOf(state, group) : "";
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return String(at).slice(0, 10);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+// Every refund given IN a stretch, as money OUT of the account it was paid from.
+// ⚠️ A REFUND THAT ANSWERED AN EDIT IS NOT ONE OF THESE (v549): the edit had already taken that money out of
+// the sale, so `refundOf` answers 0 for it and there is nothing to show twice.
+export function refundsBetween(state, from, to) {
+  const rows = [];
+  for (const g of groupOrders(state.orders || [])) {
+    const back = refundOf(state, g);
+    if (back <= 0) continue;
+    const day = refundDayOf(g, state);
+    if (!day || !isWithin(day, from, to)) continue;
+    const first = firstOf(g);
+    rows.push({
+      date: day,
+      method: first.paidMethod,
+      amount: back,
+      what: `Order #${orderCode(first)} — ${first.customerName || "no name"} (refunded)`,
+    });
+  }
+  return tallyRows(rows);
+}
+
 // What a set of CUSTOMER orders came in by, bucketed the same way the pocket rows
 // are. The comparison goes through accounts.js rather than against the old lower-case
 // "cash"/"tng": a row written since the ways-to-pay list exists holds the label, so
@@ -233,11 +257,12 @@ function tally(state, groups) {
       if (!isRefunded(g)) { out.toCollect += customerTotal(state, g).total; out.toCollectCount++; }
       continue;
     }
-    // ★★ TAKINGS, LESS ANYTHING HANDED BACK (v370). Not `groupValue` any more: that counted the
-    // goods at their FACE price, so a discounted order read as money she never received. A fully
-    // refunded order now nets to 0 and is dropped below — **the same answer v361's skip gave**,
-    // which is what keeps every refund made before this version behaving exactly as it did.
-    const value = orderNet(state, g);
+    // ★★ WHAT THE SALE TOOK, AND NOTHING TAKEN BACK OUT OF IT (v578). Not the face price — that would
+    // count money she never received after a discount (v370) — but the customer's own money for the
+    // goods, **whole**. ⚠️ The refund is no longer subtracted here: it is money OUT of the account on the
+    // day it went back (`refundsBetween`), which is her answer to how a refund should read. ⭐ So a sale
+    // paid in September and refunded in October leaves September's takings alone and leaves October's tin.
+    const value = orderTakings(state, g);
     if (value <= 0) continue;
     const method = methodOf(g);
     // The same money, filed one way for the columns and one way per method: it is the
@@ -373,23 +398,33 @@ export function journalFor(state, method, from, to) {
   for (const g of groupOrders(state.orders || [])) {
     const first = firstOf(g);
     if (!isCollected(g) || methodLabel(first.paidMethod) !== want) continue;
-    // ★ THE ROW CARRIES THE NET, AND NAMES THE REFUND (v370). One row, not two: the refund went
-    // back the way it came, so an "in" of the balance and an "out" of the refund would say the
-    // same thing twice — and this book's whole job is to agree with the column above it.
-    const back = refundOf(state, g);
-    const value = orderNet(state, g);
-    // A FULLY REFUNDED order moved through the pocket and left it. A RM0.00 "in" row is noise in a
-    // reconciliation — ⚠️ but only a refund earns that skip: an order nothing can price keeps its
-    // row, exactly as it always has (see `refundedInFull`).
-    if (refundedInFull(state, g)) continue;
+    // ★★ THE SALE IS A WHOLE "IN" ROW, AND A REFUND IS ITS OWN "OUT" ROW (v578). ⭐ Her answer: money out
+    // in the month it went back. ⚠️ Before this the refund was folded into the "in" and the sale's own day
+    // showed a smaller figure — **so the tin never showed the money leaving.** ⭐ The refund rows are added
+    // below, dated the day it went back, and the two together are what the account's column holds.
+    const value = orderTakings(state, g);
     const day = paidOf(state, g);
     if (!isWithin(day, from, to)) continue;
     rows.push({
       date: day,
-      what: `Order #${orderCode(first)} — ${first.customerName || "no name"}`
-        + (back > 0 ? ` (refunded ${fmtRM(back, (state.settings && state.settings.currency) || "RM")})` : ""),
+      what: `Order #${orderCode(first)} — ${first.customerName || "no name"}`,
       amount: value,
       dir: "in",
+    });
+  }
+  // ⭐ THE MONEY THAT WENT BACK, ON ITS OWN DAY, OUT OF THE ACCOUNT IT CAME FROM (v578).
+  for (const g of groupOrders(state.orders || [])) {
+    const back = refundOf(state, g);
+    if (back <= 0) continue;
+    const first = firstOf(g);
+    if (methodLabel(first.paidMethod) !== want) continue;
+    const day = refundDayOf(g, state);
+    if (!day || !isWithin(day, from, to)) continue;
+    rows.push({
+      date: day,
+      what: `Order #${orderCode(first)} — ${first.customerName || "no name"} (refunded)`,
+      amount: back,
+      dir: "out",
     });
   }
   for (const d of state.deposits || []) {
@@ -569,7 +604,7 @@ export function accountBalance(state, method, from, to) {
   if (!want) return 0;
   const blocks = accountsBetween(state,
     [moneyBetween(state, from, to), depositsBetween(state, from, to)],
-    [expensesBetween(state, from, to)]);
+    [expensesBetween(state, from, to), refundsBetween(state, from, to)]);
   return (blocks.find((b) => b.label === want) || { holds: 0 }).holds;
 }
 

@@ -1525,7 +1525,12 @@ export function stampOrderLine(o, product, unitCost) {
   const name = String(product.name || "").trim();
   if (name) o.productName = name;
   const price = product.price;
-  if (price != null && price !== "" && Number.isFinite(Number(price))) o.unitPrice = Number(price);
+  // ⚠️⚠️ ROUNDED TO THE CENT WHERE IT IS FROZEN (v577). ⭐ MEASURED: two lines sold at RM0.005 printed as
+  // "RM 0.01" each under a Total of RM0.01 — the invoice added its printed lines and demanded RM0.02, while
+  // the confirmation and the tracking card rounded the sum and said RM0.01. ⚠️ **One sale, two totals, both on
+  // paper.** A price is money; the half-cent existed because a 3-decimal number was accepted and then shown
+  // rounded. ⭐ Fixed at the ORIGIN, so every surface reads the same number — and no stored order is rewritten.
+  if (price != null && price !== "" && Number.isFinite(Number(price))) o.unitPrice = round2(Number(price));
   // ⚠️⚠️ A ZERO IS DELIBERATELY NOT STAMPED, and so is anything unreadable. A
   // product whose recipe prices to nothing YET would otherwise have 0 locked
   // onto every order it ever had — and stay 0 for ever once she builds the

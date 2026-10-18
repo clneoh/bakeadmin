@@ -56,6 +56,27 @@ export function receiptNoOfGroup(orders) {
   return "";
 }
 
+// ★★ THE LINE AND THE STATUS, READ FROM THE WHOLE SALE (v577). ⭐ The invoice numbered itself from a
+// serial found on ANY row (`receiptNoOfGroup`) while its receipt line and its status were built from the
+// FIRST row alone — ⚠️ **so a numbered sale whose first row carried no stamp printed "Invoice #000007"
+// above "No receipt number yet"**, and a refund stamped on a later row was never mentioned at all.
+export function receiptLineOfGroup(orders, code) {
+  const serial = receiptNoOfGroup(orders);
+  if (!serial) return "";
+  const c = String(code || "").trim();
+  return c ? `Receipt #${serial} · Order #${c}` : `Receipt #${serial}`;
+}
+
+export function receiptStatusOfGroup(orders, cur = "RM") {
+  const list = Array.isArray(orders) ? orders : (orders ? [orders] : []);
+  // ⭐ The row that KNOWS something, in the order the paper needs it: a refund, then a number, then any.
+  const row = list.find((o) => o && o.refundedAt)
+    || list.find((o) => o && receiptNoOf(o))
+    || list[0] || null;
+  if (!row) return "";
+  return receiptStatus(row, cur, receiptNoOfGroup(list));
+}
+
 // "Receipt #000123" — the paper's own heading. Empty when the order has no number.
 export function receiptLabel(order) {
   const n = receiptNoOf(order);
@@ -83,18 +104,20 @@ export function isRefunded(order) {
 
 // What the paper says about the number, in every state it can be in — including the two
 // that are not a number, which must say WHY rather than print nothing.
-export function receiptStatus(order, cur = "RM") {
+export function receiptStatus(order, cur = "RM", serial = receiptNoOf(order)) {
   if (!order) return "";
+  // ⚠️⚠️ THE NUMBER IS PASSED IN WHEN THE CALLER KNOWS IT FROM ANY ROW OF THE SALE (v577) — the same
+  // rule `receiptNoOfGroup` already follows, and for the same measured reason: a group handed over as a
+  // slice may start at a row that never carried the stamp.
+  const label = serial ? `Receipt #${serial}` : "";
   // ★ AND HOW MUCH WENT BACK (v370). A refund is a PART of an order now, so a bare "— refunded"
   // would leave her unable to tell RM5 back from the whole receipt.
   if (isRefunded(order)) {
     const n = Number(order.refundAmountRM);
-    return Number.isFinite(n) && n > 0
-      ? `${receiptLabel(order)} — ${fmtRM(n, cur)} refunded`
-      : `${receiptLabel(order)} — refunded`;
+    const back = Number.isFinite(n) && n > 0 ? `${fmtRM(n, cur)} refunded` : "refunded";
+    return label ? `${label} — ${back}` : (Number.isFinite(n) && n > 0 ? `${fmtRM(n, cur)} refunded` : "Refunded");
   }
-  const n = receiptNoOf(order);
-  if (n) return receiptLabel(order);
+  if (serial) return label;
   // ⚠️ NO NUMBER IS NOT AN ERROR, AND NOT A BLANK. There are two honest reasons for it
   // and they read differently, so neither is guessed at.
   //

@@ -6,7 +6,7 @@
 
 import { el, button, showPopup } from "../ui.js";
 import { fmtRM } from "../state.js";
-import { profitBetween, expenseRows, tradingRows } from "../profit.js";
+import { profitBetween, expenseRows, refundRows, tradingRows } from "../profit.js";
 import { addDays, longDate, todayISO } from "../dates.js";
 import { periodSpan } from "../consolidated.js";
 import { journalSheet, journalButtons, bakeryName } from "../journal.js";
@@ -98,6 +98,47 @@ function openExpenseJournal(state, label, from, to, monthTitle) {
       rows.length
         ? "These are the rows the line above is made of, each with what it was for and how it was paid. They are recorded on the Money screen (Add an expense), so a correction is made there — and both screens move together, because this is the same list."
         : "It will fill up on its own as you record spending under this category on the Money screen (Add an expense)."),
+    el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
+}
+
+// ⭐ THE MONEY THAT WENT BACK (v578) — its own line and its own journal, because it is not a sale and it
+// belongs to the month it was given in, not the month its sale was delivered.
+function openRefundJournal(state, from, to, monthTitle) {
+  const cur = state.settings.currency || "RM";
+  const rows = refundRows(state, from, to);
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  const line = (r) => el("div", { class: "info-row journal-line" },
+    el("span", { class: "j-what" },
+      [`${dayMonth(r.date)} · ${r.what}`, r.customer].filter(Boolean).join(" · ")),
+    el("span", { class: "info-val" }, fmtRM(-r.amount, cur)));
+
+  const sheet = journalSheet({
+    title: "Refunds given",
+    subtitle: `Refunds given · ${monthTitle}`,
+    lines: rows.map((r) => ({
+      what: [`${dayMonth(r.date)} · ${r.what}`, r.customer].filter(Boolean).join(" · "),
+      amount: -r.amount,
+    })),
+    totals: [{ label: "Total", amount: -total }],
+    empty: `No refunds were given in ${monthTitle}.`,
+    note: "These are the refunds recorded on your orders, each on the day the money went back. They are "
+      + "recorded when you press Refund on an order, so a correction is made there — and both screens move "
+      + "together, because this is the same list.",
+    where: "More → Profit",
+    bakery: bakeryName(state),
+  });
+
+  showPopup(el("div", { class: "popup-title-row" }, "Refunds given"), () => el("div", {},
+    el("p", { class: "card-sub", style: "margin:0 0 10px" }, `Refunds given · ${monthTitle}`),
+    rows.length
+      ? el("div", {}, ...rows.map(line))
+      : el("p", { class: "card-sub" }, `No refunds were given in ${monthTitle}.`),
+    el("div", { class: "info-row pl-total" },
+      el("span", {}, "Total"), el("span", { class: "info-val" }, fmtRM(-total, cur))),
+    el("p", { class: "card-sub", style: "margin:10px 0 0" },
+      "These are the refunds recorded on your orders, each on the day the money went back. They are "
+      + "recorded when you press Refund on an order, so a correction is made there — and both screens move "
+      + "together, because this is the same list."),
     el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
 }
 
@@ -245,6 +286,7 @@ export function renderProfit(root, state) {
       subtitle: monthTitle,
       lines: [
         { what: "Sales", amount: pl.sales },
+        { what: "Refunds given", amount: -pl.refunds },
         { what: "Cost of sales", amount: -pl.cost },
         { what: "Gross profit", amount: pl.gross, cls: "pl-total" },
         { what: "Running costs", heading: true },
@@ -277,6 +319,8 @@ export function renderProfit(root, state) {
           pl.lines ? "Trading · tap a line to see the orders behind it" : "Trading"),
         line("Sales", pl.sales, "",
           () => openTradingJournal(state, "sales", from, to, monthTitle)),
+        line("Refunds given", -pl.refunds, "",
+          () => openRefundJournal(state, from, to, monthTitle)),
         line("Cost of sales", -pl.cost, "",
           () => openTradingJournal(state, "cost", from, to, monthTitle)),
         line("Gross profit", pl.gross, " pl-total"),

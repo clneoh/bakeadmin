@@ -25,9 +25,10 @@ globalThis.localStorage.setItem("bakeadmin.supabase",
   JSON.stringify({ access_token: "tok", expires_at: Date.now() + 3600000 }));
 
 const { receiptNoOf, receiptLabel, receiptLine, isRefunded, receiptStatus,
+  receiptLineOfGroup, receiptStatusOfGroup,
   copyKnowsCode, lastSeenIn, registerRows, registerSummary, voidedIndex } = await import("../admin/js/receipts.js");
 const { claimReceipt, pullReceiptRegister, refundReceipt } = await import("../admin/js/supabase.js");
-const { journalSheet } = await import("../admin/js/journal.js");
+const { journalSheet, buildJournalText } = await import("../admin/js/journal.js");
 const { orderCode } = await import("../admin/js/state.js");
 
 const stateWith = () => ({
@@ -87,6 +88,39 @@ test("a refund is marked, and the number stays", () => {
   assert.equal(receiptStatus(o), "Receipt #000007 — refunded");
   // ⚠️ THE NUMBER IS STILL THERE. Deleting it would leave the gap the sequence exists to prevent.
   assert.equal(receiptNoOf(o), "000007", "a refund never takes the number away");
+});
+
+test("★★★ the invoice's line and status read the WHOLE sale, not its first row (v577)", () => {
+  // ⚠️⚠️ THE FAULT: the invoice numbered itself from a serial found on ANY row while its receipt line and
+  // status were built from the first — ⭐ **so a numbered sale whose first row carried no stamp printed
+  // "Invoice #000007" directly above "No receipt number yet",** and a refund stamped on a later row was
+  // never mentioned. ⭐ Same rule as `receiptNoOfGroup` (v445): a fact about the ORDER is read from
+  // whichever row knows it.
+  const rows = [{ id: "a" }, { id: "b", receiptNo: 7 }];
+  assert.equal(receiptLineOfGroup(rows, "A3F9C2"), "Receipt #000007 · Order #A3F9C2",
+    "★ the line is built from a row that never carried the number");
+  assert.equal(receiptStatusOfGroup(rows), "Receipt #000007",
+    "★ the status says there is no number about a sale that HAS one");
+  // A refunded row that carries neither the number nor anything else still speaks for the sale.
+  assert.equal(receiptStatusOfGroup([{ receiptNo: 7 }, { refundedAt: "2026-10-03T00:00:00Z", refundAmountRM: 5 }]),
+    "Receipt #000007 — RM 5.00 refunded",
+    "★ a refund stamped on a later row is not mentioned, and the serial is not named");
+  assert.equal(receiptStatusOfGroup([]), "", "no rows is no sentence, not a made-up one");
+});
+
+test("★★★ the shared TEXT carries the serial and the refund sentence, not only the screen (v577)", () => {
+  // ⚠️⚠️ THE FAULT: the screen and the paper drew "Receipt #000123"; the text that goes into WhatsApp and
+  // the PDF did not — ⭐ **the number that proves the sequence was missing from exactly the copies the
+  // customer keeps.** ⭐ The PDF is gated on this same text (v573), so pinning the text pins both.
+  const text = buildJournalText({
+    title: "Invoice #A3F9C2",
+    receipt: "Receipt #000123 · Order #A3F9C2",
+    note: "RM 5.00 returned on 3 Oct 2026.",
+  });
+  assert.match(text, /Receipt #000123 · Order #A3F9C2/,
+    "★ the shared text omits the receipt serial, so the customer's copy cannot prove the sequence");
+  assert.match(text, /RM 5\.00 returned on 3 Oct 2026/,
+    "★ the shared text omits a refund the screen states");
 });
 
 test("the sheet carries the serial and the note, and every other journal passes neither", () => {

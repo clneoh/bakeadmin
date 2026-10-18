@@ -21,16 +21,16 @@ import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
 import { claimReceipt, maybePublishTracking, maybeSync, publishTracking, refundReceipt, stuckOrders, unrefundReceipt } from "../supabase.js";
-import { receiptLine, receiptNoOf, receiptNoOfGroup, receiptStatus } from "../receipts.js";
+import { receiptLineOfGroup, receiptNoOf, receiptNoOfGroup, receiptStatusOfGroup } from "../receipts.js";
 import { couponDeclined, couponOnAny } from "../referrals.js";
-import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue, refundableCharge } from "../courier.js";
+import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue, refundableCharge, paymentShift } from "../courier.js";
 import { isCash, isTng, methodLabel, methodRank, methodsOf } from "../accounts.js";
 // ★ HER OWN EDITOR AND ITS ＋ CHIP (v478). The payment sheet adds an account ON THE SPOT with the
 // same form the money lists use, rather than a second way to write `state.settings.payMethods`.
 import { entryForm, newEntryChip } from "./accountsEditor.js";
 import { schemeOf, referralFlag, giveCredits, validCredits, markOneUsed, referrerName, couponOn } from "../referrals.js";
 import { bakedOf, setBakedTotal } from "../stock.js";
-import { customerList, keyOf } from "../customers.js";
+import { customerList, keyOf, orderDateOf } from "../customers.js";
 import { strictNumber } from "../courier_place.js";
 import { courierDayOf, fmtStamp, jobOf } from "../courier_job.js";
 // The app's ONE time window (v304): how it is read, packed, checked and said. The van's window on an
@@ -2821,6 +2821,24 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   const saveEdits = () => {
     const paidWas = isCollected(group) ? orderNet(state, group) : 0;
     const short = round2(paidWas - draftNow);
+    // ⚠️⚠️ AND THE OTHER DIRECTION: THE ORDER CAN NOW COME TO MORE (v577). ⭐ Only the shortfall was asked
+    // about, so an order edited UP while it was paid **counted the whole new total as money received** —
+    // ⚠️ measured: RM16 paid by Cash, a second RM16 loaf added, and Money showed RM32 of takings while the row
+    // still said Paid · Cash with no Pay press left. ⭐ The question is the honest one, and both answers are
+    // real: the extra was paid too, or it was not and the order goes back to being unpaid.
+    const shift = paymentShift(paidWas, draftNow);
+    const extra = shift.amount;
+    if (shift.dir === "extra") {
+      return confirmDialog(
+        `THE MONEY IS IN — this order was paid ${fmtRM(paidWas, cfgCur)} and now comes to `
+        + `${fmtRM(draftNow, cfgCur)}. Has the extra ${fmtRM(extra, cfgCur)} been paid too?`,
+        () => applyEdits(),
+        {
+          yesLabel: "Yes, paid too",
+          noLabel: "Not yet",
+          onNo: () => applyEdits({ markUnpaid: true }),
+        });
+    }
     if (paidWas > 0 && draftNow != null && short > 0) {
       return confirmDialog(
         `THE MONEY IS IN — this order was paid ${fmtRM(paidWas, cfgCur)} and now comes to `
@@ -2838,7 +2856,9 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
             // as the app having made its mind up for her.
             `THE MONEY IS IN. ${fmtRM(short, cfgCur)} less was paid than this order now `
             + `comes to — so the customer is owed that difference back. Refund it?`,
-            () => refundOrder(state, group, first, { root, dateId, fromEdit: true }),
+            // ⚠️⚠️ AND IT OPENS WITH THE FIGURE ALREADY IN (v577) — the dialog just named RM5 and the card
+            // opened at 0, so she retyped the number it had told her. §3·9.
+            () => refundOrder(state, group, first, { root, dateId, fromEdit: true, amount: short }),
             { yesLabel: `Refund ${fmtRM(short, cfgCur)}` });
         },
         { yesLabel: "Save it" });
@@ -2846,7 +2866,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     applyEdits();
   };
 
-  const applyEdits = () => {
+  const applyEdits = ({ markUnpaid = false } = {}) => {
     const chosen = lines.filter((l) => l.productId);
     if (!chosen.length) return toast("Choose a product");
     const destId = draft.deliveryDateId || curId;
@@ -2916,6 +2936,17 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       orderDate: draft.orderDate,
       deliveryDateId: destId,
     }, close, root, liveIds);
+    // ⚠️⚠️ AND "NOT YET" MEANS THE MONEY IS NOT IN (v577). ⭐ The Pay press returns and Money stops counting
+    // the sale — the honest answer, and the only one that keeps her accounts true when she adds bread to an
+    // order the customer has not paid the extra for.
+    if (markUnpaid) {
+      for (const o of group.orders) {
+        o.paidReceived = false;
+        delete o.paidMethod;
+      }
+      save(state);
+      maybeSync(state);
+    }
   };
 
   // Where the price section draws the door block (v201). Under the address row rather than
@@ -3159,7 +3190,7 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root,
         // typed is what this order is sold at. A blank box leaves the line following
         // the product, as an unpriced line always has.
         const typed = l.price == null ? NaN : Number(l.price);
-        if (Number.isFinite(typed) && typed >= 0) o.unitPrice = typed;
+        if (Number.isFinite(typed) && typed >= 0) o.unitPrice = round2(typed);
         else delete o.unitPrice;
         // ★★ THE COST BOX HAS THE LAST WORD THE SAME WAY (v380). What she typed is
         // what this line cost her; a blank box DELETES the frozen cost, so the line
@@ -3213,7 +3244,7 @@ function applyPopupEdits(state, date, group, first, chosen, shared, close, root,
           createdAt: new Date().toISOString(),
         };
         stampOrderLine(row, byId(state.products, row.productId), recipeCostFor(state, row.productId));
-        if (Number.isFinite(Number(l.price))) row.unitPrice = Number(l.price);
+        if (Number.isFinite(Number(l.price))) row.unitPrice = round2(Number(l.price));
         // The cost box's answer for a line added HERE (v380), on the same rule the
         // kept rows above use — including a typed zero, which is hers to state.
         if (l.cost != null && Number.isFinite(Number(l.cost)) && Number(l.cost) >= 0) {
@@ -3310,7 +3341,7 @@ function addNew(state, date, productId, qty, price, customerName, whatsapp, fulf
     // ★ WHERE IT COLLECTS FROM (v303), through the one function that owns the rule, so the
     // Point's name is frozen onto the order exactly as the shop's own path freezes it.
     setOrderPoint(state, row, pointId);
-    if (Number.isFinite(Number(price))) row.unitPrice = Number(price); // the typed price wins
+    if (Number.isFinite(Number(price))) row.unitPrice = round2(Number(price)); // the typed price wins, to the cent
     // The customer's words for THIS item (v236). Written only when there are
     // words, so a line nobody noted carries no key at all and an order she takes
     // with no notes is byte-for-byte the order this app has always written —
@@ -3396,7 +3427,7 @@ function addGroupNew(state, date, items, customerName, whatsapp, fulfillment, ad
       // See addNew — on EVERY row, because a row she edits or re-splits later must not be
       // the one that forgot where it was going.
       setOrderPoint(state, row, pointId);
-      if (Number.isFinite(Number(it.price))) row.unitPrice = Number(it.price);
+      if (Number.isFinite(Number(it.price))) row.unitPrice = round2(Number(it.price));
       // Per ROW, from that row's own item — a group of three items may have a note
       // on one of them and none on the others, so this can never be a value shared
       // across the group (v236).
@@ -4102,8 +4133,10 @@ async function openInvoice(state, group) {
     // The serial, and the order code beside it — the first proves the sequence, the second
     // finds the order. Empty on an order that has no number yet, so the paper says why
     // rather than inventing one.
-    receipt: receiptLine(first, invoiceNo(group)),
-    receiptStatus: receiptStatus(first),
+    // ⚠️ the SECOND argument is the ORDER CODE, not the invoice number — with the invoice now numbered by
+    // the serial, passing `invoiceNo(group)` printed "Receipt #000007 · Order #000007" (v577, seen live).
+    receipt: receiptLineOfGroup(group.orders, orderCode(first)),
+    receiptStatus: receiptStatusOfGroup(group.orders, cur),
   });
 
   showPopup(`Invoice #${invoiceNo(group)}`, (refresh, close) => el("div", {},
@@ -4111,13 +4144,17 @@ async function openInvoice(state, group) {
     // leans on the section wording above its card — so the person this invoice is for, and
     // the day the order was placed, are said here on the screen, while the sheet keeps the
     // date for the paper and the PDF.
+    // ⚠️⚠️ AND NEVER A RAW TIMESTAMP THROUGH `longDate` (v577). `createdAt` is an ISO timestamp, and
+    // `longDate` appends `T00:00:00` to what it is given — ⚠️ **measured: an order with no `orderDate`
+    // printed "NaN NaN NaN"** right above its own invoice. `orderDateOf` answers in her clock, or "".
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      `${String(first.customerName || "").trim() || "No name"} · placed ${longDate(first.orderDate || first.createdAt)}`),
+      [`${String(first.customerName || "").trim() || "No name"}`,
+        orderDateOf(first) ? `placed ${longDate(orderDateOf(first))}` : ""].filter(Boolean).join(" · ")),
     // ★ THE RECEIPT'S SERIAL ON SCREEN TOO (v360), so what she reads here is what the paper
     // says. ⚠️ AND WHEN THERE IS NO NUMBER IT SAYS WHY — never a blank, and never a made-up
     // zero, which would be the app inventing a receipt the books do not have.
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      receiptLine(first, invoiceNo(group)) || receiptStatus(first)),
+      receiptLineOfGroup(group.orders, orderCode(first)) || receiptStatusOfGroup(group.orders, cur)),
     journalBodyEl(sheet, cur),
     el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
 }
@@ -5349,7 +5386,7 @@ function firstOf(group) {
 // sequence that the numbering exists to prevent.
 // ⚠️ `fromEdit` (v549): this refund ANSWERS an edit that already lowered the order's takings. See the
 // note in `money.js refundOf` — the money must not be counted twice.
-function refundOrder(state, group, first, { root, dateId, fromEdit = false } = {}) {
+function refundOrder(state, group, first, { root, dateId, fromEdit = false, amount = null } = {}) {
   const cur = (state.settings && state.settings.currency) || "RM";
   // ⚠️⚠️ THE CAP IS WHAT THE CUSTOMER ACTUALLY PAID — never the goods' face price. A coupon or a
   // promo code means they handed over less than the bread was priced at, and handing back the
@@ -5416,6 +5453,8 @@ function refundOrder(state, group, first, { root, dateId, fromEdit = false } = {
               const v = Math.max(1, Math.min(line.qty, parseInt(qtyBox.value, 10) || 1));
               ticks.set(line.id, v);
               sync();
+    // The figure the asking dialog named, already in the box — typed, so the ticks never overwrite it.
+    if (amount != null && boxEl) { typed = true; boxEl.value = String(round2(Number(amount) || 0)); }
             } })
         : null;
       const box = el("input", { type: "checkbox", onchange: () => {
@@ -5539,6 +5578,14 @@ function undoRefundOrder(state, group, first, { root, dateId } = {}) {
       delete o.refundAmountRM;
       delete o.refundItems;
       delete o.refundNote;
+      // ⚠️⚠️ AND THE TWO FLAGS THE REFUND SET (v577). ⭐ `refundedFull` is what the referral ledger and a
+      // promo code's quota read to stop counting a refunded sale (`refunds.js` / `promo-usage.js`), so leaving
+      // it behind makes the sale **both refunded and not**: ⚠️ **measured — a fully refunded referred first
+      // order offered the customer a SECOND new-friend coupon, and the code's usage stayed one short, while
+      // Money and Profit counted the sale again.** ⚠️ `refundFromEdit` rides with it: it marks a refund that
+      // answered an edit, and an undone refund is not answering anything.
+      delete o.refundedFull;
+      delete o.refundFromEdit;
     }
     anchorRowId = first.id;
     save(state);

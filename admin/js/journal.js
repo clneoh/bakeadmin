@@ -160,6 +160,12 @@ export function buildJournalText(sheet, cur = "RM") {
   out.push(...fromLines(s.from, s.bakery));
   if (s.subtitle) out.push(s.subtitle);
   if (s.to) out.push(s.to);
+  // ⚠️⚠️ THE RECEIPT SERIAL TRAVELLED NOWHERE (v577). The screen and the paper draw it; the text that goes
+  // into WhatsApp and the PDF did not — ⭐ **so the number that proves the receipt sequence was missing from
+  // exactly the copies the customer keeps.** ⚠️ A file that would misspell a name is refused (v573), and that
+  // gate reads THIS text — so the serial is now covered by it too.
+  if (s.receipt) out.push(s.receipt);
+  else if (s.receiptNote) out.push(s.receiptNote);
 
   if (!s.lines.length) {
     out.push("", s.empty);
@@ -346,6 +352,9 @@ function sheetPages(s, cur) {
     y -= 24;
     if (s.subtitle) { put(s.subtitle, PDF_MARGIN, { size: 10, color: MUTED }); y -= 15; }
     if (s.to) { put(s.to, PDF_MARGIN, { size: 10, color: MUTED }); y -= 15; }
+    // The serial beside the order code, on the PDF and the shared text as on the screen (v577).
+    if (s.receipt) { put(s.receipt, PDF_MARGIN, { size: 9, color: MUTED }); y -= 13; }
+    else if (s.receiptNote) { put(s.receiptNote, PDF_MARGIN, { size: 9, color: MUTED }); y -= 13; }
     y -= 3;
     rule(0.8);
     y -= 17;
