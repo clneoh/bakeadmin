@@ -735,3 +735,34 @@ test("★★★ the spare is the one NO recipe uses, and an ambiguous pair is le
   const neither = { ingredients: st.ingredients, products: [] };
   assert.deepEqual(duplicateIngredientPlan(neither), [], "★ a pair with no recipe behind it was guessed at");
 });
+
+test("★★★ the storage figure counts EVERY copy the app keeps, not only the book (v569)", async () => {
+  // ⚠️⚠️ THE GAUGE MEASURED ONE FILE OF THREE. ⭐ Beside `bakeadmin.v1` sit the sync journal and, after a
+  // damaged open, the kept text — ⚠️ **measured at 3.2x the book before a flush**, so the warning could not
+  // fire before saving began to fail.
+  const { phoneUsage } = await import("../admin/js/state.js");
+  const real = globalThis.localStorage;
+  const store = new Map([
+    ["bakeadmin.v1", "a".repeat(600000)],
+    ["bakeadmin.sync", "b".repeat(1400000)],
+    ["bakeadmin.v1.unreadable", "c".repeat(100000)],
+    ["something.else", "d".repeat(9999999)],
+  ]);
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+  };
+  try {
+    const u = phoneUsage();
+    assert.equal(u.total, 2100000, "★ the figure does not count all three copies of the book");
+    assert.equal(u.parts["bakeadmin.sync"], 1400000);
+    assert.equal("something.else" in u.parts, false, "★ a key the app does not own was counted");
+  } finally {
+    if (real === undefined) delete globalThis.localStorage; else globalThis.localStorage = real;
+  }
+  // ⚠️ Without a storage API the BOOK's own size is measured and says so.
+  const fb = phoneUsage({ orders: [{ id: "o1" }], settings: {} });
+  assert.equal(fb.fallback, true);
+  assert.ok(fb.total > 0);
+});

@@ -388,7 +388,10 @@ const en = {
   trackEnter: "Enter your order number to track it.",
   trackUnavailable: "Tracking isn't available right now.",
   trackLooking: "Looking up your order…",
-  trackNotFound: "We couldn't find order #%1. Check the number in your confirmation message — it's the 6 characters after the #.",
+  // ⚠️⚠️ THE SENTENCE NAMED ONLY THE CODE (v569). Since v558 the lookup needs the order number AND the phone
+  // it was placed with, so a customer with the right code and a mistyped number was told to re-check the one
+  // thing that was already right — and could loop for ever. ⭐ Both are named now.
+  trackNotFound: "We couldn't find order #%1 with that phone number. Check both: the order number is the 6 characters after the # in your confirmation message, and the phone number is the WhatsApp number you ordered with.",
   orderCode: "Order #%1",
   forCustomer: "For %1",
   trkNew: "New",
@@ -660,7 +663,7 @@ const zh = {
   trackEnter: "请输入订单编号查询。",
   trackUnavailable: "现在暂时无法查询。",
   trackLooking: "正在查询你的订单…",
-  trackNotFound: "找不到订单 #%1。请检查确认讯息中的编号 — 即 # 号后的 6 个字符。",
+  trackNotFound: "找不到订单 #%1 与这个电话号码。请检查两项：订单号是确认讯息中 # 号后的 6 个字符，电话号码是您下单时使用的 WhatsApp 号码。",
   orderCode: "订单 #%1",
   forCustomer: "顾客：%1",
   trkNew: "新订单",
@@ -902,7 +905,7 @@ const ms = {
   trackEnter: "Masukkan nombor order anda untuk disemak.",
   trackUnavailable: "Semakan tidak tersedia buat masa ini.",
   trackLooking: "Sedang cari order anda…",
-  trackNotFound: "Kami tidak dapat mencari order #%1. Sila semak nombor dalam mesej pengesahan anda — iaitu 6 aksara selepas #.",
+  trackNotFound: "Kami tidak dapat mencari order #%1 dengan nombor telefon itu. Sila semak kedua-duanya: nombor order ialah 6 aksara selepas # dalam mesej pengesahan anda, dan nombor telefon ialah nombor WhatsApp yang anda gunakan untuk membuat order.",
   orderCode: "Order #%1",
   forCustomer: "Untuk %1",
   trkNew: "Baharu",

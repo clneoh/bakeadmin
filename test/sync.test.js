@@ -2611,3 +2611,35 @@ test("★★ and inside the interval it still asks only for what changed", async
     } finally { restoreFetch(); }
   } finally { restore(); }
 });
+
+// ── ★★★ the check's own read must page too (v569) ─────────────────────────
+//
+// ⚠️⚠️ THE FAULT: "Check my system" compared the phone against `limit=5000` in ONE request, and the database
+// answers at most 1,000 rows. ⭐ **Her book was 791 rows on 17 October** — so in about ten weeks every record
+// past an arbitrary thousand would be named as "on this phone and NOT in your shared data", permanently, on a
+// page whose other line states the true count.
+test("★★★ cloudKeys reads EVERY page, and says when it could not", async () => {
+  const h = installStorage();
+  const asked = [];
+  const restoreFetch = installFetch(async (url) => {
+    asked.push(String(url));
+    const offset = Number(/offset=(\d+)/.exec(String(url))?.[1] || 0);
+    const n = offset === 0 ? 1000 : 3;           // a full first page, then a short second
+    const rows = Array.from({ length: n }, (_, i) => cloudRow("orders", `o${offset + i}`, { qty: 1 }, "2026-10-18T00:00:00Z"));
+    return { ok: true, status: 200, json: async () => rows };
+  });
+  try {
+    seedToken(h.store);
+    const st = cloudOn(baseState());
+    const out = await sync.cloudKeys(st);
+    assert.equal(out.ok, true);
+    assert.equal(out.complete, true, "★ a complete read was reported as incomplete");
+    assert.equal(out.keys.size, 1003, "★ the second page was never read — **the rest of the book is invisible**");
+    assert.equal(asked.length, 2, "★ it asked once and stopped — the 1,000-row cap is back");
+    assert.match(asked[1], /offset=1000/, "★ the second page did not continue where the first ended");
+    assert.match(asked[0], /order=/, "★ a paged read without a stable order can repeat a row and skip another");
+  } finally {
+    restoreFetch();
+    h.restore();
+  }
+});

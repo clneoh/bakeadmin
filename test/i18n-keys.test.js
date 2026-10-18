@@ -69,3 +69,14 @@ test("★★★ and the three dictionaries carry the same keys", () => {
     }
   }
 });
+
+test("★★★ the tracking failure names BOTH keys the lookup needs (v569)", () => {
+  // ⚠️⚠️ Since v558 an order is found by its number AND the phone it was placed with — but the failure
+  // sentence still told the customer to check only "the 6 characters after the #", the one thing already
+  // right. ⭐ Someone with the right code and a mistyped number was sent round in circles.
+  for (const lang of Object.keys(STORE)) {
+    const said = String(STORE[lang].trackNotFound || "").toLowerCase();
+    assert.ok(said.includes("phone") || said.includes("telefon") || said.includes("电话"),
+      `★ ${lang}'s tracking failure does not mention the phone number — **the customer is told to re-check the code only**`);
+  }
+});

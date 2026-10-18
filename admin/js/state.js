@@ -389,6 +389,48 @@ export function ensureSupabase(state) {
 export const PHONE_STORE_LIMIT = 5 * 1024 * 1024; // ~5 MB, the browser's own limit
 export const PHONE_STORE_ALERT = 0.85; // a red X only when it is nearly full, never a year early
 
+// ★★★ WHAT THIS PHONE ACTUALLY STORES, NOT JUST THE BOOK (v569).
+//
+// ⚠️⚠️ THE GAUGE MEASURED ONE FILE AND THE BROWSER STORES THREE. ⭐ Beside `bakeadmin.v1` sit the sync journal
+// (`bakeadmin.sync` — a `canonical` copy of every record plus a second copy of every pending one) and, after a
+// damaged open, the kept text (`bakeadmin.v1.unreadable`). ⚠️ **Measured: 655 KB of book was 2.11 MB stored
+// before a flush and still about 2.2x after it** — so the 85% warning could never fire before saving began to
+// fail. ⭐ A gauge that does not measure what fills up is a gauge that says 13% while the phone is full.
+export const PHONE_KEYS = ["bakeadmin.v1", "bakeadmin.sync", "bakeadmin.v1.unreadable"];
+
+function byteLen(text) {
+  const s = String(text || "");
+  try {
+    if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(s).length;
+  } catch { /* fall through to a character count */ }
+  return s.length;
+}
+
+// Returns `{ total, parts: { key: bytes }, fallback? }`, or null when nothing could be measured — ⚠️ null, never 0.
+// ⚠️ Without a storage API (a test shim, or a browser that refuses it) the BOOK's own size is measured and
+// `fallback: true` says so — ⭐ a number that is too small and says which number it is beats no number at all,
+// and the real app always has storage.
+export function phoneUsage(state) {
+  if (typeof localStorage === "undefined" || typeof localStorage.getItem !== "function") {
+    const only = storedBytes(state);
+    if (only == null) return null;
+    return { total: only, parts: { "bakeadmin.v1": only }, fallback: true };
+  }
+  const parts = {};
+  let total = 0;
+  try {
+    for (const k of PHONE_KEYS) {
+      const v = localStorage.getItem(k);
+      const n = v == null ? 0 : byteLen(v);
+      parts[k] = n;
+      total += n;
+    }
+  } catch {
+    return null;
+  }
+  return { total, parts };
+}
+
 export function storedBytes(state) {
   try {
     const s = JSON.stringify(state);

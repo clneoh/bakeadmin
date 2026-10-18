@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v568)
+# Jienluv2bake — change history (v54 → v569)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v569, THE CHECK THAT WOULD HAVE CRIED WOLF IN TEN WEEKS — AND THE PHONE THAT WAS NEVER MENTIONED (no database step).**
+
+**Your words:** __"fix them"__ — the four faults the last sweep put first, and one more in the same family.
+
+**1. ⚠️⚠️ "IS EVERYTHING ON THIS PHONE IN YOUR SHARED DATA?" READ ONLY THE FIRST THOUSAND RECORDS.** The database answers a request with at most **1,000 rows**, and this check asked for 5,000 in **one unpaged call**. ⭐ Your book was **791 rows on 17 October** — so in roughly ten weeks the page would have named every record past an arbitrary thousand as **"on this phone and NOT in your shared data"**, permanently, and pressing Sync could not clear it, while the line above it showed the true count. ⭐ **It now reads every page, and when it reaches the ceiling it says it could not look rather than naming records it never saw.** ⚠️ **A partial read is skipped, never judged** — on all three checks that compare with your cloud.
+
+**2. ⚠️⚠️ THE STORAGE GAUGE MEASURED ONE FILE AND THE PHONE STORES THREE.** Beside your book sits the sync journal (a copy of every record, plus a second copy of everything waiting) and, after a damaged open, the kept text. ⭐ **Measured: 655 KB of book was 2.11 MB actually stored** — so the phone could fill while the page still said 13%, and the warning could not fire before saving began to fail. ⭐ It counts **every copy now**, and names what the parts are.
+- ⚠️ **And the advice was wrong: deleting cloud copies does NOT free your phone.** ⭐ It now says so, and says what does.
+
+**3. ⚠️⚠️ THE TRACKING PAGE TOLD THE CUSTOMER TO CHECK THE WRONG THING.** Since v558 an order is found by its number **and the phone it was placed with** — but the failure sentence still said only *"check the number in your confirmation — it's the 6 characters after the #"*. ⭐ **Someone with the right code and a mistyped phone was told to re-check the one thing that was already right, and could loop for ever.** ⭐ Both are named now, in all three languages.
+
+**4. ⚠️ A SELF-COLLECT ORDER WITH NO POINT HAD NO PLACE AT ALL.** The shop promises *"we message you the exact collection point"*, and a customer who leaves the Point picker alone gets an order with no Point — the kitchen — ⭐ **and the confirmation gave a day and collection hours with no address anywhere.** ⭐ **The first line of your mailing address is the "Where" line now** when no Point is chosen and you have typed one. ⚠️ The words "Self collect" are unchanged, deliberately: an order placed before Points existed is the same state, and its message must read exactly as it always has.
+
+**5. ⭐ AND THE TRACKING CARD NOW SAYS WHAT THE MESSAGE SAYS.** It built its own wording, so a collection at a Point read **"Self collect"** on the card and **"Self collect at Farlim"** in the WhatsApp confirmation. ⭐ One wording now, and the Point's street rides beside it as a courier order's address does.
+
+**6. Nothing of yours was rewritten, and there is no database step. ⭐ 3,603 tests green (was 3,598); every new rule was put back to its fault and seen to fail by its own message.**
+
+---
 
 **18 Oct 2026 — engine v568, THE NAME ON THE WRONG BOX — AND A CORRECTION THAT COULD BE UNDONE INTO STOCK (no database step).**
 

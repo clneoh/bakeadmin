@@ -65,8 +65,14 @@ export function buildConfirmation(state, group, trackUrl) {
   // PLACE — which lives on her Point, not on the order.
   const deliveryAddr = courier ? String(first.address || "").trim() : "";
   const collectAddr = courier ? "" : pointAddressFor(state, first);
+  // ⚠️ AND A COLLECTION AT THE KITCHEN NEEDS A DOOR TOO (v569): the first line of her mailing address is
+  // exactly the street a customer needs, and it is already typed once for the labels.
+  const kitchenAddr = (!courier && !collectAddr)
+    ? String(((state.settings || {}).mailingAddress || "")).split("\n").map((l) => l.trim()).filter(Boolean)[0] || ""
+    : "";
   const address = deliveryAddr ? `\nAddress: ${deliveryAddr}`
-    : collectAddr ? `\nWhere: ${collectAddr}` : "";
+    : collectAddr ? `\nWhere: ${collectAddr}`
+    : kitchenAddr ? `\nWhere: ${kitchenAddr}` : "";
 
   const sf = (state.settings && state.settings.storefront) || {};
   const bakery = sf.name || "";

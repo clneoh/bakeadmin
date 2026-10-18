@@ -14,6 +14,10 @@ import { costOf, effectiveCapacity, effectiveLimit, isPoolablePack, poolRemainin
 import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, stampOrderLine, duplicateOrderCodes, waNumber, groupOrders } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { customerTotal } from "./courier.js";
+// ⚠️ ONE WORDING FOR HOW AN ORDER REACHES THE CUSTOMER (v569) — the messages already read these; the card
+// was the one surface that built its own, which is why it could say "Self collect" where the message said
+// "Self collect at Farlim".
+import { fulfillmentText, pointAddressFor } from "./points.js";
 // The promo-code engine. Only two things are asked of it here: what the shop may
 // advertise and judge (publishCodes), and how a code a customer typed is spelled
 // by the time it reaches an order (normCode).
@@ -585,9 +589,15 @@ export function trackingSnapshot(state, group) {
   const del = first.deliveryDateId ? byId(state.deliveryDates, first.deliveryDateId) : null;
   const date = del ? del.date : String(first.deliveryDate || "");
   const courier = first.fulfillment === "courier";
-  const fulfillment = courier ? "Courier" : "Self collect";
-  const address = courier && String(first.address || "").trim()
-    ? ` · ${String(first.address).trim()}` : "";
+  // ⚠️⚠️ THE CARD NOW SAYS THE SAME THING THE MESSAGE DOES (v569). ⭐ It used to write its own words, so a
+  // collection at a Point read **"Self collect"** on the card and **"Self collect at Farlim"** in the
+  // WhatsApp confirmation — two answers to one question. ⭐ `fulfillmentText` is the one wording, and a
+  // Point's own street rides beside it exactly as a courier order's address does.
+  const fulfillment = fulfillmentText(state, first);
+  const where = courier
+    ? String(first.address || "").trim()
+    : pointAddressFor(state, first);
+  const address = where ? ` · ${where}` : "";
   // The customer's tracking page shows what they were sold, at the price they
   // were sold it — never today's menu.
   const items = orders.map((o) => {

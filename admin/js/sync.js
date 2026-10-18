@@ -627,28 +627,32 @@ export async function cloudKeys(state) {
   if (!c.on) return { ok: false, reason: "Shared data is switched off on this phone." };
   const token = cachedToken();
   if (!token) return { ok: false, reason: "This phone is not signed in to your shared data." };
-  try {
-    // ⚠️ AND `data` COMES WITH IT NOW (v471) — **the same single read answers "which records are there" and
-    // "what is IN them".** ⭐ One fetch, not two: this page already reads a register and your copies, and a
-    // third round trip for a comparison nobody could see would be a poor trade.
-    const res = await fetch(`${c.url}/rest/v1/bakery?select=kind,id,data,_deleted&limit=5000`, {
-      headers: { apikey: c.anonKey, Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return { ok: false, reason: `Your shared data could not be read (HTTP ${res.status}).` };
-    const rows = await res.json().catch(() => null);
-    if (!Array.isArray(rows)) return { ok: false, reason: "Your shared data could not be read." };
-    const keys = new Set();
-    const data = new Map();
-    for (const r of rows) {
-      if (!r || !r.kind) continue;
-      if (r._deleted) continue;
-      keys.add(`${r.kind}:${r.id}`);
-      data.set(`${r.kind}:${r.id}`, typeof r.data === "string" ? r.data : JSON.stringify(r.data));
-    }
-    return { ok: true, keys, data };
-  } catch {
-    return { ok: false, reason: "Your shared data could not be read — check this phone is online." };
+  // ⚠️⚠️ AND IT READS THE WHOLE BOOK, A PAGE AT A TIME (v569). ⭐ This was ONE request with `limit=5000`, and
+  // the database answers at most 1,000 rows — ⚠️ **her book was 791 rows on 17 October, so in about ten weeks
+  // the comparison would name every record past an arbitrary thousand as "on this phone and NOT in your
+  // shared data", permanently, on a page whose other line states the true count.** ⭐ It uses the SAME paged
+  // reader the sync itself uses, so the ceiling is one number in one place, and `complete: false` says the
+  // ceiling was reached rather than pretending everything was read.
+  const got = await readAllRows(c.url, "select=kind,id,data,_deleted", {
+    apikey: c.anonKey, Authorization: `Bearer ${token}`,
+  });
+  if (!got.ok) {
+    return {
+      ok: false,
+      reason: got.offline
+        ? "Your shared data could not be read — check this phone is online."
+        : `Your shared data could not be read${got.status ? ` (HTTP ${got.status})` : ""}.`,
+    };
   }
+  const keys = new Set();
+  const data = new Map();
+  for (const r of got.rows) {
+    if (!r || !r.kind) continue;
+    if (r._deleted) continue;
+    keys.add(`${r.kind}:${r.id}`);
+    data.set(`${r.kind}:${r.id}`, typeof r.data === "string" ? r.data : JSON.stringify(r.data));
+  }
+  return { ok: true, keys, data, complete: got.complete !== false, rows: got.rows.length };
 }
 
 // What THIS phone holds, as key → the exact text the app would send for it. ⭐ **Built from `recordPayload`

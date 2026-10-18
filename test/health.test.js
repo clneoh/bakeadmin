@@ -934,6 +934,19 @@ test("★★★ the press actually CLEARS it — and tells the truth about which
   assert.match(before.why, /LESS than the shelf/);
 });
 
+test("★★★ a cloud that could not be read in full is SKIPPED, never judged (v569)", () => {
+  // ⚠️⚠️ THE FAULT THIS PREVENTS: the comparison read was ONE request capped at 1,000 rows, so past that the
+  // page would name every record beyond an arbitrary thousand as "on this phone and NOT in your shared
+  // data" — permanently. ⭐ A partial read now says it could not look, on all three cloud checks.
+  const st = healthy();
+  const partial = { ok: true, keys: new Set(["orders:x"]), data: new Map([["orders:x", "{}"]]), complete: false };
+  for (const id of ["reached", "cloudOnly", "content"]) {
+    const r = resultOf(runHealthChecks(st, { ...emptyExtras(), cloud: partial }), id);
+    assert.equal(r.status, "skipped",
+      `★ "${id}" judged a cloud read that did not finish — **a partial cloud looks exactly like a missing record**`);
+  }
+});
+
 test("★★ and a card with too many movements to add up is SKIPPED, never passed", async () => {
   const st = healthy();
   const { STOCK_LOG_CAP } = await import("../admin/js/stock.js");

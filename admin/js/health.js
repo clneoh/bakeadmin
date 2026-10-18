@@ -21,7 +21,7 @@
 // ⚠️ AND IT NEVER NAMES A CAUSE. It reports what it found and what it means. What removed an order is not
 // knowable from the data that is left — which is the whole reason v444 keeps a copy of it.
 
-import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, duplicateOrderCodes, duplicateIngredientPlan, ingredientNameKey, round2, PHONE_STORE_LIMIT, PHONE_STORE_ALERT } from "./state.js";
+import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, duplicateOrderCodes, duplicateIngredientPlan, ingredientNameKey, round2, PHONE_STORE_LIMIT, PHONE_STORE_ALERT, phoneUsage } from "./state.js";
 import { isCollected } from "./money.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { listFields } from "./sync.js";
@@ -240,7 +240,10 @@ export function localChecks(state) {
   // ⭐ It is a PASS showing the number until the phone is nearly full, and only then a FAIL — **a red X a year
   // early is the warning she learns to ignore.**
   {
-    const used = storedBytes(state);
+    // ⚠️⚠️ EVERY KEY, NOT ONLY THE BOOK (v569) — see `phoneUsage`. ⭐ The old measure read one of the three
+    // files the app keeps, so the warning could not fire before saving began to fail.
+    const usage = phoneUsage(state);
+    const used = usage ? usage.total : null;
     if (used == null) {
       out.push(skipped("room", "There is room on this phone for your data",
         "This phone's storage could not be measured, so nobody can say how much room is left."));
@@ -248,10 +251,15 @@ export function localChecks(state) {
       const pct = Math.round((used / PHONE_STORE_LIMIT) * 100);
       const mb = (n) => `${(n / (1024 * 1024)).toFixed(2)} MB`;
       const size = `${mb(used)} of about ${mb(PHONE_STORE_LIMIT)} (${pct}%)`;
+      // ⭐ WHAT THE THREE FILES COST, said plainly — so a number that looks too big has somewhere to point.
+      const parts = usage.parts || {};
+      const book = parts["bakeadmin.v1"] || 0;
+      const rest = used - book;
       if (used >= PHONE_STORE_LIMIT * PHONE_STORE_ALERT) {
-        out.push(fail("room", "There is room on this phone for your data", [size],
-          `What this phone stores is ${size} full. When a browser's storage fills up, SAVING STOPS — and until v534 that happened silently, so a change could be lost while the screen still looked normal.`,
-          "This needs doing before the phone fills: the oldest cloud copies can be deleted, and a device with more room can take over. Nothing is lost — your shared data and your saved copies still hold everything."));
+        out.push(fail("room", "There is room on this phone for your data",
+          [size, `Your book is ${mb(book)} of that; the app's own working copies make up the other ${mb(Math.max(0, rest))}`],
+          `What this phone stores is ${size} full. When a browser's storage fills up, SAVING STOPS — and until v534 that happened silently, so a change could be lost while the screen still looked normal. ⚠️ And since v569 this measures EVERY copy the app keeps, not only your book — the working copies behind the sync count too.`,
+          "⚠️ Deleting cloud copies does NOT free this phone — they live in the cloud. What frees it is room elsewhere on the phone (other apps or photos), or letting a device with more room take over. Nothing is at risk: your shared data and your saved copies still hold everything."));
       } else {
         out.push({ ...pass("room", "There is room on this phone for your data"), detail: [size] });
       }
@@ -565,7 +573,7 @@ export function saveCheck(saveFail) {
   const when = String(saveFail.at || "").slice(0, 10);
   return [fail("saved", TITLE, [saveFail.name || "Save failed"],
     `This phone could not store your last change${when ? ` (${when})` : ""}: ${saveFail.reason}. The change was still sent to your shared data, so it is not lost — but THIS phone could not keep its own copy of it, and on a reload this phone will take the shared data's version back down.`,
-    "This happens when the browser's storage for the app is full. The oldest cloud copies can be deleted to free room, and nothing is lost — your shared data and the remaining copies still hold everything.")];
+    "This happens when the browser's storage for the app is full. ⚠️ Deleting cloud copies does not free this phone — what frees it is room elsewhere on the phone, or a device with more room taking over. Nothing is lost: your shared data and your saved copies still hold everything.")];
 }
 
 // ── the check that asks whether this phone's records REACHED the other one ───
@@ -584,6 +592,13 @@ export function reachedCloudCheck(state, cloud, local) {
   if (!cloud || !cloud.ok) {
     return [skipped("reached", TITLE,
       (cloud && cloud.reason) || "Your shared data could not be read — sign in and run this again.")];
+  }
+  // ⚠️⚠️ A PARTIAL READ MUST NEVER NAME A RECORD AS MISSING (v569). ⭐ `cloudKeys` now pages, and it says
+  // `complete: false` when the ceiling was reached — ⚠️ **comparing a partial cloud against a full phone
+  // would report every record as "not in your shared data", which is a permanent false red X.**
+  if (cloud.complete === false) {
+    return [skipped("reached", TITLE,
+      "Your shared data holds more records than this phone can read in one go, so this could not be checked. Nothing is known to be wrong — the check simply could not look at all of it.")];
   }
   const held = cloud.keys instanceof Set ? cloud.keys : new Set(Array.isArray(cloud.keys) ? cloud.keys : []);
   const missing = (Array.isArray(local) ? local : []).filter((k) => !held.has(k));
@@ -626,6 +641,13 @@ export function cloudOnlyCheck(state, cloud, local) {
     return [skipped("cloudOnly", TITLE,
       (cloud && cloud.reason) || "Your shared data could not be read — sign in and run this again.")];
   }
+  // ⚠️⚠️ A PARTIAL READ MUST NEVER NAME A RECORD AS MISSING (v569). ⭐ `cloudKeys` now pages, and it says
+  // `complete: false` when the ceiling was reached — ⚠️ **comparing a partial cloud against a full phone
+  // would report every record as "not in your shared data", which is a permanent false red X.**
+  if (cloud.complete === false) {
+    return [skipped("cloudOnly", TITLE,
+      "Your shared data holds more records than this phone can read in one go, so this could not be checked. Nothing is known to be wrong — the check simply could not look at all of it.")];
+  }
   const held = cloud.keys instanceof Set ? cloud.keys : new Set(Array.isArray(cloud.keys) ? cloud.keys : []);
   const here = new Set(Array.isArray(local) ? local : []);
   // ⚠️ THE SHELF IS THE EXPLANATION FOR A RECORD THAT IS NOT IN THE LIVE LIST, so it is allowed for.
@@ -667,6 +689,13 @@ export function contentCheck(state, cloud, payloads, pending) {
   if (!cloud || !cloud.ok || !(cloud.data instanceof Map)) {
     return [skipped("content", TITLE,
       (cloud && cloud.reason) || "Your shared data could not be read — sign in and run this again.")];
+  }
+  // ⚠️⚠️ A PARTIAL READ MUST NEVER NAME A RECORD AS MISSING (v569). ⭐ `cloudKeys` now pages, and it says
+  // `complete: false` when the ceiling was reached — ⚠️ **comparing a partial cloud against a full phone
+  // would report every record as "not in your shared data", which is a permanent false red X.**
+  if (cloud.complete === false) {
+    return [skipped("content", TITLE,
+      "Your shared data holds more records than this phone can read in one go, so this could not be checked. Nothing is known to be wrong — the check simply could not look at all of it.")];
   }
   const queued = pending instanceof Set ? pending : new Set(Array.isArray(pending) ? pending : []);
   const nameOf = (key) => {

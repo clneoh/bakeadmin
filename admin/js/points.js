@@ -651,7 +651,13 @@ export function setOrderPoint(state, order, pointId) {
 export function fulfillmentText(state, order) {
   if (order && order.fulfillment === "courier") return "Courier delivery";
   const name = orderPointName(state, order);
-  return name ? `Self collect at ${name}` : "Self collect";
+  if (name) return `Self collect at ${name}`;
+  // ⚠️⚠️ SELF COLLECT ALONE DOES NOT SAY WHERE, BUT THESE WORDS DO NOT CHANGE (v569). ⭐ A customer who
+  // tapped Self collect and left the Point picker alone gets an order with no Point — the KITCHEN — and the
+  // shop had promised the exact collection point. ⚠️ An order placed before Points existed is the SAME
+  // state, so its message must read exactly as it always has. ⭐ The place is added where a message has a
+  // line for it: the confirmation's kitchen address, and the tracking card's own address line.
+  return "Self collect";
 }
 
 // Where to go, for a collection at a Point: the LIVE Point's address, or "" when it has none or
