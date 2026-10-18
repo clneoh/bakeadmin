@@ -4487,8 +4487,19 @@ function labelSheetEl(state, group, style) {
 // a later PO print.
 function printActiveLabel() {
   document.body.classList.add("label-print");
+  // ⚠️⚠️ THE PAPER IS 100 × 150 mm, AND IT IS SET ONLY FOR THIS PRINT (v575). ⭐ `@page` cannot be scoped by a
+  // body class — it applies to the whole document — so a fixed rule in the stylesheet would force the receipt,
+  // the journal and the purchase order onto label stock too. ⚠️ The size is injected here for the instant of
+  // printing and removed with the class. ⭐ Measured need: her label printer takes 100 × 150 mm (4 × 6 in).
+  const page = el("style", { id: "label-page-size" }, "@page { size: 100mm 150mm; margin: 0; }");
+  // ⚠️ A stand-in document (the test shims) may have no <head>; the real browser always does. ⚠️ The print then
+  // uses the printer's own paper setting, exactly as it did before this version — no worse than before.
+  const host = document.head || document.documentElement || document.body;
+  if (host && typeof host.appendChild === "function") host.appendChild(page);
   const done = () => {
     document.body.classList.remove("label-print");
+    const st = document.getElementById("label-page-size");
+    if (st) st.remove();
     window.removeEventListener("afterprint", done);
     clearTimeout(timer);
   };

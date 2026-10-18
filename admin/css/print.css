@@ -42,13 +42,17 @@
   body.label-print .popup-body { overflow: visible; padding: 0; }
   body.label-print .label-preview-wrap { padding: 0; }
   body.label-print .label-sheet {
-    max-width: 90mm;
-    margin: 0 auto;
-    border: 1px solid #999;
+    /* ⚠️⚠️ THE PAPER IS 100 mm WIDE AND THE SHEET IS 100 mm WIDE (v575). ⭐ It was 90 mm on a page of no fixed
+       size, and the mailing style 110 mm — ⚠️ **which is 10 mm wider than the label she has bought**, so it
+       would either shrink to fit or push a margin onto the next label. ⭐ One width, the paper's own. */
+    width: 100mm;
+    max-width: 100mm;
+    margin: 0;
+    border: none;
     border-radius: 0;
     page-break-inside: avoid;
   }
-  body.label-print .label-sheet.style-mailing { max-width: 110mm; }
+  body.label-print .label-sheet.style-mailing { max-width: 100mm; }
 }
 
 /* ★★ Printing ONE SHOP's list (v387). Her words: __"now the PO, lump together all supplier in one po

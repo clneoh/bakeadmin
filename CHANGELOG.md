@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v574)
+# Jienluv2bake — change history (v54 → v575)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v575, THE LABELS NOW PRINT ON YOUR OWN PAPER: 100 × 150 mm (no database step).**
+
+**Your words:** __"100 x 150 mm label size"__ — and __"my order label printer will arrive this week, we can go in-depth by end of this week"__.
+
+**1. ⚠️ THE LABEL PRINT NEVER TOLD THE PRINTER WHAT PAPER IT WAS.** The app hid everything but the label and called print — ⚠️ **so the paper size was whatever the printer had been left set to**, and 100 × 150 stock would come out the wrong size or split across two labels. ⭐ **The label print now declares the paper itself: 100 mm wide, 150 mm tall, no margin.**
+
+**2. ⚠️ AND THE LABEL SHEET WAS THE WRONG WIDTH FOR IT.** It was **90 mm** — and the Mailing style **110 mm**, ⚠️ **ten millimetres wider than the paper you have bought**, so it would either shrink to fit or push a margin onto the next label. ⭐ Both are **100 mm** now: the paper's own width.
+
+**3. ⭐ AND THE PAPER SIZE IS SET ONLY FOR THE LABEL PRINT.** ⚠️ A fixed page size cannot be scoped to one kind of printing — it applies to the whole document — so a rule written that way would force the **receipt, the journal and the purchase order** onto label stock as well. ⭐ The size is put in for the instant of printing a label and taken out with it, so every other print is exactly as it was.
+
+**4. ⭐ When the printer arrives: print one label first and look at two things** — whether the whole label lands inside the 100 × 150 sheet, and whether the text is sharp rather than grey. ⭐ Send me a photo of that first label and we will settle the rest in depth: the printer's own driver settings, the gap between labels, and the darkness, which no setting inside this app can control.
+
+**5. Nothing of yours was rewritten, and there is no database step. ⭐ 3,616 tests green (was 3,615); both halves were put back to their fault and seen to fail.**
+
+---
 
 **18 Oct 2026 — engine v574, THE BLANK SCREEN — AND THE KEPT COPY THAT COULD NEVER BE DELETED (no database step).**
 

@@ -13,6 +13,7 @@
 // renderOrders and the pop-up layer, exactly as order-line-note.test.js does.
 
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 
 function createEl(tag) {
@@ -302,4 +303,19 @@ test("the label sheet underlines the note beside its item, exactly as the row do
   const marks = underlines(itemRow);
   assert.equal(marks.length, 1, "one underline on the sheet, wrapping the note");
   assert.equal(marks[0].textContent, " (no nuts)", "and not the item name");
+});
+
+test("★★★ the label prints on HER paper: 100 × 150 mm, and only for that print (v575)", async () => {
+  // ⚠️⚠️ `@page` CANNOT BE SCOPED BY A BODY CLASS — it applies to the whole document. ⭐ A fixed rule in the
+  // stylesheet would force the receipt, the journal and the purchase order onto label stock too, so the size
+  // is injected for the instant of the label print and removed with it.
+  const src = readFileSync(new URL("../admin/js/views/orders.js", import.meta.url), "utf8");
+  assert.match(src, /size:\s*100mm 150mm/,
+    "★ the label print does not set the paper size — **the printer then decides, and 100 × 150 stock comes out wrong**");
+  assert.match(src, /label-page-size/, "the injected page rule has no id, so it cannot be removed again");
+  // ⭐ And the sheet is the paper's own width — it was 90 mm (110 for mailing) on a page of no fixed size.
+  const css = readFileSync(new URL("../admin/css/print.css", import.meta.url), "utf8");
+  const block = css.slice(css.indexOf("body.label-print .label-sheet {"), css.indexOf("style-mailing"));
+  assert.match(block, /width:\s*100mm/, "★ the label sheet is not the label's width — **it will shrink or spill**");
+  assert.doesNotMatch(block, /90mm/, "★ the old 90 mm width is back");
 });
