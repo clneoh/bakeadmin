@@ -1,8 +1,33 @@
-# Jienluv2bake — change history (v54 → v573)
+# Jienluv2bake — change history (v54 → v574)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v574, THE BLANK SCREEN — AND THE KEPT COPY THAT COULD NEVER BE DELETED (no database step).**
+
+**Your words:** __"do the delete option"__ — and then __"blank screen for app"__, __"after v573 pushed"__.
+
+**0. ⚠️⚠️ THE BLANK SCREEN, FIRST, BECAUSE IT WAS MINE.** The v573 commit took in **one file from the work I had only half finished**: the Settings screen was committed asking its data file for two parts — `unreadableCopy` and `dropUnreadableCopy` — that **were not in the committed version of that file.** ⚠️ **A module asking for something that is not there stops the whole app loading, so the backoffice opened BLANK** — with nothing on screen to say why.
+- ⭐ **This commit completes the pair**, and the app loads again.
+- ⚠️ **And the checks could not see it:** the suite was green, because nothing tested that the files committed together could load together. ⭐ **There is a check for that now** — it reads every import in the shipped code and proves the name exists on the other side, and it catches a module that declares the same name twice.
+- ⚠️ **That second half matters too:** the homepage's script has carried a duplicated `waDigits` since v565, so **the homepage's language pills and its reviews have not been running.** ⭐ Fixed here as well. ⚠️ `node --check` does not report it — it reads the file as an old-style script, where a duplicate is allowed — which is exactly why the new check exists.
+
+
+
+**1. ⚠️ WHEN A PHONE COULD NOT READ ITS SAVED BOOK, THE DAMAGED TEXT WAS KEPT — AND NOTHING COULD EVER REMOVE IT.** That copy is deliberate: since v548 it is **the only remnant of whatever was on the phone at that moment**, so it is never thrown away without you saying so. ⚠️ **But it counted toward the phone's storage for ever**, and the storage line said "free space elsewhere" with no way to free that much.
+
+**2. ⭐ SO THERE IS A PRESS, AND IT IS YOURS TO PRESS.** **More → Settings → Backup & safety** now shows **how much room that kept copy takes** and offers **Delete the kept copy**.
+- ⭐ **It says what it is before it goes:** "the only remnant of whatever was on this phone when its saved book could not be read — if that was the only place it existed, it is gone for good."
+- ⭐ **It is only that text.** Your orders, your products, your shared data and your cloud copies are not touched.
+- ⚠️ **And the warning goes with it** — the line on Check my system that speaks for the copy clears in the same press, so the page cannot go on warning about something that is no longer there.
+- ⭐ **It is offered whether or not this phone is signed in to shared data**, because a phone that is not sharing can still be the one that could not read its book.
+
+**3. ⭐ Measured on the real screen, with a 2 KB kept copy:** the card named it — "about 2 KB of text from a saved book it could not read" — the press removed it, the note cleared, and the press disappeared.
+
+**4. Nothing of yours was rewritten, and there is no database step. ⭐ 3,613 tests green (was 3,612); the new rule was put back to its fault and seen to fail by its own message.**
+
+---
 
 **18 Oct 2026 — engine v573, THE PDF THAT WOULD HAVE SENT "?????" TO YOUR CHINESE CUSTOMER (no database step).**
 

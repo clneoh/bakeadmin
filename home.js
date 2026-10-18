@@ -83,13 +83,6 @@ async function loadDevConfig() {
   } catch { /* offline — the credit line simply stays hidden */ }
 }
 
-// The shop's own spelling of a number: digits only, a local leading 0 becomes +60.
-function waDigits(n) {
-  const d = String(n || "").replace(/[^0-9]/g, "");
-  if (!d) return "";
-  return d.startsWith("0") ? `60${d.slice(1)}` : d;
-}
-
 // The way the footer has always written it: +60 16-960 1268 for a Malaysian mobile, a plain
 // +digits for anything else. ⚠️ Only ever called with a number that has already passed the shop's own
 // plausibility check, so it cannot print half a phone number.

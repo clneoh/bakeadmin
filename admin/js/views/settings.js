@@ -661,17 +661,42 @@ export function renderSettings(root, state) {
       }, { danger: true, yesLabel: "Delete" });
   }
 
+  // ⚠️⚠️ THE KEPT COPY OF A DAMAGED BOOK, AND ITS OWN PRESS (v574). ⭐ Since v548 a phone that could not read
+  // its saved book keeps that text — ⭐ **but nothing could ever remove it, so it counted toward the phone's
+  // storage for ever.** ⚠️ AND IT IS A LOCAL COPY, NOT A CLOUD ONE: it is offered whether or not this phone is
+  // signed in, because a phone that is not sharing can still be the one that could not read its book.
+  function keptCopyKids() {
+    const kept = unreadableCopy();
+    if (!kept) return [];
+    const kb = Math.max(1, Math.round(kept.bytes / 1024));
+    return [
+      el("p", { class: "card-sub", style: "margin:12px 0 0" },
+        `⚠️ This phone also keeps about ${kb} KB of text from a saved book it could not read. That copy is the only remnant of whatever was on the phone at that moment.`),
+      el("div", { class: "btn-row", style: "margin-top:6px" },
+        button("Delete the kept copy", () => {
+          confirmDialog(
+            `Delete the kept copy (about ${kb} KB)? It is the only remnant of whatever was on this phone when its saved book could not be read — if that was the only place it existed, it is gone for good. Your orders, your shared data and your cloud copies are not touched.`,
+            () => {
+              const gone = dropUnreadableCopy(state);
+              toast(gone ? "The kept copy is deleted" : "There was nothing left to delete");
+              fillBackups();
+            },
+            { danger: true, yesLabel: "Delete it" });
+        }, "ghost small")),
+    ];
+  }
+
   async function fillBackups() {
     const show = (...nodes) => { if (!dead) bkZone.replaceChildren(...nodes); };
     const line = (text) => el("p", { class: "card-sub", style: "margin:8px 0 0" }, text);
     if (!backups.ready(state)) {
-      show(line("Cloud copies turn on with Shared data — when it's on and you're signed in, opening the app saves a Daily copy on its own. You can still Export a file anytime."));
+      show(line("Cloud copies turn on with Shared data — when it's on and you're signed in, opening the app saves a Daily copy on its own. You can still Export a file anytime."), ...keptCopyKids());
       return;
     }
     const list = await backups.listBackups(state);
     if (dead) return;
     if (!list.ok) {
-      show(line(String(list.reason || "Cloud copies couldn't load. Check you're online and try again.")));
+      show(line(String(list.reason || "Cloud copies couldn't load. Check you're online and try again.")), ...keptCopyKids());
       return;
     }
     const rows = list.rows;
@@ -692,31 +717,7 @@ export function renderSettings(root, state) {
       fillBackups();
     }, "soft");
     const kids = [line(status), el("div", { class: "btn-row", style: "margin-top:8px" }, btn)];
-    // ⚠️⚠️ AND THE KEPT COPY OF A DAMAGED BOOK CAN BE CLEARED (v574). ⭐ Since v548 a phone that could not
-    // read its saved book keeps that text rather than losing it — ⭐ **but nothing could ever remove it, so it
-    // counted toward the phone's storage for ever.** ⭐ It is her decision, with the cost said plainly.
-    const kept = unreadableCopy();
-    if (kept) {
-      const kb = Math.max(1, Math.round(kept.bytes / 1024));
-      kids.push(el("p", { class: "card-sub", style: "margin:12px 0 0" },
-        `⚠️ This phone also keeps about ${kb} KB of text from a saved book it could not read. That copy is the only remnant of whatever was on the phone at that moment.`));
-      kids.push(el("div", { class: "btn-row", style: "margin-top:6px" },
-        button("Delete the kept copy", () => {
-          confirmDialog(
-            `Delete the kept copy (about ${kb} KB)? It is the only remnant of whatever was on this phone when its saved book could not be read — if that was the only place it existed, it is gone for good. Your orders, your shared data and your cloud copies are not touched.`,
-            () => {
-              const gone = dropUnreadableCopy(state);
-              toast(gone ? "The kept copy is deleted" : "There was nothing left to delete");
-              fillBackups();
-            },
-            { danger: true, yesLabel: "Delete it" });
-        }, "ghost small")));
-    }
-    if (rows.length) {
-      kids.push(el("p", { class: "card-sub", style: "margin:12px 0 4px" }, "All your copies (newest first)"));
-      kids.push(...rows.map(rowEl));
-    }
-    show(...kids);
+    show(...kids, ...keptCopyKids());
   }
 
   fillBackups();

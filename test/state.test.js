@@ -784,3 +784,31 @@ test("★★★ the Removed shelf's note SURVIVES a reload (v572)", () => {
   const out = normalize({ version: 1, removedTrim: { at: "2026-10-18T00:00:00.000Z", n: 1, total: 51 } });
   assert.equal(out.removedTrim && out.removedTrim.total, 51, "★ the shelf's own note is lost on load");
 });
+
+test("★★★ the kept damaged copy can be MEASURED and DELETED, and the warning goes with it (v574)", async () => {
+  // ⚠️ Since v548 a phone that cannot read its saved book keeps that text — ⭐ **but nothing could ever clear
+  // it, so it counted toward the phone's storage for ever.** ⭐ Deleting is her decision, and the note that
+  // makes the check speak must go in the same breath or the page warns about a copy that is no longer there.
+  const st = await import("../admin/js/state.js");
+  const real = globalThis.localStorage;
+  const store = new Map([["bakeadmin.v1.unreadable", "x".repeat(2048)]]);
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+  };
+  try {
+    const had = st.unreadableCopy();
+    assert.equal(had && had.chars, 2048, "★ the kept copy cannot be measured");
+    const state = { unreadableSave: { at: "2026-10-18T00:00:00.000Z", chars: 2048 }, settings: {} };
+    const gone = st.dropUnreadableCopy(state);
+    assert.equal(gone && gone.chars, 2048);
+    assert.equal(store.has("bakeadmin.v1.unreadable"), false, "★ the press did not remove the copy");
+    assert.equal("unreadableSave" in state, false,
+      "★★ the note that makes the check speak survived the delete — **the page warns about a copy that is gone**");
+    // ⚠️ And a second press is not a second deletion.
+    assert.equal(st.dropUnreadableCopy({ settings: {} }), null);
+  } finally {
+    if (real === undefined) delete globalThis.localStorage; else globalThis.localStorage = real;
+  }
+});

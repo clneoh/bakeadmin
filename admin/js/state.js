@@ -322,6 +322,40 @@ function keepUnreadable() {
   }
 }
 
+// ★★★ THE KEPT DAMAGED COPY, AND THE ONE WAY TO CLEAR IT (v574).
+//
+// ⚠️ Since v548 a phone that cannot read its saved book keeps the damaged text under its own key rather than
+// throwing it away — ⭐ **that copy is the only remnant of whatever lived only on that phone.** ⚠️ But nothing
+// could ever clear it, so it counted toward the phone's storage for ever.
+// ⭐ These two are the honest pair: one says how much it is, one deletes it — and deleting it is HER decision,
+// taken in Settings, with a confirmation that says what it is.
+export function unreadableCopy() {
+  try {
+    const raw = localStorage.getItem(`${LS_KEY}.unreadable`);
+    return raw ? { chars: String(raw).length, bytes: byteLen(raw) } : null;
+  } catch {
+    return null;
+  }
+}
+
+// Returns what was removed, or null when there was nothing to remove. ⚠️ It also clears the note on this
+// phone's state, because the check that speaks for the copy reads that note — leaving it behind would keep a
+// warning about a copy that no longer exists.
+export function dropUnreadableCopy(state) {
+  const had = unreadableCopy();
+  if (!had) return null;
+  try {
+    localStorage.removeItem(`${LS_KEY}.unreadable`);
+  } catch {
+    return null;
+  }
+  if (state && "unreadableSave" in state) {
+    delete state.unreadableSave;
+    save(state);
+  }
+  return had;
+}
+
 // First run on a device (no saved state at all) ships preconnected so a fresh
 // phone works after ONE sign-in: shared data + live availability on, and the
 // 8899 PIN on. This template lives ONLY here — normalize() keeps neutral

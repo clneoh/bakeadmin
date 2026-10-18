@@ -358,7 +358,7 @@ export function localChecks(state) {
       ? fail("readable", "This phone could read its saved copy",
         [`${dayMonth(String(bad.at || "").slice(0, 10))} · ${Number(bad.chars) || 0} characters kept`],
         "On that opening, this phone's stored book was damaged and could not be read. A copy of the damaged text was kept on this phone, and the app came up with an empty book. Anything that had already reached your shared data is safe; anything that lived only on this phone is in that kept copy.",
-        "Do not clear the app or the browser data. Let your shared data finish a sync (More → Settings) — if it is intact, the book refills and this note clears itself. If it does not refill, restore your newest backup instead.")
+        "Do not clear the app or the browser data. Let your shared data finish a sync (More → Settings) — if it is intact, the book refills and this note clears itself. If it does not refill, restore your newest backup instead. ⭐ And once you no longer need that kept text, it can be deleted from More → Settings → Backup & safety, which frees the room it takes.")
       : pass("readable", "This phone could read its saved copy"));
   }
 
