@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v563)
+# Jienluv2bake — change history (v54 → v564)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v564, THE TWO STRONG FLOURS — AND THE TWO YEASTS (no database step).**
+
+**Your words:** __"the ingredient card is a mess, for strong flour, on hand show 0, but open up the stock card says on hand 6kgs"__ — and then __"the yeast might have the same problem too"__.
+
+**1. ⚠️⚠️ YOU WERE LOOKING AT TWO DIFFERENT CARDS THAT WEAR THE SAME NAME.** The list row and the stock card **both read the same field**, so the only way they can show two different amounts is **two ingredients with one name** — exactly what happened with Instant yeast in October. ⭐ The card you tapped says **0**; the card the stock card opened belongs to a **second "Strong flour"** holding **6 kg**. ⭐ **Your recipes take from one of them, and the shopping list tops up one of them.** That is why the number never settled.
+
+**2. ⚠️ AND NOTHING STOPPED A SECOND ONE BEING MADE.** There was no name check when an ingredient was added or renamed — so the second "Strong flour" could be created again the next day. ⭐ **Now, adding or renaming to a name that already exists asks first**, and says what the existing card holds: *"Strong flour already exists — 6 kg on hand. A second card with the same name keeps its OWN stock, so the list and the stock card can then show two different amounts. Add a second one anyway?"* ⚠️ It is still your choice, because there can be a real reason.
+
+**3. ⭐⭐ THE CHECK NOW TELLS YOU WHICH CARD IS WHICH.** It used to say **"Strong flour ×2"**, which is true and no help. It now says, for each card, **what it holds and whether a recipe uses it**: *"Strong flour ×2 — 6 kg, used in 1 recipe · 0 g, no recipe uses this one."* ⭐ **The one with no recipe behind it is the spare.**
+
+**4. ⭐ AND ONE PRESS PUTS THE SPARE AWAY.** Under that line there is now **"Hide the spare cards"**. It hides the card your recipes do not use — ⚠️ **hides, never deletes**: the card, its stock card and its history are kept, it comes off your list, and **Unhide** brings it back. ⚠️ It only offers the press when **one** of the pair is used and the other is not, so it never guesses; if both are used, or neither, it leaves it to you.
+
+**5. ⭐ Measured on the real screen with two "Strong flour" cards — 6 kg used in a recipe, 0 kg used by nothing:** the check named both amounts and which one the recipe points at, the press hid the **0 kg** card, the **6 kg** card was untouched, and the line went **fail to pass**.
+
+**6. Nothing of yours was rewritten except by that press, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v563, THE EIGHT STOCK CARDS THAT COULD NOT BE PUT RIGHT — AND NOW CAN (no database step).**
 

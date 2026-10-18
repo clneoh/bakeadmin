@@ -744,23 +744,56 @@ test("★★★ and the page reports it, in her words", () => {
     "a phone with no recorded failure claims one");
 });
 
-test("★★★ two ingredients sharing a NAME are named — the fault that made her doubt the screen (v544)", () => {
+test("★★★ two ingredients sharing a NAME are named — the fault that made her doubt the screen (v544)", async () => {
   // ⚠️⚠️ HER CASE: __"last time there is 2 yeast, but i think i deleted it long time ago"__ — and then
   // __"it is not reliable"__. ⭐ **Two records called "Instant yeast", one at 70 g and one at 1.142 kg.**
   // ⚠️ **The stock card and the list row both read `onHand`, so an app can only show two figures for one name if
   // there are two ingredients** — ⭐ **and nothing stops a second one being made.** This is the same guard the
   // app already keeps for ORDERS, in a list that never had it.
   const st = healthy();
+  st.uoms = [{ id: "g", name: "g", family: "weight", toBase: 1 },
+    { id: "kg", name: "kg", family: "weight", toBase: 1000 }];
   st.ingredients = [
-    { id: "i1", name: "Instant yeast", active: true },
-    { id: "i2", name: "instant yeast ", active: true },   // ⚠️ case and spacing must not hide it
+    { id: "i1", name: "Instant yeast", active: true, unit: "g", uomId: "g", onHand: 70 },
+    { id: "i2", name: "instant yeast ", active: true, unit: "g", uomId: "g", onHand: 1142 },   // ⚠️ case and spacing must not hide it
     { id: "i3", name: "Strong flour", active: true },
   ];
   const r = resultOf(runHealthChecks(st, emptyExtras()), "dupeIngredient");
   assert.equal(r.status, "fail", "★ two ingredients with one name were reported as fine");
-  assert.deepEqual(r.detail, ["Instant yeast ×2"],
-    "★ it does not name the ingredient and how many there are, so she cannot go and look");
+  // ★★★ AND IT SAYS WHICH CARD IS WHICH (v564). ⚠️ Her report: __"on hand show 0, but open up the stock
+  // card says on hand 6kgs"__ — ⭐ **"×2" is true and useless; the amounts and the recipe use are what let
+  // her decide which one to keep.**
+  assert.equal(r.detail.length, 1);
+  assert.match(r.detail[0], /Instant yeast ×2/, "★ it does not name the ingredient");
+  assert.match(r.detail[0], /70 g/, "★ it does not say what one card holds");
+  assert.match(r.detail[0], /1\.142 kg/, "★ it does not say what the other holds");
+  assert.match(r.detail[0], /no recipe uses this one/,
+    "★ it does not say which card a recipe points at, so she cannot tell which to keep");
   assert.match(r.fix, /hide|delete/i, "a fault with no way out is a dead end");
+
+  // ⭐ AND WHEN HER OWN RECIPES SETTLE IT, THERE IS A PRESS. One recipe points at i1, so i2 is the spare.
+  const withRecipe = JSON.parse(JSON.stringify(st));
+  withRecipe.products = [{ id: "p1", name: "Focaccia", active: true, recipe: [{ ingredientId: "i1", qty: 5, unit: "g" }] }];
+  const r2 = resultOf(runHealthChecks(withRecipe, emptyExtras()), "dupeIngredient");
+  assert.equal(r2.repair, "dupeIngredient",
+    "★ the pair is decided by her recipes and the check offers no press to put the spare away");
+  assert.match(r2.detail[0], /used in 1 recipe/);
+  // ⚠️ And hiding the spare leaves the used one alone.
+  const { duplicateIngredientPlan } = await import("../admin/js/state.js");
+  const plan = duplicateIngredientPlan(withRecipe);
+  assert.equal(plan.length, 1);
+  assert.equal(plan[0].hide.id, "i2", "★ the press picked the card her recipe DOES use");
+  assert.equal(plan[0].keep.id, "i1");
+
+  // ⚠️⚠️ AND A HIDDEN CARD IS NOT A LIVE DUPLICATE (v564). ⭐ Hiding the spare is the resolution this
+  // check recommends, so counting hidden records left the line red after its own press had run.
+  const hid = healthy();
+  hid.ingredients = [
+    { id: "i1", name: "Strong flour", active: true, onHand: 100 },
+    { id: "i2", name: "Strong flour", active: false, onHand: 0 },
+  ];
+  assert.equal(resultOf(runHealthChecks(hid, emptyExtras()), "dupeIngredient").status, "pass",
+    "★ the spare was hidden and the check still calls a duplicate — **its own press cannot clear it**");
 
   // ⭐ AND A NORMAL KITCHEN DOES NOT GET FLAGGED.
   const clean = healthy();

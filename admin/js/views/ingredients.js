@@ -8,7 +8,7 @@ import { el, button, select, emptyState, confirmDialog, showPopup, toast, wireRo
 // ⚠️ THE ORDER HELPERS ARE GENERIC AND ALREADY PROVEN on the Products screen — they work on any
 // `{ id, sort }` records, which an ingredient now is. See the note on `renderAll`.
 import { indexForDrop, moveInTail, tailOrder } from "../productCategories.js";
-import { byId, fmtRM, newId, round2, save } from "../state.js";
+import { byId, fmtRM, newId, round2, save, sameNameIngredient } from "../state.js";
 import { fmtStockAmount, priceEntryLabels, belowReserve, chosenSupplier, trimNum } from "../purchasing.js";
 import { logPriceMoves, priceLogOf } from "../prices.js";
 import { setStock, stockLogOf, stockRowUndo, undoStockRow } from "../stock.js";
@@ -299,10 +299,24 @@ function newIngredientCard(state, root) {
     button("Add ingredient", () => {
       const { error, values } = editor.collect();
       if (error) return toast(error);
-      state.ingredients.push({ id: newId("ing"), ...values, active: true });
-      toast("Ingredient added");
-      save(state);
-      renderAll(root, state);
+      const add = () => {
+        state.ingredients.push({ id: newId("ing"), ...values, active: true });
+        toast("Ingredient added");
+        save(state);
+        renderAll(root, state);
+      };
+      const clash = sameNameIngredient(state, values.name);
+      // ⚠️⚠️ A SECOND CARD WITH THE SAME NAME IS HOW TWO FIGURES FOR ONE NAME HAPPEN (v564). ⭐ Her own
+      // report: the list said 0 while the stock card said 6 kg — **two records, one name.** ⚠️ Nothing
+      // stopped the second one being made. ⭐ It is still her choice (there can be a real reason), so it
+      // asks with the existing amount and the consequence, rather than refusing.
+      if (clash) {
+        return confirmDialog(
+          `${clash.name} already exists — ${fmtStockAmount(state, clash, Math.max(0, Number(clash.onHand) || 0))} on hand`
+          + `${clash.active === false ? ", hidden" : ""}. A second card with the same name keeps its OWN stock, so the list and the stock card can then show two different amounts. Add a second one anyway?`,
+          add, { yesLabel: "Add anyway" });
+      }
+      add();
     }, "block primary"));
 }
 
@@ -318,19 +332,32 @@ function openEditIngredientPopup(state, ing, root) {
         button("Update ingredient", () => {
           const { error, values, drop } = editor.collect();
           if (error) return toast(error);
-          // A price corrected HERE is a price that moved, and the journal has to be told (v285).
-          // A log that only ever held the moves made from a shopping list would be titled as
-          // this ingredient's price history while quietly missing the rest of it.
-          const before = Array.isArray(ing.supplierPrices)
-            ? ing.supplierPrices.map((e) => ({ ...e }))
-            : [];
-          Object.assign(ing, values);
-          for (const k of drop || []) delete ing[k];
-          const moved = logPriceMoves(ing, before);
-          toast(moved.length ? `Ingredient updated — ${moved.length} price change recorded` : "Ingredient updated");
-          save(state);
-          close();
-          renderAll(root, state);
+          const apply = () => {
+            // A price corrected HERE is a price that moved, and the journal has to be told (v285).
+            // A log that only ever held the moves made from a shopping list would be titled as
+            // this ingredient's price history while quietly missing the rest of it.
+            const before = Array.isArray(ing.supplierPrices)
+              ? ing.supplierPrices.map((e) => ({ ...e }))
+              : [];
+            Object.assign(ing, values);
+            for (const k of drop || []) delete ing[k];
+            const moved = logPriceMoves(ing, before);
+            toast(moved.length ? `Ingredient updated — ${moved.length} price change recorded` : "Ingredient updated");
+            save(state);
+            close();
+            renderAll(root, state);
+          };
+          // ⚠️⚠️ A RENAME IS THE OTHER WAY TWO CARDS END UP WITH ONE NAME (v564). ⭐ The rule is about the
+          // CLASS of the act, not about the Add button: renaming this one onto another's name has the
+          // same consequence, and this is the only other place a name is written.
+          const clash = sameNameIngredient(state, values.name, ing.id);
+          if (clash) {
+            return confirmDialog(
+              `${clash.name} already exists — ${fmtStockAmount(state, clash, Math.max(0, Number(clash.onHand) || 0))} on hand`
+              + `${clash.active === false ? ", hidden" : ""}. Renaming this one to the same name leaves two cards that cannot be told apart by name. Rename it anyway?`,
+              apply, { yesLabel: "Rename anyway" });
+          }
+          apply();
         }, "primary")));
   }, { wide: true });
 }

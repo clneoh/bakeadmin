@@ -21,7 +21,7 @@
 // ⚠️ AND IT NEVER NAMES A CAUSE. It reports what it found and what it means. What removed an order is not
 // knowable from the data that is left — which is the whole reason v444 keeps a copy of it.
 
-import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, duplicateOrderCodes, round2, PHONE_STORE_LIMIT, PHONE_STORE_ALERT } from "./state.js";
+import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, duplicateOrderCodes, duplicateIngredientPlan, round2, PHONE_STORE_LIMIT, PHONE_STORE_ALERT } from "./state.js";
 import { isCollected } from "./money.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { listFields } from "./sync.js";
@@ -158,17 +158,41 @@ export function localChecks(state) {
     const by = new Map();
     for (const i of (Array.isArray(state && state.ingredients) ? state.ingredients : [])) {
       if (!i) continue;
+      // ⚠️⚠️ A HIDDEN CARD IS NOT A LIVE DUPLICATE (v564). ⭐ Hiding one of a pair is the resolution the
+      // check itself recommends, so counting hidden records made the press unable to clear the line —
+      // **it hid the spare and the check stayed red.** ⭐ The dangerous half of the old v544 case — a
+      // recipe pointing at a HIDDEN ingredient, which is used on every bake and never topped up — is its
+      // own check, and stays.
+      if (i.active === false) continue;
       const k = String(i.name || "").trim().toLowerCase();
       if (!k) continue;
       by.set(k, (by.get(k) || []).concat(i));
     }
+    // ⚠️⚠️ AND EACH RECORD IS SHOWN WITH ITS OWN AMOUNT AND WHETHER A RECIPE USES IT (v564). ⭐ Her report,
+    // 18 Oct 2026: __"for strong flour, on hand show 0, but open up the stock card says on hand 6kgs"__ —
+    // and __"the yeast might have the same problem too"__. ⭐ **"Strong flour ×2" is true and useless**: it
+    // does not say WHICH of the two cards she is looking at, or which one to keep. ⭐ The two facts that
+    // answer that are the amount on each record and whether a recipe points at it.
+    const usedBy = (id) => (Array.isArray(state && state.products) ? state.products : [])
+      .filter((p) => p && (Array.isArray(p.recipe) ? p.recipe : []).some((l) => l && String(l.ingredientId || "") === String(id)))
+      .length;
     const dupes = [...by.values()].filter((a) => a.length > 1)
-      .map((a) => `${String(a[0].name || "(ingredient)")} ×${a.length}`);
-    out.push(dupes.length
-      ? fail("dupeIngredient", "No two ingredients share a name", dupes,
-        "Two or more ingredients carry the same name. Their stock is separate, so a stock card can show one amount and the list another — and a recipe takes from whichever one it points at. Neither is wrong; they are simply two records with one name.",
-        "Open each one, see which your recipes use, and hide or delete the other. Then set the stock on the one that is left, so the number means something.")
-      : pass("dupeIngredient", "No two ingredients share a name"));
+      .map((a) => `${String(a[0].name || "(ingredient)")} ×${a.length} — `
+        + a.map((x) => {
+          const n = Math.max(0, Number(x.onHand) || 0);
+          const uses = usedBy(x.id);
+          return `${fmtStockAmount(state, x, n)}${uses ? `, used in ${uses} recipe${uses === 1 ? "" : "s"}` : ", no recipe uses this one"}`;
+        }).join(" · "));
+    if (dupes.length) {
+      const entry = fail("dupeIngredient", "No two ingredients share a name", dupes,
+        "Two or more ingredients carry the same name. Their stock is separate, so a stock card can show one amount and the list another — and a recipe takes from whichever one it points at. Neither is wrong; they are simply two records with one name. Each one below carries its own amount, and says whether a recipe uses it.",
+        "The one with no recipe behind it is the spare: press the button below to hide it (hiding keeps its stock card, and Unhide brings it back). Then set the stock on the one that is left, so the number means something.");
+      // ⭐ AND THE PRESS, when her own recipes decide it without ambiguity (v564).
+      if (duplicateIngredientPlan(state).length) entry.repair = "dupeIngredient";
+      out.push(entry);
+    } else {
+      out.push(pass("dupeIngredient", "No two ingredients share a name"));
+    }
   }
 
   // ── 9 · no recipe points at an ingredient you have HIDDEN (v544) ────────

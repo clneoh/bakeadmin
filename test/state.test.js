@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalize, defaultState, loadState, save, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase, productUnitOptions, productUsesUnit } from "../admin/js/state.js";
+import { normalize, defaultState, loadState, save, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase, productUnitOptions, productUsesUnit, sameNameIngredient, duplicateIngredientPlan } from "../admin/js/state.js";
 import { lockEnabled } from "../admin/js/pin.js";
 import { planOf } from "../admin/js/production.js";
 import { planBackwards } from "../admin/js/bakeday.js";
@@ -695,4 +695,43 @@ test("normalize keeps the planner's people exactly as they arrived", () => {
     "the names she typed survive a reload, including a name she has emptied but not deleted");
   assert.deepEqual(out.settings.personCalls, { 2: false, 3: true },
     "and a tick that is OFF is kept as an answer, not thrown away as falsy");
+});
+
+// ── ★★★ one name, one record (v564) ────────────────────────────────────────
+//
+// ⚠️⚠️ HER REPORT: __"for strong flour, on hand show 0, but open up the stock card says on hand 6kgs"__
+// and __"the yeast might have the same problem too"__. ⭐ **The card and the stock card both read
+// `onHand`, so two figures for one name can only mean two records with that name.**
+
+test("★★★ a second ingredient with the same name is FOUND, case and spacing ignored", () => {
+  const st = { ingredients: [
+    { id: "i1", name: "Strong flour" },
+    { id: "i2", name: "instant yeast " },
+  ] };
+  assert.equal(sameNameIngredient(st, "strong FLOUR").id, "i1");
+  assert.equal(sameNameIngredient(st, "  Instant   Yeast ").id, "i2",
+    "★ spacing is not a distinction, so this duplicate would be created again");
+  assert.equal(sameNameIngredient(st, "Sea salt"), null);
+  assert.equal(sameNameIngredient(st, ""), null);
+
+  // ⚠️ AND A RECORD BEING RENAMED MUST NOT CLASH WITH ITSELF.
+  assert.equal(sameNameIngredient(st, "Strong flour", "i1"), null,
+    "★ renaming a card to its own name was reported as a clash with itself");
+});
+
+test("★★★ the spare is the one NO recipe uses, and an ambiguous pair is left alone", () => {
+  const st = {
+    ingredients: [{ id: "a", name: "Strong flour" }, { id: "b", name: "strong flour" }],
+    products: [{ id: "p", recipe: [{ ingredientId: "a", qty: 1 }] }],
+  };
+  const plan = duplicateIngredientPlan(st);
+  assert.equal(plan.length, 1);
+  assert.equal(plan[0].keep.id, "a", "★ the press would hide the card her recipes use");
+  assert.equal(plan[0].hide.id, "b");
+
+  // ⚠️ BOTH USED, OR NEITHER USED: her recipes do not decide it, so no press is offered.
+  const both = { ingredients: st.ingredients, products: [{ id: "p", recipe: [{ ingredientId: "a" }, { ingredientId: "b" }] }] };
+  assert.deepEqual(duplicateIngredientPlan(both), [], "★ an ambiguous pair was decided for her");
+  const neither = { ingredients: st.ingredients, products: [] };
+  assert.deepEqual(duplicateIngredientPlan(neither), [], "★ a pair with no recipe behind it was guessed at");
 });

@@ -17,7 +17,7 @@ import { runHealthChecks } from "../health.js";
 import { pullReceiptRegister, maybeSync } from "../supabase.js";
 import * as backups from "../backups.js";
 import * as sync from "../sync.js";
-import { save, saveFailure } from "../state.js";
+import { save, saveFailure, duplicateIngredientPlan } from "../state.js";
 import { reconcileCards } from "../stock.js";
 
 const MARK = { pass: "✓", fail: "✗", skipped: "—" };
@@ -84,6 +84,11 @@ export function renderHealth(root, state) {
         ? el("div", { class: "btn-row", style: "margin:8px 0 0" },
             button("Put the missing line on each card", () => repairCards(), "primary"))
         : null,
+      // ⭐ AND THE DUPLICATED INGREDIENTS (v564) — hiding the spare, never deleting it.
+      r.status === "fail" && r.repair === "dupeIngredient"
+        ? el("div", { class: "btn-row", style: "margin:8px 0 0" },
+            button("Hide the spare cards", () => hideSpares(), "primary"))
+        : null,
       // ⚠️ THE THINGS THEMSELVES, NAMED. A count she cannot look up is a number she cannot act on — every
       // failing check carries the rows it is about, by order number, so each one can be found.
       r.detail && r.detail.length
@@ -116,6 +121,27 @@ export function renderHealth(root, state) {
         run(true);
       },
       { yesLabel: "Put the lines on" });
+  }
+
+  // ★★ HIDE THE SPARE OF A DUPLICATED PAIR (v564). ⚠️ HIDING, NEVER DELETING — a hidden ingredient keeps
+  // its stock card, its name and a way back (v544's Unhide), and her base rule is that anything a
+  // transaction has used cannot be deleted. ⭐ The pair is only offered when HER OWN RECIPES settle it:
+  // one is used, the other is not.
+  function hideSpares() {
+    const plan = duplicateIngredientPlan(state);
+    if (!plan.length) return toast("Nothing to hide — the pairs are not decided by your recipes");
+    const names = plan.map((p) => `${p.hide.name} — ${p.keep.name} is used in your recipes, the other is not`)
+      .join(". ");
+    confirmDialog(
+      `Hide ${plan.length === 1 ? "this card" : `these ${plan.length} cards`}? ${names}. Hiding keeps the stock card and its history, takes the card off your list, and can be undone with Unhide. Nothing is deleted.`,
+      () => {
+        for (const p of plan) p.hide.active = false;
+        save(state);
+        maybeSync(state);
+        toast(`${plan.length} card${plan.length === 1 ? "" : "s"} hidden`);
+        run(true);
+      },
+      { yesLabel: "Hide them" });
   }
 
   async function run(again) {

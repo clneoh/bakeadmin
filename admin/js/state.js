@@ -1215,6 +1215,50 @@ export function duplicateOrderCodes(orders) {
   return [...byCode.values()].filter((r) => r.ids.length > 1);
 }
 
+// ★★ ONE NAME, ONE RECORD — CASE AND SPACING ARE NOT A DISTINCTION (v564).
+//
+// ⚠️⚠️ HER OWN REPORT: __"for strong flour, on hand show 0, but open up the stock card says on hand
+// 6kgs"__ and __"the yeast might have the same problem too"__. ⭐ **Two ingredients with one name is the
+// only way two screens can show two figures for one name** — the card and the sheet both read `onHand`.
+// ⚠️ And nothing stopped a second one being made. `exceptId` is the record being RENAMED, which must not
+// count as a clash with itself.
+export function sameNameIngredient(state, name, exceptId = "") {
+  const key = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const wanted = key(name);
+  if (!wanted) return null;
+  return (Array.isArray(state && state.ingredients) ? state.ingredients : [])
+    .find((i) => i && String(i.id) !== String(exceptId) && key(i.name) === wanted) || null;
+}
+
+// ★★ WHICH OF A DUPLICATED PAIR CAN BE PUT AWAY, DECIDED BY HER OWN RECIPES (v564).
+//
+// ⚠️ **"Strong flour ×2" tells her there is a problem and not which card to keep.** ⭐ The fact that
+// settles it is already in her book: **a recipe points at exactly one of the two**, and the other is a
+// card nothing uses. ⚠️ It is only offered when the answer is UNAMBIGUOUS — a pair where exactly one is
+// used, and a pair and nothing else. ⚠️ **HIDING, NEVER DELETING**: her base rule is that anything a
+// transaction has used cannot be deleted, and hiding keeps the stock card it explains.
+export function duplicateIngredientPlan(state) {
+  const key = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const byName = new Map();
+  for (const i of (Array.isArray(state && state.ingredients) ? state.ingredients : [])) {
+    if (!i || !key(i.name)) continue;
+    byName.set(key(i.name), (byName.get(key(i.name)) || []).concat(i));
+  }
+  const uses = (id) => (Array.isArray(state && state.products) ? state.products : [])
+    .filter((p) => p && (Array.isArray(p.recipe) ? p.recipe : []).some((l) => l && String(l.ingredientId || "") === String(id)))
+    .length;
+  const plan = [];
+  for (const group of byName.values()) {
+    if (group.length !== 2) continue;
+    const [a, b] = group;
+    const ua = uses(a.id);
+    const ub = uses(b.id);
+    if (ua > 0 && ub === 0) plan.push({ keep: a, hide: b });
+    else if (ub > 0 && ua === 0) plan.push({ keep: b, hide: a });
+  }
+  return plan;
+}
+
 // ★ THE CODE AN ORDER CARRIED BEFORE IT WAS EVER GROUPED (v441) — the id-only derivation, kept for
 // ONE job: a receipt written before this fix holds THAT code, and the register must still be able to
 // find the order it belongs to. ⚠️ It is a look-up alias and nothing else — `orderCode` is what every
