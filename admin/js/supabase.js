@@ -11,7 +11,7 @@ import { publishOccasions } from "./occasion_catalog.js";
 import { flattenTree, primaryCategoryId, productsInCategory } from "./productCategories.js";
 import { isThumb, lineNoteOf } from "../../storefront-fields.js";
 import { costOf, effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
-import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, stampOrderLine, duplicateOrderCodes, waNumber } from "./state.js";
+import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, stampOrderLine, duplicateOrderCodes, waNumber, groupOrders } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { customerTotal } from "./courier.js";
 // The promo-code engine. Only two things are asked of it here: what the shop may
@@ -853,6 +853,28 @@ export async function maybePublishTracking(state, group) {
   const content = cardContent(row);
   if (published.get(row.code) === content) return;
   await pushTracking(c, row, content);
+}
+
+// ★★★ WRITE EVERY ORDER'S CARD ONCE (v559).
+//
+// ⚠️⚠️ Since v558 a customer tracks with their order number AND the phone they ordered with — but a card
+// only learns the phone when it is REWRITTEN, and **an order that is finished and never touched again would
+// keep none of it for good.** ⭐ This is the press that covers the old cards: every order's card, written
+// once, so the door the phone closes is closed for them too.
+// `onProgress(done, total)` is the screen's line; `publish` is the test's seam and defaults to the real door.
+// ⚠️ Every card goes through `publishTracking`, the same function every other door uses, so this cannot
+// word or write a card differently from the rest of the app.
+export async function republishEveryCard(state, { onProgress = null, publish = publishTracking } = {}) {
+  const groups = groupOrders((state && state.orders) || []);
+  let ok = 0;
+  let bad = 0;
+  for (const g of groups) {
+    let good = false;
+    try { good = await publish(state, g); } catch { good = false; }
+    if (good) ok += 1; else bad += 1;
+    if (typeof onProgress === "function") onProgress(ok + bad, groups.length);
+  }
+  return { ok, bad, total: groups.length };
 }
 
 // Test seam: the map above is per-process, so a suite that publishes the same card

@@ -5,7 +5,7 @@ import { LS_KEY, newId, save } from "../state.js";
 import { hashPin, isPin, hasStoredPin } from "../pin.js";
 import { parseImport } from "../validate.js";
 import { generateUpcomingDates, todayISO } from "../dates.js";
-import { syncAvailability, cachedToken, signOut, syncStorefront, maybeSync, maybeSyncStorefront } from "../supabase.js";
+import { syncAvailability, cachedToken, signOut, syncStorefront, maybeSync, maybeSyncStorefront, republishEveryCard } from "../supabase.js";
 import * as backups from "../backups.js";
 import * as sync from "../sync.js";
 import { refreshShareWarn } from "../sharewarn.js";
@@ -447,6 +447,25 @@ export function renderSettings(root, state) {
       }, "soft")
     : button("Sign in", () => location.reload(), "soft");
 
+  const trackStatus = el("p", { class: "card-sub", style: "margin:8px 0 0" });
+  const trackBtn = button("Refresh every tracking card", () => {
+    confirmDialog(
+      "Republish every order's tracking card? Each card is written to the cloud once, so the older ones "
+      + "carry the phone number customers now track with. It changes nothing in your orders.",
+      async () => {
+        if (trackBtn.disabled) return;
+        trackBtn.disabled = true;
+        const { ok, bad } = await republishEveryCard(state, {
+          onProgress: (done, total) => { trackStatus.textContent = `Refreshing… ${done} of ${total}`; },
+        });
+        trackBtn.disabled = false;
+        trackStatus.textContent = bad
+          ? `${ok} cards refreshed, ${bad} could not be. Check you are online and signed in, then press again.`
+          : `All ${ok} card${ok === 1 ? "" : "s"} refreshed. Customers now track with their order number and their phone.`;
+        toast(bad ? `${bad} cards could not be refreshed` : "Tracking cards refreshed");
+      }, { yesLabel: "Refresh them" });
+  }, "soft");
+
   const sharedCard = el("div", { class: "card" },
     el("h3", { style: "margin:0 0 4px" }, "Shared data (cloud)"),
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
@@ -458,7 +477,15 @@ export function renderSettings(root, state) {
       cldSignBtn),
     el("p", { class: "card-sub", style: "margin:8px 0 0" },
       signedIn ? `Signed in with ${sb.email || "your Supabase login"}.` : "Not signed in."),
-    cldStatus);
+    cldStatus,
+    // ★★★ AND ONE PRESS THAT PUTS THE PHONE ON EVERY OLD CARD (v559).
+    // ⚠️⚠️ Since v558 a customer tracks with their order number AND the phone they ordered with — but a
+    // card keeps no phone until it is rewritten, and **an order that is finished and never touched again
+    // would keep none for good.** ⭐ This writes every card once, so the old ones are covered instead of
+    // waiting for a status change that may never come. ⚠️ It writes each card to the cloud and changes
+    // NOTHING in her orders.
+    trackBtn,
+    trackStatus);
 
   const bkZone = el("div", { style: "margin-top:14px;border-top:1px solid var(--line);padding-top:4px" });
   const backupCard = el("div", { class: "card" },

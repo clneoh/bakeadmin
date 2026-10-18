@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v558)
+# Jienluv2bake — change history (v54 → v559)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v559, ONE PRESS THAT PUTS THE PHONE ON EVERY OLD TRACKING CARD (no database step).**
+
+**Your words:** __"add the republish press."__
+
+**1. ⚠️⚠️ AND HERE IS THE GAP IT CLOSES.** Since v558 a customer tracks with their order number **and** the phone they ordered with — but a card learns the phone only when it is **rewritten**, and ⭐ **an order that is finished and never touched again would keep none of it for good.** Those old cards could still be opened on the order number alone.
+
+**2. ⭐ THE PRESS.** **More → Settings → Shared data (cloud) → "Refresh every tracking card."**
+- ⭐ It writes **every order's card once**, through the same `publishTracking` every other door uses — so it cannot word or write a card differently from the rest of the app.
+- ⭐ **It says where it has got to** ("Refreshing… 41 of 137"), and when it finishes it says **how many worked and how many did not** rather than claiming success.
+- ⚠️ **One card that fails does NOT stop the sweep** — the rest still go, and the failures are counted so she can press again.
+- ⚠️ **It changes nothing in her orders.** It only republishes what is already on them.
+
+**3. ⭐ Measured:** the press is on the screen under Shared data (cloud), and a test drives the sweep through three orders — one of them a two-item order — with the third card failing: **three cards written, one of them once for its two items, one failure counted, and the progress line moved 1/3, 2/3, 3/3.**
+
+**4. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v558, THE TRACKING CODE NOW NEEDS THE PHONE IT WAS ORDERED WITH (database step: run `supabase/tracking.sql` BEFORE you push).**
 

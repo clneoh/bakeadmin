@@ -2270,3 +2270,29 @@ test("★★★ the label-open counts are read in PAGES — past 1,000 rows they
       + "under-reports the days**");
   } finally { globalThis.fetch = realFetch; }
 });
+
+test("★★★ the refresh press writes EVERY order's card once, and counts the ones that failed", async () => {
+  // ⚠️⚠️ Since v558 a customer tracks with their order number AND their phone, but a card keeps no phone
+  // until it is rewritten — **an order finished and never touched again would keep none for good.** ⭐ This
+  // is the sweep that covers them, and it must not stop at the first card that fails.
+  const { republishEveryCard } = await import("../admin/js/supabase.js");
+  const st = {
+    orders: [
+      { id: "a11111", groupId: "g1", qty: 1 },
+      { id: "a22222", groupId: "g1", qty: 1 },   // the same order, a second item
+      { id: "b11111", groupId: "g2", qty: 1 },
+      { id: "c11111", groupId: "g3", qty: 1 },
+    ],
+  };
+  const seen = [];
+  const progress = [];
+  const res = await republishEveryCard(st, {
+    onProgress: (done, total) => progress.push(`${done}/${total}`),
+    // the third group fails, the way an offline card would
+    publish: async (_state, g) => { seen.push(g.orders[0].groupId); return g.orders[0].groupId !== "g3"; },
+  });
+  assert.deepEqual(seen, ["g1", "g2", "g3"],
+    "★ the sweep skipped an order or wrote one twice — **a two-item order is ONE card**");
+  assert.deepEqual(res, { ok: 2, bad: 1, total: 3 });
+  assert.deepEqual(progress, ["1/3", "2/3", "3/3"], "the line she reads never moved, or moved wrongly");
+});
