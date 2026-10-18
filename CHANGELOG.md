@@ -1,8 +1,40 @@
-# Jienluv2bake — change history (v54 → v560)
+# Jienluv2bake — change history (v54 → v561)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v561, THE BOOKING THAT MAY HAVE GONE THROUGH — AND THREE PDF FAULTS YOU HAVE BEEN LOOKING AT (database step: run `supabase/tracking.sql` again; then deploy four functions, listed below).**
+
+**Your words:** __"check for more errors"__ — so this round read the functions that talk to the outside world (EasyParcel, Resend, Google) and the three scripts that build your PDFs.
+
+**1. ⚠️⚠️ THE ONE THAT COSTS MONEY: A BOOKING THAT LOST ITS REPLY.** Booking a parcel with EasyParcel **creates the parcel and takes the money in one call.** If the phone's signal drops at the wrong moment, the app cannot tell whether it happened — and it used to say **"check your signal and try again"**, which is the one instruction that can **charge you twice.**
+- ⭐ **Now it says so plainly:** "this app cannot tell whether the parcel was booked and charged. Open EasyParcel and look before booking again — a second Book may charge you twice."
+- ⭐ **And the Book press goes away**, so there is nothing to press twice. **Price again** and the press comes back with a fresh price.
+- ⚠️ **A price lookup is unaffected** — pricing charges nothing, so it keeps the old sentence.
+
+**2. ⚠️ THE TRACKING CODE NOW TAKES THE NUMBER AS THE CUSTOMER WRITES IT.** You asked **"which phone number?"** when this was built, and the answer was the one they ordered with — ⚠️ but a number saved as **+6016 960 1268** and typed as **016-960 1268** has to match, or a customer is locked out of their own parcel. ⭐ **It now accepts the last nine digits, in any spelling**, and an order with no number on it still opens on the code alone.
+
+**3. ⚠️ AND TWO SECURITY HOLES IN THE FUNCTIONS BEHIND THE APP — neither reached your screen.**
+- **The wish-list mail** took its recipients **from whoever called it**, gated only by "a signed-in account" — so any account could send mail **from your verified domain to any address, on your Resend bill.** ⭐ It now reads the developer emails **from your own Settings**, and ignores any list in the request.
+- **The Google key was in the address** of every lookup. ⚠️ A network error prints the address into the function's log, so an unreachable Google could have written your key into a log. ⭐ **It now travels in a header**, where it stays out of the address.
+
+**4. ⚠️⚠️ AND THREE FAULTS IN THE PDFs THEMSELVES — the ones you read.**
+- **This change history drew tables as run-on sentences.** Six of them printed with their pipes and dashes: `| she types | the panel says | |---|`. ⭐ **Tables are now drawn as tables**, and a quoted block keeps its own lines — the three stock-card rows that share a minute now read as three lines, which was the whole point of quoting them.
+- **Stray backslashes.** A pair of hyphens in a sentence has to be escaped for the PDF reader, and that escape was also catching the ruled line under a table heading — **16** stray backslashes printed in this document. ⭐ Gone, and the one entry written with escaped quotation marks now prints its quotes cleanly.
+- **A receipt's columns stopped lining up.** An em dash was being drawn as three characters inside the monospace block that exists **for** alignment. ⭐ One character in, one character out; the rows line up again.
+
+**5. ⭐ AND THE INTRODUCTION PDF LEFT OUT FOUR OF YOUR FIVE BAKES.** Its price table only listed **FOCACCIA**, because the other four carry **COMING SOON** and no price — and the reader skipped anything without a price. ⭐ **All five are listed**, four of them marked coming soon.
+
+**6. ⭐ THE GUIDE AND THE INTRODUCTION NOW READ THE VERSION FROM THE APP**, instead of having it typed into the script. ⚠️ They used to keep printing the previous number until someone remembered to change it, which is exactly the sort of "confidently wrong" a manual must not be.
+
+**7. ⭐ Measured:** the changelog PDF was read back and asked for the faults by name — **stray backslashes before a hyphen 16 → 0, escaped quotation marks 2 → 0, and no line beginning with a table pipe or a quote mark**, with the receipt rows starting at the same columns. The introduction PDF lists **five bakes where it listed one**.
+
+**8. ⚠️ WHAT YOU MUST DO, IN THIS ORDER.** ⭐ **Run `supabase/tracking.sql` first**, then push. ⭐ Then **deploy four functions** — `parcel`, `wish-mail`, `courier`, `shop-geocode` — because **pushing does not deploy a function**; each one needs its own upload.
+
+**9. Nothing of yours was rewritten. The SQL only changes a lookup rule; it touches no order, receipt or stock row.**
+
+---
 
 **18 Oct 2026 — engine v560, THE STOCK CARD THAT DOES NOT ADD UP — AND THE ANSWER TO YOUR TWO "0 g TO 10 kg" ROWS (no database step).**
 

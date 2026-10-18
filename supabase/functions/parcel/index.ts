@@ -96,7 +96,11 @@ async function ask(cfg: Config, action: string, params: Record<string, unknown>)
     return parsed as Record<string, unknown>;
   } catch (err) {
     if (err && (err.name === "AbortError" || err.code === 20)) {
-      return { ok: false, reason: "EasyParcel did not answer in time. Check your signal and try again." };
+      // ⚠️⚠️ A TIMED-OUT CALL HAS AN UNKNOWN OUTCOME, AND FOR A BOOKING THAT MEANS MONEY (v561).
+      // ⭐ Their host accepts the order and charges the wallet, then sits before answering — so "did not
+      // answer in time, try again" invited a SECOND booking and a SECOND charge. ⭐ `unknown` is the fact
+      // the button needs: it did not fail, it did not happen, nobody knows.
+      return { ok: false, unknown: true, reason: "EasyParcel did not answer in time. Check your signal and try again." };
     }
     console.error("[parcel] fetch failed:", err && (err.message || err));
     return { ok: false, reason: "Couldn't reach EasyParcel." };
@@ -225,6 +229,18 @@ Deno.serve(async (req) => {
       collectDate: String(args.collectDate || ""),
     });
     const out = await ask(cfg, ACTION.book, bookRequest({ courier, dropoff: !!args.dropoff, orders: [order] }));
+    // ⚠️⚠️ AND WHEN THE CALL TIMED OUT, SAY THAT THE OUTCOME IS UNKNOWN — NEVER "TRY AGAIN" (v561).
+    // ⭐ This single call both creates the order and pays for it, so a lost reply can mean a parcel that is
+    // already booked and charged. ⭐ The app must not offer a second Book until she has looked.
+    if (out.unknown) {
+      return json({
+        ok: false,
+        unknown: true,
+        reason: "EasyParcel did not answer in time, so this app cannot tell whether the parcel was booked "
+          + "and charged. Open EasyParcel and look for it before booking again — a second Book may charge "
+          + "you twice.",
+      });
+    }
     return json(readOrder(out));
   }
 

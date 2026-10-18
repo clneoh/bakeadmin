@@ -98,9 +98,23 @@ as $$
     -- ⭐ Every order republishes its phone the next time its card changes, and every NEW order carries it
     -- from the start — so the open door closes as the old rows are refreshed.
     and (
-      t.whatsapp = ''
-      or right(regexp_replace(t.whatsapp, '[^0-9]', '', 'g'), 9)
-         = right(regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g'), 9)
+      coalesce(t.whatsapp, '') = ''
+      or (
+        -- ⚠️ A TYPED NUMBER SHORTER THAN EIGHT DIGITS IS NOT A KEY AT ALL — below this, a guess stops being a guess.
+        length(regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g')) >= 8
+        and (
+          right(regexp_replace(t.whatsapp, '[^0-9]', '', 'g'), 9)
+            = right(regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g'), 9)
+          -- ⚠️⚠️ OR THE TYPED NUMBER IS A SUFFIX OF THE STORED ONE (v561). ⭐ A Malaysian number typed
+          -- with or without its 60 matches on the nine digits above; ⚠️ a FOREIGN one does not — a
+          -- Singapore number stored as 6581234567, typed as 8123 4567, shares only eight. ⭐ The customer's
+          -- own fingers decide how much of their number they write, and a lookup that refused over the
+          -- country code would be a bug, not a security rule. ⚠️ Eight digits is the floor: below that a
+          -- guess would stop being a guess.
+          or right(regexp_replace(t.whatsapp, '[^0-9]', '', 'g'), length(regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g')))
+             = regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g')
+        )
+      )
     )
   limit 1;
 $$;

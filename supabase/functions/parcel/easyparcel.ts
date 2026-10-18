@@ -371,8 +371,15 @@ export function readTracking(json: unknown): { ok: true; events: TrackEvent[] } 
 // order endpoint lists a sample of couriers, and a list copied from a document is a list
 // that goes stale the week EasyParcel adds one — or, worse, silently omits one she can
 // actually see in their own website. So the app books from the RATE it was given: she picks
-// a priced row, and that row's own courier and service go into the order. Whatever they
-// offer is what she can book, with nothing to update.
+// a priced row.
+//
+// ⚠️⚠️ AND THIS COMMENT USED TO SAY THAT ROW'S **SERVICE** GOES INTO THE ORDER — IT DOES NOT (v561).
+// ⭐ The rate row carries `serviceId`/`rateId`, and `bookRequest` below sends the COURIER'S NAME only, so
+// where one courier quotes two services at two prices, **the one she picked is not the one necessarily
+// booked.** ⚠️ It is left as it is on purpose: the field their order endpoint wants for a service is not
+// something this app can verify, and a guessed field could book the wrong thing rather than refuse.
+// ⭐ A stale comment was quoted as evidence once in this project; it is corrected here rather than left
+// claiming a promise the payload does not keep.
 //
 // The `courier` array is their fallback order for "if the first is not available" — one
 // name, because she chose ONE price and a silent substitution to a different courier at a

@@ -308,6 +308,11 @@ test("the public cannot read the tracking table, only ask for one order", () => 
   // body, so a function that took the phone and then ignored it would be caught here.
   assert.ok(/and\s*\([\s\S]*?t\.whatsapp[\s\S]*?p_phone/i.test(sql),
     "★ the lookup does not match the PHONE — **the code alone still opens any order it happens to name**");
+  // ⭐ AND A NUMBER SHORTER THAN THE COUNTRY CODE STILL MATCHES (v561): a foreign number typed without
+  // its code shares fewer than nine digits, so the suffix branch is what keeps it findable.
+  assert.ok(/right\(regexp_replace\(t\.whatsapp[\s\S]*?length\(regexp_replace\(coalesce\(p_phone/i.test(sql),
+    "★ a foreign number typed without its country code would find nothing — **the customer's own fingers "
+    + "may write only the local part**");
   assert.ok(/drop\s+policy\s+if\s+exists\s+"public read"\s+on\s+order_tracking/i.test(sql),
     "the old permissive read is dropped, so a database that already has it is repaired");
 });

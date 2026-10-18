@@ -3960,7 +3960,15 @@ function parcelApiBlock({ state, group, draft, refresh }) {
         draft.parcelSaid = "Booking…";
         refresh();
         const out = await parcelBook(state, { ...payload(), courier: rate.courierName, dropoff: !!rate.dropoff });
-        if (!out.ok) { draft.parcelSaid = out.reason; refresh(); return; }
+        if (!out.ok) {
+          draft.parcelSaid = out.reason;
+          // ⚠️⚠️ AN UNKNOWN OUTCOME TAKES THE BOOK PRESS AWAY (v561). ⭐ The server cannot tell whether the
+          // parcel was booked and charged; leaving "Book it" under a sentence saying so is how she charges
+          // herself twice. ⭐ Pricing again is free — that is the way back, and it makes her read first.
+          if (out.unknown) draft.parcelRate = null;
+          refresh();
+          return;
+        }
         const done = (out.booked || [])[0];
         if (!done) {
           // ⚠️ A REFUSAL IS ITS OWN SENTENCE. "Insufficient Credit" is a wallet problem she can

@@ -71,15 +71,17 @@ Deno.serve(async (req) => {
   try { payload = await req.json(); } catch { payload = null; }
   const subject = String((payload && payload.subject) || "").trim().slice(0, 120);
   const body = String((payload && payload.body) || "").trim().slice(0, 20000);
-  const to = Array.isArray(payload && payload.to)
-    ? payload.to.map((e) => String(e).trim())
-        .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))
-    : [];
-  if (!subject || !body || !to.length) {
-    console.error("[wish-mail] bad payload:", { hasSubject: !!subject, hasBody: !!body, toCount: to.length });
-    return json({ error: "subject, body and at least one recipient are required" }, 400);
+  // ⚠️⚠️ THE RECIPIENTS ARE NOT THE CALLER'S TO CHOOSE (v561). ⭐ This used to take `to` from the body,
+  // gated only by "any valid session" — so **any account in the project could mail any address from her
+  // verified domain, on her Resend bill.** ⚠️ Sign-ups being disabled was the whole of the protection.
+  // ⭐ The list is read HERE, from the same `storefront_config` row the developer emails are set in — the
+  // same rule `shop-feedback` has kept since it shipped, and the reason it says it is not this function.
+  // ⚠️ A `to` in the body is IGNORED, not refused: an older app sending one still works.
+  const recipients = (await developerEmails(supabaseUrl, supabaseAnon)).slice(0, 5);
+  if (!subject || !body || !recipients.length) {
+    console.error("[wish-mail] bad payload:", { hasSubject: !!subject, hasBody: !!body, toCount: recipients.length });
+    return json({ error: recipients.length ? "subject and body are required" : "no developer email is set in Settings" }, 400);
   }
-  const recipients = to.slice(0, 5); // cap: never mail more than a dev list
 
   const from = Deno.env.get("RESEND_FROM") || "Jien Luv 2 Bake <wishlist@send.jienluv2bake.com.my>";
   console.log("[wish-mail] sending via Resend from", from, "to", recipients.length, "recipient(s)");
@@ -92,9 +94,12 @@ Deno.serve(async (req) => {
     body: JSON.stringify({ from, to: recipients, subject, text: body }),
   });
   if (!res.ok) {
+    // ⚠️ THE VENDOR'S OWN REPLY STAYS IN OUR LOG (v561). ⭐ It can name the address, the domain or a
+    // quota figure, and none of that belongs in a reply to a caller — `shop-feedback` already returns the
+    // status alone for the same reason.
     const detail = await res.text().catch(() => "");
     console.error(`[wish-mail] Resend rejected the send (HTTP ${res.status}):`, detail.slice(0, 300));
-    return json({ error: `Resend failed (HTTP ${res.status})`, detail: detail.slice(0, 300) }, 502);
+    return json({ error: `Resend failed (HTTP ${res.status})` }, 502);
   }
   console.log("[wish-mail] Resend accepted the send");
   return json({ ok: true, sentTo: recipients.length });
@@ -105,4 +110,23 @@ function json(obj, status = 200) {
     status,
     headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
+}
+
+// ★ The developer emails, read from the published storefront row — the SAME source
+// `shop-feedback` reads (see its header). ⚠️ Deliberately a copy of that function rather than a shared
+// module: each edge function is deployed on its own here, and a shared file is one more thing that has to
+// be uploaded with every one of them. ⭐ If the rule changes, it changes in both files.
+async function developerEmails(supabaseUrl: string, supabaseAnon: string): Promise<string[]> {
+  const base = String(supabaseUrl || "").replace(/\/+$/, "");
+  const url = `${base}/rest/v1/storefront_config?select=data&id=eq.default&limit=1`;
+  try {
+    const res = await fetch(url, { headers: { apikey: supabaseAnon, Authorization: `Bearer ${supabaseAnon}` } });
+    if (!res.ok) return [];
+    const rows = await res.json().catch(() => null);
+    const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+    const data = row && row.data && typeof row.data === "object" ? row.data : null;
+    const list = data && Array.isArray(data.developerEmails) ? data.developerEmails : [];
+    return list.map((e: unknown) => String(e).trim())
+      .filter((e: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  } catch { return []; }
 }
