@@ -12,12 +12,13 @@
 // could not look must never be counted as fine. See the long note in `health.js`; the same rule the receipt
 // register follows for an unreadable run.
 
-import { el, button } from "../ui.js";
+import { el, button, confirmDialog, toast } from "../ui.js";
 import { runHealthChecks } from "../health.js";
-import { pullReceiptRegister } from "../supabase.js";
+import { pullReceiptRegister, maybeSync } from "../supabase.js";
 import * as backups from "../backups.js";
 import * as sync from "../sync.js";
-import { saveFailure } from "../state.js";
+import { save, saveFailure } from "../state.js";
+import { reconcileCards } from "../stock.js";
 
 const MARK = { pass: "✓", fail: "✗", skipped: "—" };
 
@@ -77,6 +78,12 @@ export function renderHealth(root, state) {
         r.count ? el("span", { class: "hc-count" }, `${r.count}`) : null),
       r.status === "pass" ? null : el("p", { class: "hc-why" }, r.why),
       r.status === "fail" && r.fix ? el("p", { class: "hc-fix" }, r.fix) : null,
+      // ⭐ THE PRESS THAT CLEARS IT (v563). ⚠️ A check she can only read is a check she cannot fix, and
+      // this one had NO route at all: a stocktake writes the same amount and changes the sum by nothing.
+      r.status === "fail" && r.repair === "stockCards"
+        ? el("div", { class: "btn-row", style: "margin:8px 0 0" },
+            button("Put the missing line on each card", () => repairCards(), "primary"))
+        : null,
       // ⚠️ THE THINGS THEMSELVES, NAMED. A count she cannot look up is a number she cannot act on — every
       // failing check carries the rows it is about, by order number, so each one can be found.
       r.detail && r.detail.length
@@ -86,6 +93,29 @@ export function renderHealth(root, state) {
     list.replaceChildren(
       el("h3", { style: "margin:0 0 8px" }, "What each check found"),
       ...rows);
+  }
+
+  // ★★★ PUT THE MISSING LINE ON EVERY CARD THAT DOES NOT ADD UP (v563).
+  // ⚠️ THE CONFIRM NAMES WHAT IT DOES AND WHAT IT DOES NOT DO, because it writes to every stock card at
+  // once: one row each, the shelf untouched, nothing removed. ⭐ Her shelf (the amount at the top) is the
+  // figure her kitchen agrees with; it is the RECORD that was incomplete.
+  function repairCards() {
+    confirmDialog(
+      "This writes one line on each stock card whose rows do not add up to the amount at the top — "
+      + "either the opening amount it never recorded, or a correction where a movement was counted twice. "
+      + "Your shelf does not move: nothing is added and nothing is taken away, and no row is removed.",
+      () => {
+        const out = reconcileCards(state);
+        if (out.done.length) {
+          save(state);
+          maybeSync(state);
+          toast(`${out.done.length} card${out.done.length === 1 ? "" : "s"} put back in step`);
+        } else {
+          toast("Every card already adds up");
+        }
+        run(true);
+      },
+      { yesLabel: "Put the lines on" });
   }
 
   async function run(again) {

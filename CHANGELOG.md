@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v562)
+# Jienluv2bake — change history (v54 → v563)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v563, THE EIGHT STOCK CARDS THAT COULD NOT BE PUT RIGHT — AND NOW CAN (no database step).**
+
+**Your words:** __"so how this can be clear?"__ — about the eight cards the stock check named. You were right to ask: **there was no way to clear a single one of them.**
+
+**1. ⚠️⚠️ THE CHECK TOLD EIGHT CARDS THE SAME STORY, AND IT WAS ONLY TRUE OF ONE.** **Strong flour** had rows adding to **14 kg** under a 10 kg shelf — that is the two-phones stocktake. But the other seven add up to **LESS** than the shelf: **Instant yeast 1 kg against −142 g, sea salt 100 g against −460 g, olive oil EV 2.375 L against −1.645 L, electricity 1.1 KWH against −0.4 KWH, cycle time 50 min against 20 min, labour 78 hour against 31.2 hour, olive oil premium 200 ml against −240 ml.** ⭐ **Those are cards that were already holding an amount before the card began keeping a history** — sea salt's 560 g went on the shelf before the first row was ever written. ⭐ **The amount at the top is right in both cases; it is the history that is incomplete.**
+
+**2. ⭐⭐ AND NOW THERE IS A PRESS THAT PUTS THE HISTORY RIGHT — WITHOUT TOUCHING YOUR SHELF.** Under the failing line on **More → Check my system** there is now **"Put the missing line on each card"**.
+- ⭐ **It writes the one row each card is missing** — for sea salt, **\+560 g**; for strong flour, **−4 kg** — so the rows then add up to the amount at the top.
+- ⚠️ **It does NOT move your shelf.** The amount at the top is the figure your kitchen agrees with; nothing is added to it and nothing is taken away. ⭐ **You can watch it stay put while the history is repaired.**
+- ⚠️ **It removes nothing**, and it skips any card that has more movements than it keeps — those cannot be judged, and the check already says so.
+- ⭐ The new row says which of the two it is: **"Opening balance — the amount this card already held before it kept a history"**, or **"History correction — a movement counted twice; the shelf is unchanged"**.
+
+**3. ⭐ Measured on the real screen, with your own two cards put into it:** the check failed naming both, the press wrote **+560 g** and **−4 kg**, the shelves stayed at **100 g** and **10 kg**, and the check went **from fail to pass**. Before this version, no press anywhere in the app could do that: a stocktake sets the same amount and writes a row of zero, which changes the sum not at all.
+
+**4. ⚠️ AND TWO THINGS IN THE PARCEL SEAM FROM THE SAME DOCUMENT.** Their tracking history is sent as an **object**, not the list the code expected — so a parcel's journey was being thrown away and only the latest line kept; each event's time is `event_date`/`event_time`, which was not read; and a refused booking's reason is in `remarks`, which was not read either. ⭐ All three now read their own shapes. ⚠️ No screen calls these yet, so nothing looked wrong — but they are the calls the parcel card is meant to use.
+
+**5. Nothing of yours was rewritten by you pressing nothing; the repair only runs when you press it. There is no database step. ⚠️ The `parcel` function must be deployed again, because item 4 lives in it.**
+
+---
 
 **18 Oct 2026 — engine v562, THE PARCEL THAT COULD HAVE BEEN BOOKED WITH THE WRONG COURIER (no database step, but the `parcel` function must be deployed again).**
 

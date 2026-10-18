@@ -260,9 +260,18 @@ export function localChecks(state) {
       }
     }
     if (bad.length) {
-      out.push(fail("stockAddsUp", "The stock card adds up to the shelf", bad,
-        "Every row on a stock card is one movement of your shelf, so the rows must add up to the amount at the top. On these they do not. The AMOUNT AT THE TOP IS RIGHT — it is the history that over-counts. That happens when the same action was recorded on two phones: a stocktake sets an amount rather than adding one, so each phone writes its own row while the shelf takes the amount once.",
-        "Do NOT remove the duplicated rows with the ✕ — that would move your shelf by an amount that was never there. Your shelf is already correct. Use Adjust only when the real amount changes, and check the day's baked figures on BOTH phones rather than one after the other."));
+      // ⚠️⚠️ TWO REASONS, AND THE FIRST SENTENCE ONLY DESCRIBED ONE (v563). Her eight cards were
+      // **one** over-count (strong flour, rows +14 kg under a 10 kg shelf — two phones writing one
+      // absolute stocktake) and **seven** whose rows add up to LESS than the shelf, because the amount
+      // was on the shelf before the card kept any rows. ⭐ The same check, two opposite stories, and the
+      // old text told all eight the over-count one.
+      const why = "Every row on a stock card is one movement of your shelf, so the rows must add up to the amount at the top. On these they do not, and there are two reasons. A stocktake sets an AMOUNT rather than adding one, so when the same stocktake was recorded on two phones each phone writes its own row while the shelf takes the amount once — the history then counts MORE than the shelf. Or an amount was already on the shelf from before this card began keeping a history — the history then counts LESS than the shelf. Either way, the amount at the top is the one to trust: it is the history that is incomplete.";
+      const fix = "Do NOT remove rows with the ✕ — the rows are what explain your shelf, and taking one off moves it. Press the button below instead: it writes the one line each card is missing, so the history adds up to the amount at the top. ⭐ Your shelf does not move — nothing is added to it and nothing is taken away.";
+      const entry = fail("stockAddsUp", "The stock card adds up to the shelf", bad, why, fix);
+      // ⭐ AND THE PRESS THAT CLEARS IT. Without one this check could never go green on her own book:
+      // a stocktake writes the same amount and changes the sum not at all.
+      entry.repair = "stockCards";
+      out.push(entry);
     } else if (capped.length) {
       // ⭐ A real mismatch outranks this, so it is asked first; with none, part of her book still could not
       // be judged, and the rule this page is built on is that "I could not look" is never a pass.

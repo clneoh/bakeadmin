@@ -296,6 +296,14 @@ test("a booking reports what went through AND what did not, with their own words
   assert.equal(out.booked[0].reference, "A3F9C2", "tied back by the order's own code");
   assert.equal(out.failed.length, 1);
   assert.equal(out.failed[0].reason, "Insufficient Credit", "the wallet, named as the wallet");
+
+  // ⚠️ AND THEIR OWN FAIL SAMPLE IS `{referrence, status, remarks}` — no `messagenow`, no orderno.
+  // ⭐ So a refusal written the way their document writes it arrived with NO reason at all.
+  const byRemarks = readOrder({ api_status: "Success", result: [{
+    success: [], fail: [{ referrence: "A3F9C2", status: "Fail", remarks: "The parcel is out of the courier's area." }],
+  }] });
+  assert.equal(byRemarks.failed[0].reason, "The parcel is out of the courier's area.",
+    "★ a refusal in their documented shape (remarks) is not read, so the screen says they did not say why");
 });
 
 test("★★★ the booking says what was CHARGED, not what was quoted (v562)", () => {
@@ -327,7 +335,29 @@ test("a booking that answered with nothing at all is a reason, not a silent succ
   assert.match(out.reason, /no order/);
 });
 
-test("a parcel's progress is read from their list, with a one-line fallback (v307)", () => {
+test("★★★ a parcel's progress is read from THEIR OWN sample, which is an object, not an array (v562)", () => {
+  // ⚠️⚠️ THE FIXTURE THAT HID THIS: this test used to build `status_list` as an ARRAY with
+  // `update` timestamps. ⭐ Their own success sample sends an OBJECT keyed "0", "1", with
+  // `event_date`/`event_time` inside each event and `status`/`sender`/`receiver` beside them —
+  // so the reader found no list, kept only the latest line, and **the whole history was thrown
+  // away**. ⭐ A fixture is a CONSUMER: it has to be the shape the producer actually sends.
+  const withObject = readTracking({ api_status: "Success", result: [{
+    status_list: {
+      0: { event_date: "2026-10-08", event_time: "11:40 AM", status: "Delivered", location: "Penang" },
+      1: { event_date: "2026-10-07", event_time: "09:00 AM", status: "Parcel has been collected", location: "Penang" },
+      status: "", sender: "Yong Tat", receiver: "Sam",
+    },
+    latest_status: "Delivered", latest_update: "2026-10-08", awb: "238725129086",
+  }] });
+  assert.equal(withObject.ok, true);
+  assert.equal(withObject.events.length, 2,
+    "★ their object-shaped history produced no events — **the customer's parcel journey is missing**");
+  assert.deepEqual(withObject.events[0],
+    { status: "Delivered", at: "2026-10-08 11:40 AM" },
+    "★ the time is not read from event_date/event_time, so every event arrives with no time");
+  assert.equal(withObject.events[1].status, "Parcel has been collected");
+
+  // ⭐ And the array shape is still read, because their table calls it an array.
   const withList = readTracking({ api_status: "Success", result: [{
     status_list: [{ status: "Delivered", update: "2026-10-08 14:20:00" }, { status: "In transit", update: "2026-10-07 09:00:00" }],
   }] });

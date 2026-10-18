@@ -204,6 +204,16 @@ $$;
 revoke all on function public.claim_receipt_number(text) from public;
 revoke all on function public.refund_receipt(text, numeric) from public;
 revoke all on function public.unrefund_receipt(text) from public;
+-- ⚠️⚠️ AND FROM `anon` ITSELF, WHICH `revoke ... from public` DOES NOT DO (v564). ⭐ Supabase's default
+-- privileges grant EXECUTE on every new function in `public` DIRECTLY to `anon`, `authenticated` and
+-- `service_role` — so taking it away from PUBLIC leaves anon's own grant in place, and these three
+-- SECURITY DEFINER functions have no check of their own to fall back on. ⚠️ Anyone holding the public
+-- anon key (it ships in the shop, by design) could then draw receipt numbers, mark an order refunded, or
+-- read a code's refund state. ⭐ If anon never had the grant, these lines do nothing; if it did, they
+-- close it. Either way the answer is the same three words.
+revoke all on function public.claim_receipt_number(text) from anon;
+revoke all on function public.refund_receipt(text, numeric) from anon;
+revoke all on function public.unrefund_receipt(text) from anon;
 -- ⚠️ THE GRANT MUST MATCH THE SIGNATURE EXACTLY, and v370 changed two of them: `claim` returns a
 -- wider row and `refund` takes an amount. A grant that names the OLD signature silently grants
 -- nothing, and the function is then callable by nobody.

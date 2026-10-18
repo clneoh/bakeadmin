@@ -8,6 +8,7 @@ import {
   stockOf, applyBought, applyBake, setBakedTotal, bakedOf,
   stockLogOf, logStock, setStock, STOCK_LOG_CAP,
   stockRowUndo, undoStockRow, shopUndoPlan, undoShopBought,
+  cardGap, closeCardGap, reconcileCards,
 } from "../admin/js/stock.js";
 import { orderedOnDay } from "../admin/js/bom.js";
 import { computeSlots } from "../admin/js/supabase.js";
@@ -497,4 +498,79 @@ test("★★ applyBake is one function with a sign, and a movement of nothing wr
     "a delta of zero wrote a journal row saying the shelf moved by nothing");
   applyBake(st, p, "2026-10-16", -2);
   assert.equal(ing.onHand, 1000, "…and the same function with the sign the other way puts it back");
+});
+
+// ── ★★★ a card that does not add up CAN BE PUT RIGHT (v563) ─────────────────
+//
+// ⚠️⚠️ HER OWN EIGHT CARDS. "Check my system" named them and the screen offered no way to clear a single
+// one: a stocktake sets the SAME amount and writes a zero row, so the sum never changes. ⭐ **A check that
+// can only be read is a check she cannot fix.**
+
+test("★★★ the opening amount a card never recorded is written, and the SHELF does not move", () => {
+  // Her sea salt, in grams: 100 g on the shelf, and the rows add up to −460 g — the card began keeping
+  // rows AFTER 560 g had already been put on the shelf.
+  const ing = { id: "ing_s", name: "Sea salt", unit: "g", uomId: "g", onHand: 100,
+    stockLog: [{ delta: -460, why: "baked", what: "Baked — 2 × Focaccia" }] };
+  assert.equal(cardGap(ing), 560, "precondition: the card is short by 560 g");
+  const wrote = closeCardGap(ing);
+  assert.equal(wrote, 560);
+  assert.equal(ing.onHand, 100,
+    "★ the repair MOVED HER SHELF — **the amount at the top is the figure her kitchen agrees with**");
+  assert.equal(cardGap(ing), 0, "★ the card still does not add up after the repair");
+  assert.match(String(stockLogOf(ing)[0].what), /Opening balance/,
+    "★ the new row does not say what it is — it must read as the opening amount, not as a movement");
+});
+
+test("★★★ and a history that counted a movement twice is corrected DOWNWARD, shelf unchanged", () => {
+  // Her strong flour: 10 kg on the shelf, rows adding to 14 kg — two phones each wrote their own
+  // absolute stocktake while the shelf took the amount once.
+  const ing = { id: "ing_f", name: "Strong flour", unit: "g", uomId: "g", onHand: 10000,
+    stockLog: [{ delta: 10000, why: "stocktake", what: "Stocktake — 0 g to 10 kg" },
+      { delta: 10000, why: "stocktake", what: "Stocktake — 0 g to 10 kg" },
+      { delta: -6000, why: "baked", what: "Baked extra — 6 × Focaccia" }] };
+  assert.equal(cardGap(ing), -4000, "precondition: the rows over-count by 4 kg");
+  assert.equal(closeCardGap(ing), -4000);
+  assert.equal(ing.onHand, 10000, "★ the flour shelf moved — it must not");
+  assert.equal(cardGap(ing), 0);
+  assert.match(String(stockLogOf(ing)[0].what), /counted twice/,
+    "★ a downward correction reads as the opening-balance sentence, which is the wrong story");
+});
+
+test("★★★ a card that already adds up gets no row, and a FULL card is skipped rather than half-fixed", () => {
+  const fine = { id: "ing_ok", name: "Butter", unit: "g", uomId: "g", onHand: 500,
+    stockLog: [{ delta: 500, why: "bought", what: "Bought — 1 pack" }] };
+  assert.equal(closeCardGap(fine), 0, "★ a card that adds up was given a correction row anyway");
+  assert.equal(stockLogOf(fine).length, 1);
+
+  // ⚠️ A CARD AT ITS CAP: its oldest rows are already gone, so another row would drop one more and the
+  // sum would still mean nothing.
+  const full = { id: "ing_cap", name: "Yeast", unit: "g", uomId: "g", onHand: 1000,
+    stockLog: Array.from({ length: STOCK_LOG_CAP }, () => ({ delta: 10, why: "baked", what: "Baked" })) };
+  const before = stockLogOf(full).length;
+  const out = reconcileCards({ ingredients: [fine, full] });
+  assert.deepEqual(out.done, [], "★ a card that cannot be judged was 'repaired'");
+  assert.deepEqual(out.skipped, ["Yeast"]);
+  assert.equal(stockLogOf(full).length, before, "★ a full card was written to and lost an older row");
+});
+
+test("★★★ reconcileCards clears ALL of her eight, and says how many it touched", () => {
+  const mk = (name, onHand, deltas) => ({ id: `ing_${name}`, name, unit: "g", uomId: "g", onHand,
+    stockLog: deltas.map((d) => ({ delta: d, why: "baked", what: "Baked" })) });
+  const st = { ingredients: [
+    mk("Strong flour", 10000, [10000, 10000, -6000]),
+    mk("Instant yeast", 1000, [-142]),
+    mk("Sea salt", 100, [-460]),
+    mk("Olive oil EV", 2375, [-1645]),
+    mk("Electricity", 1.1, [-0.4]),
+    mk("cycle time for focaccia", 50, [20]),
+    mk("labour", 78, [31.2]),
+    mk("Olive oil premium", 200, [-240]),
+  ] };
+  const out = reconcileCards(st);
+  assert.equal(out.done.length, 8, "★ her eight cards were not all put back in step");
+  for (const ing of st.ingredients) {
+    assert.equal(cardGap(ing), 0, `★ ${ing.name} still does not add up`);
+  }
+  assert.deepEqual(st.ingredients.map((i) => i.onHand), [10000, 1000, 100, 2375, 1.1, 50, 78, 200],
+    "★★ a repair moved one of her shelves — **it must only ever write the missing line**");
 });

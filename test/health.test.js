@@ -864,6 +864,41 @@ test("★★★ a stock card whose rows do not add up to the shelf is NAMED — 
   // ⭐ AND THE WAY OUT MUST NOT BE THE ✕ — removing a duplicated row would take 10 kg off a shelf that
   // never gained it.
   assert.match(r.fix, /DO NOT remove|Do NOT remove/, "the check does not warn against the ✕");
+  // ★★★ AND THERE IS A PRESS THAT CLEARS IT (v563). ⚠️ Before it, this check could never go green on her
+  // own book: a stocktake sets the same amount and changes the sum by nothing.
+  assert.equal(r.repair, "stockCards",
+    "★ the check names a fault with no press to fix it — **a check she can only read is one she cannot clear**");
+});
+
+test("★★★ the press actually CLEARS it — and tells the truth about which of the two it was", async () => {
+  // ⚠️⚠️ HER EIGHT CARDS WERE TWO DIFFERENT STORIES. One over-counted (strong flour); seven counted LESS
+  // than the shelf, because the amount was on it before the card kept a history. The old sentence told
+  // all eight the over-count story.
+  const { reconcileCards } = await import("../admin/js/stock.js");
+  const st = healthy();
+  st.uoms = [{ id: "g", name: "g", family: "weight", toBase: 1 },
+    { id: "kg", name: "kg", family: "weight", toBase: 1000 }];
+  st.ingredients = [
+    { id: "i1", name: "Strong flour", unit: "kg", uomId: "kg", onHand: 10000,
+      stockLog: [{ delta: 10000 }, { delta: 10000 }, { delta: -6000 }] },
+    { id: "i2", name: "Sea salt", unit: "g", uomId: "g", onHand: 100,
+      stockLog: [{ delta: -460 }] },
+  ];
+  const before = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "stockAddsUp");
+  assert.equal(before.status, "fail", "precondition");
+
+  const out = reconcileCards(st);
+  assert.equal(out.done.length, 2);
+
+  const after = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "stockAddsUp");
+  assert.equal(after.status, "pass",
+    "★★ the press ran and the check STILL fails — **she would press it and see the same red line**");
+  // ⭐ AND HER SHELVES DID NOT MOVE.
+  assert.deepEqual(st.ingredients.map((i) => i.onHand), [10000, 100],
+    "★★ the repair moved a shelf — it may only write the missing line");
+  // ⭐ Both stories are said, because both happened.
+  assert.match(before.why, /MORE than the shelf/);
+  assert.match(before.why, /LESS than the shelf/);
 });
 
 test("★★ and a card with too many movements to add up is SKIPPED, never passed", async () => {

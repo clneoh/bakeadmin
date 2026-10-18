@@ -117,6 +117,58 @@ export function stockOf(state, ingredient) {
   return Math.max(0, Number(ingredient && ingredient.onHand) || 0);
 }
 
+// ★★★ WHAT A CARD'S ROWS DO NOT EXPLAIN (v563).
+//
+// ⚠️⚠️ HER OWN CHECK ASKED THIS AND THE APP HAD NO ANSWER. "Check my system" found eight cards whose
+// rows do not add up to the amount at the top, and the only advice on screen was about two phones
+// doing one stocktake — ⭐ **which is TRUE of one of them (strong flour, rows +14 kg under a 10 kg
+// shelf) and FALSE of the other seven, whose rows add up to LESS than the shelf** because the amount
+// was on the shelf **before this card kept any rows at all**. ⚠️ And **no press in the app could clear
+// any of them**: a stocktake sets the same amount and writes a zero row, which changes the sum not at all.
+//
+// ⭐ The gap is what one line would have to say for the card to explain its own figure:
+//   · positive — the history is SHORT of the shelf (an opening amount was never written down);
+//   · negative — the history OVER-COUNTS it (two phones writing one absolute stocktake).
+export function cardGap(ingredient) {
+  const log = stockLogOf(ingredient);
+  const sum = round2(log.reduce((acc, e) => acc + (Number(e && e.delta) || 0), 0));
+  return round2((Number(ingredient && ingredient.onHand) || 0) - sum);
+}
+
+// Write that one line. ⚠️ **THE SHELF DOES NOT MOVE** — `onHand` is not touched, because the amount at
+// the top is the figure her shelves agree with; it is the HISTORY that is incomplete. ⭐ The sentence
+// says which of the two it is, so the row is honest about what it is: an opening balance she never
+// wrote down, or a correction of a history that counted a movement twice.
+export function closeCardGap(ingredient) {
+  const gap = cardGap(ingredient);
+  if (!gap) return 0;
+  logStock(ingredient, {
+    delta: gap,
+    why: "opening",
+    keepZero: true,
+    what: gap > 0
+      ? "Opening balance — the amount this card already held before it kept a history"
+      : "History correction — a movement counted twice; the shelf is unchanged",
+  });
+  return gap;
+}
+
+// Every card that does not add up, in one pass — what the "Check my system" press calls.
+// ⚠️ A CARD AT ITS CAP IS SKIPPED, NOT "FIXED": its oldest rows are already gone, so writing another
+// row would drop one more and the sum would still be meaningless. The check skips the same cards for
+// the same reason, and both say so.
+export function reconcileCards(state) {
+  const done = [];
+  const skipped = [];
+  for (const ing of (Array.isArray(state && state.ingredients) ? state.ingredients : [])) {
+    if (!ing) continue;
+    if (stockLogOf(ing).length >= STOCK_LOG_CAP) { skipped.push(String(ing.name || "an ingredient")); continue; }
+    const gap = closeCardGap(ing);
+    if (gap) done.push({ name: String(ing.name || "an ingredient"), gap });
+  }
+  return { done, skipped };
+}
+
 // ★★ WHAT A ROW WOULD DO IF IT WERE REMOVED, WITHOUT DOING IT (v390).
 //
 // Her words: __"certain listed i might want to delete after testing"__. A stock card line IS a

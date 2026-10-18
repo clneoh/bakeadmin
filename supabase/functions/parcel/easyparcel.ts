@@ -391,7 +391,9 @@ export function readOrder(json: unknown): { ok: true; booked: Booked[]; failed: 
     }
     // Their own words, and the one that matters most is "Insufficient Credit" — a wallet
     // problem she can fix in a minute, said as a wallet problem rather than as a failure.
-    const said = String(x.messagenow || x.message || parcel.messagenow || "").trim();
+    // ⚠️ `remarks` IS THE FIELD THEIR OWN FAIL SAMPLE USES (Response L5: referrence, status,
+    // remarks), and it was not read (v562) — so a refusal written that way arrived with no reason.
+    const said = String(x.messagenow || x.message || x.remarks || parcel.messagenow || "").trim();
     if (said || x.orderno) {
       failed.push({
         orderNumber: String(x.orderno || "").trim(),
@@ -416,10 +418,27 @@ export function readTracking(json: unknown): { ok: true; events: TrackEvent[] } 
   const r = (json || {}) as Reply;
   const first = Array.isArray(r.result) ? (r.result[0] as Reply) : null;
   if (!first) return { ok: false, reason: "EasyParcel did not answer with a parcel." };
-  const list = Array.isArray(first.status_list) ? first.status_list : [];
+  // ⚠️⚠️ `status_list` IS AN OBJECT IN THEIR OWN SAMPLE, NOT AN ARRAY (v562). Their Response L3 table
+  // calls it an array, and their success sample on the next page sends `{"0": {...}, "1": {...},
+  // "status": "", "sender": "...", "receiver": "..."}` — ⭐ so `Array.isArray` found nothing and the
+  // whole history was thrown away, leaving only the latest line. Both shapes are read now, the
+  // numbered keys in order and their three bookkeeping keys ignored.
+  const list: unknown[] = Array.isArray(first.status_list)
+    ? first.status_list
+    : (first.status_list && typeof first.status_list === "object"
+      ? Object.entries(first.status_list as Record<string, unknown>)
+        .filter(([k]) => /^\d+$/.test(k))
+        .sort((a, b) => Number(a[0]) - Number(b[0]))
+        .map(([, v]) => v)
+      : []);
   const events = list.map((e): TrackEvent => {
     const x = (e || {}) as Reply;
-    return { status: String(x.status || "").trim(), at: String(x.update || x.datetime || "").trim() };
+    // ⚠️ AND THE TIME IS `event_date` + `event_time` (Response L4) — `update`/`datetime` are not fields
+    // their sample sends, so every event used to arrive with no time at all.
+    const at = String(x.update || x.datetime
+      || [x.event_date, x.event_time].map((v) => String(v || "").trim()).filter(Boolean).join(" ")
+      || "").trim();
+    return { status: String(x.status || "").trim(), at };
   }).filter((e) => e.status);
   if (!events.length) {
     const latest = String(first.latest_status || "").trim();
