@@ -619,3 +619,39 @@ test("★★★ a repaint keeps her place — the page does not jump to the top 
     // repaint left it at 400, and a NAVIGATION to another screen behaved exactly as it did before.
   } finally { restore(); }
 });
+
+test("★★★ a NAVIGATION closes a card she left open, and opens at the top", async () => {
+  // ⚠️⚠️ TWO FAULTS FROM ONE MISTAKE (v552): the app compared the PATH and not the whole address. ⭐ **A
+  // card left open stayed open across a navigation** — answering it painted the old screen over the new
+  // one, under a topbar that still named the screen she had left. ⭐ And **the History list and a saved
+  // list are both `/history`**, so moving between them kept the old screen's scroll.
+  freshDOM();
+  installStorage({ "bakeadmin.v1": stateJSON() });
+  try {
+    await import("../admin/js/app.js?case=nav");
+    const listeners = window._listeners.hashchange || [];
+    assert.ok(listeners.length, "the app does not listen for a route change — this test cannot drive one");
+    const popup = document.getElementById("popup-layer");
+    const scroller = document.scrollingElement;
+
+    // A card is open, and she is partway down the screen.
+    popup.hidden = false;
+    scroller.scrollTop = 400;
+
+    // She navigates to another address.
+    location.hash = "#/more";
+    listeners.forEach((f) => f());
+    assert.equal(popup.hidden, true,
+      "★ a card she opened on the old screen is still open over the new one — **answering it would paint "
+      + "the old screen under a topbar that names the new one**");
+    assert.equal(scroller.scrollTop, 0, "★ the new screen opened at the old screen's scroll");
+
+    // ⭐ AND A REPAINT OF THE SAME ADDRESS KEEPS BOTH — the 30-second sync must not shut her card.
+    popup.hidden = false;
+    scroller.scrollTop = 250;
+    listeners.forEach((f) => f());
+    assert.equal(popup.hidden, false,
+      "★ a sync repaint closed a card she was working in — the same address is not a navigation");
+    assert.equal(scroller.scrollTop, 250, "★ a sync repaint dropped her to the top");
+  } finally { restore(); }
+});

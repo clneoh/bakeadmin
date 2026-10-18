@@ -22,7 +22,21 @@ export function renderLock(layerEl, state, { onUnlocked } = {}) {
       return;
     }
     go.disabled = true;
-    const h = await hashPin(input.value);
+    // ⚠️⚠️ A PASSWORD THAT CANNOT BE CHECKED MUST NOT LOCK HER OUT (v552). ⭐ `hashPin` uses the browser's
+    // `crypto.subtle`, which **does not exist on an insecure page** — so on a phone opening the app over
+    // `http://` on the local network, typing the CORRECT password rejected, and the press had already been
+    // disabled: **a button that never comes back and says nothing.** ⭐ The error is caught now, the press
+    // is given back, and the message names the one thing that actually fixes it.
+    let h;
+    try {
+      h = await hashPin(input.value);
+    } catch {
+      go.disabled = false;
+      err.textContent = "This phone cannot check the password on this address. Open the app from the "
+        + "https:// address (or localhost on a computer), then try again.";
+      input.focus();
+      return;
+    }
     if (h === state.settings.lock.pinHash) {
       err.textContent = "";
       close();

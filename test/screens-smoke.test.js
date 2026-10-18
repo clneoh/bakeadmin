@@ -313,6 +313,30 @@ test("★★★ every bake-day box is labelled, including Sunday", () => {
     `★ a box has no name on it — **she can tick a day the screen never named** (${JSON.stringify(labels)})`);
 });
 
+// ── ★★★ MORE COUNTS ORDERS, NOT ROWS (v552) ────────────────────────────────
+//
+// ⚠️⚠️ A two-item shop cart is TWO rows and ONE order. ⭐ Every other surface says one — the Orders badge,
+// Home's "N new orders", the Orders screen itself — and More said two, so it disagreed with all three
+// about the same cart.
+test("★★★ More's header counts ORDERS, not the rows they are stored as", () => {
+  const st = defaultState();
+  st.orders = [
+    { id: "a11111", groupId: "grp111", deliveryDateId: "", qty: 1, status: "new" },
+    { id: "a22222", groupId: "grp111", deliveryDateId: "", qty: 1, status: "new" },
+  ];
+  const root = createEl("div");
+  modules.renderMore(root, st, new URLSearchParams());
+  const words = [];
+  (function walk(n) {
+    if (!n || typeof n !== "object") return;
+    if (n.nodeType === 3) { words.push(String(n.text || "")); return; }
+    for (const c of n.children || []) walk(c);
+  })(root);
+  const said = words.join(" ");
+  assert.ok(/\b1 order\b/.test(said) && !/\b2 orders\b/.test(said),
+    `★ one cart of two items was counted as two orders — **every other screen calls it one** (said: ${said.slice(0, 200)})`);
+});
+
 // ── ★★ THE ROUTE TABLE IS THE INVITATION LIST, NOT THIS FILE ────────────────
 test("★★ every route in the app is covered by this smoke pass", async () => {
   const src = await (await import("node:fs/promises")).readFile(

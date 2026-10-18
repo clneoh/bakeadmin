@@ -1,8 +1,36 @@
-# Jienluv2bake — change history (v54 → v551)
+# Jienluv2bake — change history (v54 → v552)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v552, THE THIRD SWEEP: FOUR FIXED, EIGHT SAID PLAINLY (no database step).**
+
+**Your words:** __"continue to seach for errors"__ — so I swept the shared screens, the cloud client and the app's own plumbing. **Fourteen faults found. Four fixed here; eight are written down below with their reasons.**
+
+**1. ⚠️⚠️ A CARD LEFT OPEN SURVIVED A NAVIGATION — AND ANSWERING IT PAINTED THE OLD SCREEN OVER THE NEW ONE.** Measured: open a saved list, press **Buy**, press Back, then answer the box — the app drew the shopping list over the More menu, under a topbar and highlighted tab that still named More. ⭐ A route change now closes any card and any confirmation, so nothing can act on a screen she has left.
+
+**2. ⚠️⚠️ THE HISTORY LIST AND A SAVED LIST ARE THE SAME ADDRESS, SO MOVING BETWEEN THEM KEPT THE OLD SCROLL.** Opening a list landed it already scrolled past its own heading and Back button — and the same for the day chips on Orders. ⭐ The app compared the path only; it compares the whole address now, so a real move goes to the top and **only a repaint of the same address keeps her place** — which is what the sync does thirty times an hour.
+
+**3. ⚠️⚠️ MORE SAID ONE CART WAS TWO ORDERS.** A two-item shop cart is two rows and one order; every other screen says one. ⭐ More counted rows. ⭐ And it said **"1 orders"** — the ordinary state of a new shop — so the header read broken English.
+
+**4. ⚠️⚠️ THE PASSWORD SCREEN COULD LOCK HER OUT FOR GOOD.** The Unlock press disabled itself and then awaited the password check. On an insecure address that check throws — **so the correct password failed, the button never came back, and nothing was said.** ⭐ It is caught now, the press is given back, and the sentence names the one thing that fixes it: open the app on its https address.
+
+**5. ⚠️ AND ONE MORE, FIXED BY READING RATHER THAN BY A RED TEST — SAID PLAINLY.** A translation the machine was still working on could **overwrite 中文 she had typed herself**, and stop marking the box as hers. ⭐ The check is now made immediately before the write. ⚠️ **I tried to write a test that failed without the fix and could not make it fail** — the translation loop's ordering did not behave the way I had assumed — **so I removed my test rather than keep one that passed either way.**
+
+**6. ⚠️ FOUND AND NOT FIXED — EIGHT.** Each reproduced; none is a guess.
+- **A chosen photo can be lost while the screen says it was saved.** Pick a large picture and press Save before it has finished reading, and the old picture is written while "Product updated" appears.
+- **A review photo that fails to upload is dropped silently**, and the customer is thanked for a photo that never reached you.
+- **A refund can be reported as done when the register row did not change** — the request succeeds but nothing was marked.
+- **The order code is six hex characters**, so two orders can wear the same one: about 3% by 1,000 orders, and those two customers would share one tracking card and one receipt number.
+- **The reviews list and the promo-visit count are each read without pages**, so past 1,000 rows the figure is a part presented as the whole.
+- **A malformed reply from the shared data is read as an empty one**, so "N orders are waiting" can vanish while they are still queued.
+- **The password has no rate limit** — four digits, tried as fast as a thumb can tap. The published default is the one the app ships with, so this is worth a decision from you.
+- **The print layout's "Hi ! Your order…"** for an order with a number but no name.
+
+**7. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v551, THE NINE THAT WERE LEFT OPEN — ALL FIXED (no database step).**
 

@@ -245,7 +245,25 @@ function render() {
   // **only when the page has actually been dropped** — if something moved it, that is the answer, and the
   // `!scroller.scrollTop` test is what asks that without guessing who moved it.
   const scroller = document.scrollingElement || document.documentElement || null;
-  const keepY = path === lastRenderedPath && scroller ? scroller.scrollTop : 0;
+  // ★★★ A NAVIGATION IS THE WHOLE ADDRESS, NOT THE PATH (v552).
+  // ⚠️⚠️ Two faults came from comparing `path` alone. ⭐ **The query is part of where she is:** the History
+  // list and a saved list are both `/history`, and the day chips are all `/orders` — so **moving between
+  // them kept the previous screen's scroll**, opening a detail already scrolled past its own heading.
+  // ⭐ And ⚠️⚠️ **a card left open stayed open across a navigation**: answering it then painted the old
+  // screen over the new one, with the topbar and the highlighted tab still naming the screen she had left.
+  // ⭐ One notion, used twice: the address is what changed, and a change means the top of the page and no
+  // card from the last one. ⚠️ A repaint of the SAME address (the 30-second sync) keeps both.
+  const addrNow = (() => {
+    try { return String(location.hash || "").replace(/^#/, "") || path; } catch { return path; }
+  })();
+  const navigating = addrNow !== lastRenderedPath;
+  if (navigating) {
+    for (const id of ["popup-layer", "confirm-layer"]) {
+      const layer = document.getElementById(id);
+      if (layer) { layer.hidden = true; layer.replaceChildren(); }
+    }
+  }
+  const keepY = !navigating && scroller ? scroller.scrollTop : 0;
 
   viewEl.replaceChildren();
   updateOrderBadge(state);
@@ -268,7 +286,7 @@ function render() {
   // ⚠️ PUT BACK BEFORE THE BROWSER PAINTS — nothing runs in between, so she never sees the top, and the
   // restore itself cannot move a box whose own scroll a view is still measuring.
   if (keepY > 0 && scroller && !scroller.scrollTop) scroller.scrollTop = keepY;
-  lastRenderedPath = path;
+  lastRenderedPath = addrNow;
   // ★★★ WHICH DAY THIS SCREEN WAS DRAWN FOR (v513) — see `dayMoved` beside `onSyncChanged`. ⭐ Written
   // HERE and nowhere else, so it can never claim a repaint that did not happen: ⚠️ the day check above
   // leaves it alone when it could not repaint (mid-edit, locked), so the next look tries again.
