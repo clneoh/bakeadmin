@@ -22,6 +22,9 @@ const en = {
   buildStale: "A newer version of this page is ready.",
   buildStuck: "A newer version is ready. Close this page completely, then open it again.",
   buildReload: "Reload",
+  buildWarnTitle: "Your order is not saved yet.",
+  buildWarnBody: "Reloading starts this page again — the bake day, the basket and anything you have typed will be gone. Press Reload again if you want to update now.",
+  buildAnyway: "Reload anyway",
 
   // Promo codes (v269). The offer is composed in store/app.js out of the engine's
   // PARTS — kind and value — so a percentage, an amount and free delivery each
@@ -465,6 +468,9 @@ const zh = {
   buildStale: "这个页面有新版本了。",
   buildStuck: "有新版本了。请把这个页面完全关掉，再重新打开。",
   buildReload: "重新载入",
+  buildWarnTitle: "你的订单还没有保存。",
+  buildWarnBody: "重新载入会让这一页从头开始 — 烘焙日、购物车和已经填写的内容都会消失。如果想现在更新，请再按一次载入。",
+  buildAnyway: "仍然载入",
 
   promoLabel: "有优惠码吗？",
   promoPh: "例如 FRESH10",
@@ -703,6 +709,9 @@ const ms = {
   buildStale: "Versi baharu halaman ini sudah sedia.",
   buildStuck: "Versi baharu sudah sedia. Tutup halaman ini sepenuhnya, kemudian buka semula.",
   buildReload: "Muat semula",
+  buildWarnTitle: "Order anda belum disimpan.",
+  buildWarnBody: "Memuat semula akan memulakan halaman ini semula — hari membakar, troli dan apa yang anda taip akan hilang. Tekan Muat semula sekali lagi jika mahu dikemas kini sekarang.",
+  buildAnyway: "Muat semula juga",
 
   promoLabel: "Ada kod?",
   promoPh: "cth. FRESH10",

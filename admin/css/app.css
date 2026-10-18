@@ -458,7 +458,9 @@ body { min-height: 100vh; }
 .view {
   max-width: 540px;
   margin: 0 auto;
-  padding: 14px 14px calc(var(--tabbar-h) + 20px + env(safe-area-inset-bottom));
+  /* ⚠️ ⚠️ AND THE UPDATE STRIP'S OWN HEIGHT (v555) — measured by freshness.js into --update-bar-h.
+     Without it the amber bar's ~50px sat over the last row of every long screen at full scroll. */
+  padding: 14px 14px calc(var(--tabbar-h) + 20px + env(safe-area-inset-bottom) + var(--update-bar-h, 0px));
   outline: none;
 }
 .view:focus { outline: none; }

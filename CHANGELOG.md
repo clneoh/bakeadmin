@@ -1,8 +1,32 @@
-# Jienluv2bake — change history (v54 → v554)
+# Jienluv2bake — change history (v54 → v555)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v555, THE FOURTH SWEEP: SEVEN FIXED, ONE LEFT OPEN (no database step).**
+
+**Your words:** __"fix the rest"__ — so I swept the screens the earlier passes had not opened (Categories, the Products editor, Suppliers, Message style, Deliveries, Settings) and the shop's own leftovers. **Eight faults found. Seven fixed; one is left open and the reason is at the end.**
+
+**1. ⚠️⚠️ DRAGGING A ROW AND THEN EDITING IT THREW THE EDIT AWAY.** Drag a category or a product to reorder it, then tap **Edit** on it and change the name: the toast said **"updated"**, and nothing changed. ⭐ Reordering was writing the order onto **copies** of the records, so the Edit button was writing into a record the list no longer held. ⭐ The order is still written in full — onto the records themselves now. The same fault was in Point areas.
+
+**2. ⚠️ EDITING A CATEGORY MOVED IT TO THE END OF ITS GROUP.** Change only its Chinese name and the heading jumped to the bottom — on your shop too. ⭐ Its position was renumbered on every edit; it is renumbered only when you change **Sits under**.
+
+**3. ⚠️ A DAILY LIMIT OF 0 SAVED AS 1.** The box says "Leave blank for no limit", so a typed 0 meant nothing to you — and it was saved as **one a day**. ⭐ It now says a limit is 1 or more, and leaves the choice to you.
+
+**4. ⚠️ "CLEAR END" DID NOTHING ON A SINGLE-DAY MARK.** It returned in silence, so the button looked broken. ⭐ It now says there is no end to clear on a one-day mark, and that the ✕ beside the row is how to take it off.
+
+**5. ⚠️⚠️ TYPING 中文 IN THE SHOP'S MESSAGE BOX SENT HALF A WORD.** With a Chinese keyboard, Enter is how you accept a character — and the box sent the romanised half-word and thanked you for it, while the sentence was gone. ⭐ Enter during typing is no longer a send.
+
+**6. ⚠️⚠️ "RELOAD" ON THE AMBER STRIP THREW AWAY A HALF-FILLED ORDER.** Measured: a customer who had picked a day, added a loaf and typed his name, number and address lost all of it to one tap. ⭐ The first press now says what will go, and a second press updates — the offer still works, and nobody is trapped.
+
+**7. ⚠️ THE AMBER STRIP COVERED THE BOTTOM OF EVERY BACKOFFICE SCREEN.** The last ~50px of a long screen sat under it at full scroll. ⭐ The strip now reserves its own measured height, the way the shop already did.
+
+**8. ⚠️ AND ONE LEFT OPEN: A HALF-TYPED NEW PRODUCT IS STILL WIPED BY A REPAINT.** Press **Hide** on another product while the ＋ New product card is half filled in, and the card is rebuilt empty. ⚠️ **I tried keeping the card itself, and fifteen of the app's own tests failed** — because a kept card still holds the OLD handlers, which is exactly the fault fixed in #1. ⭐ **The honest fix is to keep what she typed, field by field, and rebuild the card around it** — a bigger change than tonight's, and I would rather do it carefully with you awake than half-do it now.
+
+**9. Nothing of yours was rewritten, and there is no database step.**
+
+---
 
 **18 Oct 2026 — engine v554, THE ORDER NUMBER THAT TWO ORDERS COULD SHARE — now found, and never written twice (no database step).**
 

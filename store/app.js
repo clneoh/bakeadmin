@@ -37,7 +37,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "554";
+export const SHOP_BUILD = "555";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1363,6 +1363,13 @@ function renderFeedback(cfg) {
   // key. Shift+Enter is not a second line — she asked for one line.
   box.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
+    // ⚠️⚠️ ENTER IS ALSO HOW A CHINESE KEYBOARD ACCEPTS A CHARACTER (v555). ⭐ With a pinyin or IME
+    // keyboard, typing 我想 means typing "wo xiang" and pressing Enter to take the candidate — and this
+    // handler sent the ROMANISED HALF-WORD and thanked them for it, while the sentence they were writing
+    // was gone. ⭐ The shop offers 中文, so this was the box's least usable language.
+    // ⚠️ `isComposing` is the browser's own answer, and `keyCode === 229` is the older one several Android
+    // keyboards still send. Neither is a send.
+    if (e.isComposing || e.keyCode === 229) return;
     e.preventDefault();
     return send(); // returned so a test can await the send this key started
   });
@@ -5586,8 +5593,38 @@ if (typeof document !== "undefined" && document.documentElement) {
   // back — so if this press did nothing, the remembered flag is what turns the second sight of this
   // notice into the honest "close the page completely and open it again" instead of **the same
   // button quietly doing nothing a second time.**
+  // ⚠️⚠️ RELOAD STARTS THE PAGE AGAIN: the bake day, the basket and every box are gone. ⭐ Measured: a
+  // customer who had picked a day, added a loaf and typed his name, number and address lost all of it to
+  // one tap of the amber strip — **nothing asked, and nothing was recoverable.** ⚠️ The strip is offered
+  // while he is mid-order by design, so the warning is not a nicety.
+  // ⭐ ONE press warns and says what will go; a SECOND press updates, so the offer still works and nobody
+  // is trapped. ⭐ Only when there is something to lose — an empty page reloads on the first press.
+  let buildWarned = false;
+  function orderInProgress() {
+    const typed = ["name-input", "whatsapp-input", "address-input", "note-input"].some((id) => {
+      const n = typeof document !== "undefined" ? document.getElementById(id) : null;
+      return !!(n && String(n.value || "").trim());
+    });
+    if (typed) return true;
+    const count = typeof document !== "undefined" ? document.getElementById("bar-count") : null;
+    const n = Number(String((count && count.textContent) || "").replace(/[^\d]+/g, ""));
+    return Number.isFinite(n) && n > 0;
+  }
+  function warnBuildOnce(btn) {
+    if (buildWarned || !orderInProgress()) return false;
+    buildWarned = true;
+    showConfirm([
+      el("p", { class: "confirm-title" }, t("buildWarnTitle")),
+      el("p", { class: "confirm-body" }, t("buildWarnBody")),
+    ], "warn");
+    try { btn.textContent = t("buildAnyway"); } catch { /* a read-only button: the press still warned */ }
+    return true;
+  }
+
   const buildBtn = document.getElementById("build-reload");
+  // ★★★ AND IT WARNS BEFORE IT THROWS AN ORDER AWAY (v555) — see `warnBuildOnce` below.
   if (buildBtn) buildBtn.addEventListener("click", () => {
+    if (warnBuildOnce(buildBtn)) return;
     rememberBuildTried();
     paintBuildNotice();
     if (typeof location !== "undefined" && typeof location.reload === "function") location.reload();

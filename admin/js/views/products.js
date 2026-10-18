@@ -494,7 +494,14 @@ function availabilityCard(state, product) {
     // own key — `sel` alone could be pointing at a different row afterwards.
     const setEnd = (end, iso) => {
       const want = normRules([{ ...r, [end]: iso }])[0];
-      if (!want) return; // an end-only mark with that end cleared says nothing
+      if (!want) {
+        // ⚠️⚠️ A PRESS THAT DOES NOTHING MUST SAY WHY (v555). ⭐ A mark with only ONE end — a single day —
+        // cannot lose it: cleared, it would say "every day, for ever". ⭐ It returned in silence, so "Clear
+        // end" was a dead button that left the mark exactly where it was. ⭐ The way to take a day off is
+        // the ✕ beside its row, and that is what it now says.
+        toast("This mark is a single day, so there is no end to clear — take it off with the ✕ beside it.");
+        return;
+      }
       rules = tidyRules([...rules.slice(0, sel), want, ...rules.slice(sel + 1)]);
       sel = rules.findIndex((x) => keyOf(x) === keyOf(want));
       paint();
@@ -1021,7 +1028,14 @@ function buildEditor(state, product) {
     }
     const cycle = validateRecipeNoCycle(state, { id: product && product.id, name: pname, recipe });
     if (cycle) return { error: cycle };
-    const limitVal = limit.value === "" ? undefined : Math.max(1, Number(limit.value));
+    // ⚠️⚠️ ZERO IS NOT A LIMIT OF ONE (v555). ⭐ The box says "Leave blank for no limit" — so a typed 0
+    // meant "no limit" to her and was silently saved as **1 a day**, which the row then read back as
+    // "1/day". ⭐ Asked for a number that cannot mean what she typed, the app says so instead of choosing.
+    const limitRaw = limit.value === "" ? null : Number(limit.value);
+    if (limitRaw != null && !(Number.isFinite(limitRaw) && limitRaw >= 1)) {
+      return { error: "A daily limit is 1 or more — leave the box blank for no limit." };
+    }
+    const limitVal = limitRaw == null ? undefined : Math.floor(limitRaw);
     let closeVal;
     if (closeDays.value !== "") {
       const raw = Number(closeDays.value);
