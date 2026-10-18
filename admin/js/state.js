@@ -1222,8 +1222,14 @@ export function duplicateOrderCodes(orders) {
 // only way two screens can show two figures for one name** — the card and the sheet both read `onHand`.
 // ⚠️ And nothing stopped a second one being made. `exceptId` is the record being RENAMED, which must not
 // count as a clash with itself.
+// ⚠️ ONE SPELLING OF "THE SAME NAME" (v568). The check and the Add warning must agree: case, surrounding
+// spaces AND runs of spaces inside it are collapsed, so "Strong  flour" is the same card as "Strong flour".
+export function ingredientNameKey(name) {
+  return String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export function sameNameIngredient(state, name, exceptId = "") {
-  const key = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const key = ingredientNameKey;
   const wanted = key(name);
   if (!wanted) return null;
   return (Array.isArray(state && state.ingredients) ? state.ingredients : [])
@@ -1238,10 +1244,14 @@ export function sameNameIngredient(state, name, exceptId = "") {
 // used, and a pair and nothing else. ⚠️ **HIDING, NEVER DELETING**: her base rule is that anything a
 // transaction has used cannot be deleted, and hiding keeps the stock card it explains.
 export function duplicateIngredientPlan(state) {
-  const key = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const key = ingredientNameKey;
   const byName = new Map();
   for (const i of (Array.isArray(state && state.ingredients) ? state.ingredients : [])) {
     if (!i || !key(i.name)) continue;
+    // ⚠️⚠️ A HIDDEN CARD IS NOT PART OF A LIVE PAIR (v568) — the check skips hidden records too. ⭐ Without
+    // this, "Salt" (an active card no recipe uses, and a HIDDEN one that a recipe does use) made the press
+    // hide the ACTIVE card and leave the name with no visible card at all.
+    if (i.active === false) continue;
     byName.set(key(i.name), (byName.get(key(i.name)) || []).concat(i));
   }
   const uses = (id) => (Array.isArray(state && state.products) ? state.products : [])

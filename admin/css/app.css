@@ -1087,10 +1087,11 @@ textarea[data-suggest]:placeholder-shown { background-position: right 9px top 12
 .avail-listed { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0 2px; }
 .avail-listed-text { font-size: 13px; color: var(--muted); line-height: 1.35; }
 .switch { flex: none; position: relative; display: inline-block; width: 44px; height: 25px; margin-top: 1px; }
-/* ⚠️⚠️ THE SWITCH DRAWS 25px TALL BUT ITS INPUT IS THE TARGET (v566) — the invisible input is given a
-   36px height around the track, so the switch is hittable without changing how it looks. */
-.switch input { top: 50%; height: 36px; transform: translateY(-50%); }
-.switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+/* ⚠️⚠️ THE INPUT IS THE TARGET, AND IT IS 36px TALL AND CENTRED (v568). ⭐ The switch draws 25px; a separate
+   rule tried to grow the input, but it was written BEFORE this one, so `inset: 0; height: 100%` won and the
+   translate stayed — ⚠️ **the invisible input sat 12.5px high, so the bottom half of every switch answered no
+   tap at all.** ⭐ Now the one rule does both: full width, 36px tall, centred on the track. */
+.switch input { position: absolute; left: 0; right: 0; top: 50%; width: 100%; height: 36px; transform: translateY(-50%); margin: 0; opacity: 0; cursor: pointer; }
 .switch-track {
   position: absolute; inset: 0; border-radius: 999px;
   background: var(--line); transition: background .15s;

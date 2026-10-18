@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v567)
+# Jienluv2bake — change history (v54 → v568)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**18 Oct 2026 — engine v568, THE NAME ON THE WRONG BOX — AND A CORRECTION THAT COULD BE UNDONE INTO STOCK (no database step).**
+
+**Your words:** __"what else wrong"__ — and this round turned the same question on yesterday's own work. Two of the fixes in v566 and v567 were wrong, and this puts them right.
+
+**1. ⚠️⚠️ EVERY SWITCH WAS GIVEN THE NAME OF THE ROW ABOVE IT.** v567 began naming every box from the label beside it. ⚠️ But where the label WRAPS the box — the bake-day ticks, the cloud switches, the password lock — the app took the previous row's words instead: ⭐ **Sunday was called "Bake days", Monday "Sunday", Tuesday "Monday".** ⚠️ And worse than saying nothing: a name put on a box REPLACES the correct one the wrapping label already gave it. ⭐ **A box inside its own label now uses that label, and the rest are unchanged.** Measured on Settings: Mon, Tue, Wed, Thu, Fri, Sat, Sun — each its own — and the three switches named properly.
+
+**2. ⚠️⚠️ THE LINE THAT MAKES A STOCK CARD ADD UP COULD BE UNDONE INTO REAL STOCK.** "Put the missing line on each card" writes a correction and **does not move your shelf** — but the ✕ on that row assumed every row moved it: ⭐ **strong flour would have gone from 10 kg to 14 kg, and sea salt was refused with a number that made no sense.** ⚠️ **That line is refused now**, with the reason, because it is a correction and not a movement.
+
+**3. ⚠️ AND A LOST COURIER BOOKING IS NOW CAUGHT IN TWO MORE SHAPES.** v566 caught a timeout; a gateway error after the trip was already booked, or a reply the app could not read, still left Book live. ⭐ Both are "cannot tell" now, and take the press away — a 401 is the one exception, because the session was refused before anything reached the courier.
+
+**4. ⭐ THREE SMALLER CORRECTIONS TO THE SAME WORK.** A key pressed on the ✕ INSIDE a chip no longer runs the chip's own press (the ✕ was pasting the chip's name back instead of removing it). The switch's invisible touch area was declared in the wrong order and sat 12.5px high, so the bottom half of every switch answered no tap. And "the spare card" press now only considers VISIBLE cards, so it can never hide the active one and leave a name with nothing on screen.
+
+**5. Nothing of yours was rewritten, and there is no database step. ⭐ 3,598 tests green (was 3,596); both regressions were pinned by a test that failed by its own message before the fix and passes after.**
+
+---
 
 **18 Oct 2026 — engine v567, THE MANUAL PUT BACK IN STEP WITH THE APP — AND A NAME FOR EVERY BOX (no database step).**
 

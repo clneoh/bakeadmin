@@ -162,6 +162,10 @@ export function reconcileCards(state) {
   const skipped = [];
   for (const ing of (Array.isArray(state && state.ingredients) ? state.ingredients : [])) {
     if (!ing) continue;
+    // ⚠️ A CARD WITH NO HISTORY IS NOT ONE THE CHECK JUDGED (v568) — `health.js` skips it for the same reason:
+    // there is no history to add up, so writing an "opening" line to it would report a fault nobody found and
+    // push a card at 49 rows to the cap, where the check flips to SKIPPED.
+    if (!stockLogOf(ing).length) continue;
     if (stockLogOf(ing).length >= STOCK_LOG_CAP) { skipped.push(String(ing.name || "an ingredient")); continue; }
     const gap = closeCardGap(ing);
     if (gap) done.push({ name: String(ing.name || "an ingredient"), gap });
@@ -196,6 +200,11 @@ export function stockRowUndo(ingredient, entry) {
   // never said**, which is the class of fault this whole week has been about.
   // ⭐ **The refusal names the way through** (her rule): a stocktake sets the real amount, which is the honest
   // tool when the shelf and the journal disagree.
+  // ⚠️⚠️ A REPAIR LINE IS NOT A MOVEMENT, SO IT CANNOT BE UNDONE AS ONE (v568). ⭐ `closeCardGap` writes the
+  // line that makes a card add up and **does not touch the shelf** — ⚠️ **so removing it the ordinary way
+  // would move the shelf by an amount that was never there**: measured, strong flour 10 kg → 14 kg, and sea
+  // salt refused outright. ⭐ The row is REFUSED with the reason; the way to change the card is the check.
+  if (String(entry.why || "") === "opening") return { was, now: was, moved: 0, blocked: 0, repair: true };
   const raw = round2(was - (Number(entry.delta) || 0));
   if (raw < 0) return { was, now: was, moved: 0, blocked: round2(-raw) };
   return { was, now: raw, moved: round2(raw - was), blocked: 0 };
@@ -206,7 +215,7 @@ export function undoStockRow(ingredient, entry) {
   const plan = stockRowUndo(ingredient, entry);
   if (!plan) return null;
   // ⚠️ A REFUSAL CHANGES NOTHING AT ALL — the row stays on the card and the shelf does not move (v546).
-  if (plan.blocked) return plan;
+  if (plan.blocked || plan.repair) return plan;
   ingredient.onHand = plan.now;
   stockLogOf(ingredient).splice(stockLogOf(ingredient).indexOf(entry), 1);
   return plan;

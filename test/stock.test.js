@@ -574,3 +574,29 @@ test("★★★ reconcileCards clears ALL of her eight, and says how many it tou
   assert.deepEqual(st.ingredients.map((i) => i.onHand), [10000, 1000, 100, 2375, 1.1, 50, 78, 200],
     "★★ a repair moved one of her shelves — **it must only ever write the missing line**");
 });
+
+
+test("★★★ the correction line Check my system writes CANNOT be undone into stock (v568)", () => {
+  // ⚠️⚠️ THE REGRESSION THIS PINS. `closeCardGap` writes the line that makes a card add up and does NOT touch
+  // the shelf. ⚠️ **The ✕ on that row assumed every row moved the shelf** — measured: strong flour 10 kg went
+  // to 14 kg, and sea salt was refused outright. ⭐ Both contradict the confirm's promise that the shelf does
+  // not move.
+  const ing = { id: "ing_f", name: "Strong flour", unit: "g", uomId: "g", onHand: 10000,
+    stockLog: [{ delta: 10000, why: "stocktake" }, { delta: 10000, why: "stocktake" }, { delta: -6000, why: "baked" }] };
+  closeCardGap(ing);
+  const correction = stockLogOf(ing)[0];
+  assert.equal(correction.delta, -4000, "precondition: the correction is -4 kg");
+  const plan = stockRowUndo(ing, correction);
+  assert.equal(plan.repair, true, "★ a correction line was treated as an ordinary movement");
+  const undone = undoStockRow(ing, correction);
+  assert.equal(undone.repair, true, "★ the ✕ was allowed on a correction line");
+  assert.equal(ing.onHand, 10000,
+    "★★ undoing the correction MOVED THE SHELF — **it is not a movement, and removing it must change nothing**");
+  assert.equal(stockLogOf(ing)[0], correction, "★ the correction line was taken off the card anyway");
+
+  const salt = { id: "ing_s", name: "Sea salt", unit: "g", uomId: "g", onHand: 500,
+    stockLog: [{ delta: 500, why: "bought" }] };
+  const normal = stockRowUndo(salt, stockLogOf(salt)[0]);
+  assert.equal(normal.repair, undefined);
+  assert.equal(normal.now, 0);
+});

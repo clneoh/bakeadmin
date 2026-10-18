@@ -34,6 +34,10 @@ export function el(tag, attrs = {}, ...children) {
   // ⚠️ And Enter/Space press it, the way a real button does — otherwise the tab stop is a dead end.
   if (madeButton) {
     node.addEventListener("keydown", (e) => {
+      // ⚠️ ONLY WHEN THE KEY WAS PRESSED ON THIS CONTROL (v568). A chip that CONTAINS a ✕ gets the ✕'s own
+      // key press bubbling up; acting on it would run the chip's press instead of the button's — the ✕
+      // would paste the chip's name back into the box instead of removing it.
+      if (e.target !== node) return;
       if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
       e.preventDefault();
       attrs.onclick(e);
@@ -55,7 +59,16 @@ function tagOf(node) {
 }
 
 function labelFor(box) {
-  // 1) the nearest label BEFORE it, walking out of a few wrappers
+  // ⚠️⚠️ A LABEL THAT WRAPS THE BOX ALREADY NAMES IT — AND IT MUST WIN (v568). ⭐ The first version of this
+  // helper looked past a wrapping label and took the PREVIOUS row's instead, so `<label><input>Monday</label>`
+  // was named "Sun", Tuesday "Mon", and so on — ⭐ **and an `aria-label` OVERRIDES the correct implicit name,
+  // so a control that was already right was relabelled wrong.** ⚠️ Found by an adversarial read of the
+  // change, not by its tests; the wrapped case is pinned now.
+  for (let up = box.parentNode, depth = 0; up && depth < 4; up = up.parentNode, depth++) {
+    if (tagOf(up) === "label") return up;
+    if (tagOf(up) === "body" || tagOf(up) === "html") break;
+  }
+  // 2) the nearest label BEFORE it, walking out of a few wrappers
   let node = box;
   for (let depth = 0; depth < 4 && node; depth++) {
     let sib = node.previousSibling;

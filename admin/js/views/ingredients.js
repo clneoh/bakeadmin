@@ -608,6 +608,10 @@ function stockRowDelete(state, ing, entry, refresh) {
   if (!plan) return;
   // ⚠️⚠️ AND A ROW THE SHELF CANNOT GIVE BACK IS REFUSED OUT LOUD (v546). ⭐ **No confirm box, because there is
   // nothing to confirm** — and the message names the way through, which is a stocktake, not a quieter removal.
+  // ⚠️ A CORRECTION WRITTEN BY "Check my system" IS NOT A MOVEMENT (v568) — see `stockRowUndo`.
+  if (plan.repair) {
+    return toast("That line is the correction the check wrote so the card adds up — it is not a movement of your shelf, so it cannot be taken back off it. If the card is wrong, run Check my system again.");
+  }
   if (plan.blocked) {
     return toast(`That line can't be taken back: your shelf holds ${fmtStockAmount(state, ing, plan.was)}, and undoing it needs ${fmtStockAmount(state, ing, plan.blocked)} more. Set the real amount with Adjust instead.`);
   }

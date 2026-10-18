@@ -61,6 +61,21 @@ test("★★★ a box with a label before it is NAMED by that label", () => {
   assert.equal(input.getAttribute("aria-label"), "Capacity / day");
 });
 
+test("★★★ a label that WRAPS the box names it — never the row above (v568)", () => {
+  // ⚠️⚠️ THE REGRESSION THIS PINS. The first `labelFor` skipped a wrapping label and took the PREVIOUS
+  // sibling's, so the bake-day rows read Sun→"Bake days", Mon→"Sun", Tue→"Mon" … ⭐ **and because
+  // `aria-label` overrides the implicit name, controls that were already right were relabelled wrong.**
+  const mk = (word) => {
+    const input = tag("input", { type: "checkbox" });
+    return tag("label", { class: "daycheck" }, [input, text(word)]);
+  };
+  const rows = ["Mon", "Tue", "Wed"].map(mk);
+  const root = tag("div", {}, [tag("div", {}, [tag("span", {}, [text("Bake days")]), ...rows])]);
+  nameFields(root);
+  assert.deepEqual(rows.map((l) => l.children[0].getAttribute("aria-label")), ["Mon", "Tue", "Wed"],
+    "★ a box inside a label was named by the row above it — **an aria-label overrides the right answer**");
+});
+
 test("★★★ and a name already on the box is never overwritten", () => {
   const input = tag("input", { "aria-label": "The bakery's number" });
   const root = tag("div", {}, [tag("div", {}, [tag("label", {}, [text("WhatsApp number")]), input])]);
@@ -112,12 +127,21 @@ test("★★★ a div with a click is a BUTTON, and Enter presses it (v566)", as
     assert.equal(tile.getAttribute("tabindex"), "0", "★ a clickable div cannot be reached by a keyboard");
     const key = (tile.listeners.keydown || []).find(Boolean);
     assert.ok(key, "★ the tab stop is a dead end — no Enter key handling");
-    key({ key: "Enter", preventDefault() {} });
+    key({ key: "Enter", target: tile, preventDefault() {} });
     assert.equal(pressed, 1, "★ Enter does not press it");
 
     // ⚠️ And a caller who says what it is keeps its own answer.
     const given = el("div", { role: "listitem", onclick: () => {} }, "Row");
     assert.equal(given.getAttribute("role"), "listitem");
+
+    // ⚠️⚠️ AND A KEY PRESSED ON A CHILD DOES NOT RUN THE PARENT (v568): a chip that contains a ✕ must let
+    // the ✕ take its own Enter, or the ✕ would paste the chip's name back instead of removing it.
+    let parent = 0;
+    const chip = el("div", { onclick: () => { parent += 1; } }, "Chip");
+    const inner = el("button", { onclick: () => {} }, "✕");
+    const chipKey = (chip.listeners.keydown || [])[0];
+    chipKey({ key: "Enter", target: inner, preventDefault() {} });
+    assert.equal(parent, 0, "★ a key pressed on the child ran the parent's press — **the ✕ cannot work**");
 
     // ⚠️ A real button is untouched: it is already one.
     const btn = el("button", { onclick: () => {} }, "Save");

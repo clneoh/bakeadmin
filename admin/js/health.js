@@ -21,7 +21,7 @@
 // ⚠️ AND IT NEVER NAMES A CAUSE. It reports what it found and what it means. What removed an order is not
 // knowable from the data that is left — which is the whole reason v444 keeps a copy of it.
 
-import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, duplicateOrderCodes, duplicateIngredientPlan, round2, PHONE_STORE_LIMIT, PHONE_STORE_ALERT } from "./state.js";
+import { byId, codeFromId, groupOrders, orderCode, orderLinePrice, removedKeepWords, storedBytes, duplicateOrderCodes, duplicateIngredientPlan, ingredientNameKey, round2, PHONE_STORE_LIMIT, PHONE_STORE_ALERT } from "./state.js";
 import { isCollected } from "./money.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { listFields } from "./sync.js";
@@ -164,7 +164,9 @@ export function localChecks(state) {
       // recipe pointing at a HIDDEN ingredient, which is used on every bake and never topped up — is its
       // own check, and stays.
       if (i.active === false) continue;
-      const k = String(i.name || "").trim().toLowerCase();
+      // ⚠️ The SAME key the Add warning uses (v568) — it collapses runs of spaces too, so the two cannot
+      // disagree about which cards share a name.
+      const k = ingredientNameKey(i.name);
       if (!k) continue;
       by.set(k, (by.get(k) || []).concat(i));
     }
