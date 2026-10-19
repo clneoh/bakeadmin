@@ -1,8 +1,17 @@
-# Jienluv2bake — change history (v54 → v593)
+# Jienluv2bake — change history (v54 → v594)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v594, A CHOSEN PILL SAYS SO (NO DATABASE STEP).**
+
+**Your words:** __"go ahead with the pill presses"__.
+
+1. ⚠️ **THE PILLS WERE COLOUR ONLY.** Money's Owed/Investment choice, the week/month/year tabs on Money and Profit, Deliveries' Add dates / Mark an occasion, every account picker (pay back, transfer), the expense category pills and the planner's start mode — **a screen reader heard a row of buttons with no way to tell which one was in force.** ⭐ Each now says **pressed / not pressed**, and the state is kept in step when you change it, not only when the screen is first drawn.
+2. ⭐ **ONE BUILDER.** All of them come from one helper, so the next pill added anywhere is already right.
+
+**No database step. No edge function redeploy.** 3,769 tests green.
 
 **19 Oct 2026 — engine v593, THE HOMEPAGE PRICE YOU PICK, AND WHAT A SCREEN READER HEARS (NO DATABASE STEP).**
 

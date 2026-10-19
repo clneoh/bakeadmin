@@ -22,7 +22,7 @@
 // It is a planner she types into: nothing here reads an order, and nothing here
 // blocks a sale.
 
-import { el, button, select, showPopup, toast, confirmDialog } from "../ui.js";
+import { el, button, select, showPopup, toast, confirmDialog, modeButton } from "../ui.js";
 import { save } from "../state.js";
 import { trim } from "../production.js";
 import {
@@ -5578,12 +5578,12 @@ function editModule(saved, sc, on, isNew = false, r = null, state = null) {
       (() => {
         const row = el("div", { class: "pill-row" });
         for (const mode of START_MODES) {
-          row.append(button(START_MODE_LABELS[mode], () => {
+          row.append(modeButton(START_MODE_LABELS[mode], startModeOf(live) === mode, () => {
             setStartMode(live, mode);
             on.persist();
             on.refresh();
             refresh();
-          }, `ghost small${startModeOf(live) === mode ? " cal-mode-on" : ""}`));
+          }));
         }
         return row;
       })(),

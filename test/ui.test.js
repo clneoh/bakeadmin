@@ -64,7 +64,7 @@ globalThis.document = {
   body: createEl("body"),
 };
 
-import { select, showPopup, confirmDialog, nameFields, printPage, button, el } from "../admin/js/ui.js";
+import { select, showPopup, confirmDialog, nameFields, printPage, button, modeButton, el } from "../admin/js/ui.js";
 
 const STATUSES = [
   { value: "new", label: "New" },
@@ -499,4 +499,17 @@ test("★★★ a glyph press is named in words, and a named press is left alone
   assert.equal(button("✕", () => {}).getAttribute("aria-label"), "Remove");
   assert.ok(!button("Save", () => {}).getAttribute("aria-label"),
     "a press with its own words was given a second name");
+});
+
+
+// ── ★★★ a chosen pill says it is pressed (v594) ───────────────────────────────
+test("★★★ a chosen pill says it is pressed, not only coloured (v594)", () => {
+  // ⚠️⚠️ MEASURED: Money, Profit, Deliveries and the account editor marked the chosen option with a class and
+  // nothing else — a screen reader heard a row of buttons with no way to tell which was in force.
+  const on = modeButton("Cash", true, () => {});
+  const off = modeButton("TNG", false, () => {});
+  assert.equal(on.getAttribute("aria-pressed"), "true");
+  assert.equal(off.getAttribute("aria-pressed"), "false");
+  assert.match(String(on.className), /cal-mode-on/);
+  assert.equal(/cal-mode-on/.test(String(off.className)), false);
 });

@@ -4,7 +4,7 @@
 // maths lives in js/money.js — the same module the Orders day header reads, so the
 // two can never disagree; this screen only draws it.
 
-import { el, button, select, showPopup, toast, confirmDialog, wireRowReorder } from "../ui.js";
+import { el, button, select, showPopup, toast, confirmDialog, wireRowReorder, modeButton } from "../ui.js";
 import { byId, fmtRM, newId, round2, save } from "../state.js";
 import { accountBalance, accountsBetween, depositsBetween, expensesBetween, investmentOf, journalFor, moneyBetween, refundsBetween } from "../money.js";
 import { clearCourierCharge } from "../courier.js";
@@ -572,12 +572,16 @@ function pillRow(names, current, onPick, { addKind, state, onAdded } = {}) {
   const wrap = el("div", { class: "pill-row" });
   const mark = (label) => {
     for (const b of wrap.children) {
-      if (b.tagName === "BUTTON") b.classList.toggle("cal-mode-on", b.textContent === label);
+      if (b.tagName === "BUTTON") {
+        const on = b.textContent === label;
+        b.classList.toggle("cal-mode-on", on);
+        // ⚠️ AND THE STATE IS SAID (v594) — the colour is not a name.
+        if (typeof b.setAttribute === "function") b.setAttribute("aria-pressed", on ? "true" : "false");
+      }
     }
   };
   for (const name of names) {
-    wrap.append(button(name, () => { onPick(name); mark(name); },
-      `ghost small${name === current ? " cal-mode-on" : ""}`));
+    wrap.append(modeButton(name, name === current, () => { onPick(name); mark(name); }));
   }
   if (addKind) wrap.append(newEntryChip(addKind, () => { if (onAdded) onAdded(null); }));
   return wrap;
@@ -658,10 +662,8 @@ function openExpenseForm(state, redraw) {
     isOther(method)
       ? el("div", { class: "field" }, el("label", {}, "Whose money paid for it?"),
           el("div", { class: "pill-row" },
-            button("The bakery owes me", () => { mine = "owed"; refresh(); },
-              `ghost small${mine === "owed" ? " cal-mode-on" : ""}`),
-            button("It is my investment", () => { mine = "invested"; refresh(); },
-              `ghost small${mine === "invested" ? " cal-mode-on" : ""}`)),
+            modeButton("The bakery owes me", mine === "owed", () => { mine = "owed"; refresh(); }),
+            modeButton("It is my investment", mine === "invested", () => { mine = "invested"; refresh(); })),
           el("p", { class: "card-sub", style: "margin:6px 0 0" },
             mine === "invested"
               ? `${method} paid for this out of your own money, and it stays in the bakery — it counts as money you have PUT IN, and nothing is owed back to you for it.`
@@ -833,8 +835,7 @@ function openPayBackForm(state, from, to, redraw, label) {
         "An account that paid out more than it took in is down by the difference. This moves money into it from another account, so it sits at zero again — its block on the Money screen says what it holds. It is your own money moving between your accounts: never a cost, so your profit does not move."),
       el("div", { class: "field" }, el("label", {}, "Which account is down?"),
         el("div", { class: "pill-row" },
-          ...all.map((m) => button(m, () => pick(m),
-            `ghost small${m === account ? " cal-mode-on" : ""}`)),
+          ...all.map((m) => modeButton(m, m === account, () => pick(m))),
           newEntryChip("method", () => { adding = true; paint(); })),
         adding
           ? entryForm(state, { kind: "method", onDone: (newLabel) => {
@@ -850,8 +851,7 @@ function openPayBackForm(state, from, to, redraw, label) {
       el("div", { class: "field" }, el("label", {}, "How much are you paying back?"), amount),
       el("div", { class: "field" }, el("label", {}, "Paid out of"),
         el("div", { class: "pill-row" },
-          ...all.filter((m) => m !== account).map((m) => button(m, () => { outOf = m; paint(); },
-            `ghost small${m === outOf ? " cal-mode-on" : ""}`)))),
+          ...all.filter((m) => m !== account).map((m) => modeButton(m, m === outOf, () => { outOf = m; paint(); })))),
       el("div", { class: "field" }, el("label", {}, "The day you paid it back"), datePick),
       el("div", { class: "field" }, el("label", {}, "What it was for (optional)"), note),
       el("div", { class: "popup-actions" },
@@ -938,12 +938,10 @@ function openTransferForm(state, redraw) {
         + `should be with you does not move. The day you moved it is the day it shows in both books.`),
       el("div", { class: "field" }, el("label", {}, "From"),
         el("div", { class: "pill-row" },
-          ...pots.map((m) => button(m, () => pickFrom(m),
-            `ghost small${m === fromPot ? " cal-mode-on" : ""}`)))),
+          ...pots.map((m) => modeButton(m, m === fromPot, () => pickFrom(m))))),
       el("div", { class: "field" }, el("label", {}, "To"),
         el("div", { class: "pill-row" },
-          ...pots.map((m) => button(m, () => pickTo(m),
-            `ghost small${m === toPot ? " cal-mode-on" : ""}`)))),
+          ...pots.map((m) => modeButton(m, m === toPot, () => pickTo(m))))),
       el("div", { class: "field" }, el("label", {}, "How much?"), amount),
       el("div", { class: "field" }, el("label", {}, "The day you moved it"), datePick),
       el("div", { class: "field" }, el("label", {}, "A note (optional)"), note),
@@ -1101,8 +1099,7 @@ export function renderMoney(root, state) {
       // ⚠️ The old row of three picked the kind and stopped there, so "This week" could only ever be
       // the current week. The arrows are what let her look at LAST week, which she had no way to do.
       el("div", { class: "cal-modes" },
-        ...MODES.map(([id, text]) => button(text, () => draw(id),
-          `ghost small${range === id ? " cal-mode-on" : ""}`))),
+        ...MODES.map(([id, text]) => modeButton(text, range === id, () => draw(id)))),
       // ⚠️ NO ARROWS ON "All" — there is nothing to step to, and a pair of dead arrows on a screen
       // reads as a fault (the v290 rule about controls that do not do what they look like they do).
       el("div", { class: "range-stepper" },

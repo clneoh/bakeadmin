@@ -7,7 +7,7 @@
 import { navigate } from "../app.js";
 import { dayListLabel, dayName, deliveryStatus, generateUpcomingDates, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { effectiveCapacity, totalUnitsOnDate } from "../bom.js";
-import { el, button, confirmDialog, showPopup, toast } from "../ui.js";
+import { el, button, confirmDialog, showPopup, toast, modeButton } from "../ui.js";
 import { groupOrders, newId, ordersOnDate, save } from "../state.js";
 import { needsVan, runDayOf, stopKeyOf } from "../courier_job.js";
 import { maybeSync, maybeSyncStorefront } from "../supabase.js";
@@ -179,8 +179,8 @@ function buildAddCard(state) {
     renderAll(view(), state);
   };
   const modes = el("div", { class: "cal-modes" },
-    button("Add dates", () => setMode(false), `ghost small${occMode ? "" : " cal-mode-on"}`),
-    button("Mark an occasion", () => setMode(true), `ghost small${occMode ? " cal-mode-on" : ""}`));
+    modeButton("Add dates", !occMode, () => setMode(false)),
+    modeButton("Mark an occasion", occMode, () => setMode(true)));
 
   const weeks = monthWeeks(viewMonth.year, viewMonth.month);
   const heading = occMode

@@ -170,6 +170,15 @@ export function button(text, onClick, cls = "") {
   return node;
 }
 
+// ⚠️⚠️ A CHOSEN PILL IS SAID, NOT ONLY COLOURED (v594). ⚠️ Money, Profit, Deliveries, the account editor and
+// the planner all mark a chosen option with `cal-mode-on` and nothing else — ⚠️ **a screen reader heard a row
+// of buttons with no way to tell which one was in force.** ⭐ One builder, so every pill says its state.
+export function modeButton(text, on, onClick) {
+  const node = button(text, onClick, `ghost small${on ? " cal-mode-on" : ""}`);
+  node.setAttribute("aria-pressed", on ? "true" : "false");
+  return node;
+}
+
 // ★ ONE ROW OF "SOMEWHERE ELSE TO GO" (v312). A title, a line under it saying
 // what it is for, and a chevron on the right.
 //

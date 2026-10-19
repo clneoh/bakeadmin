@@ -4,7 +4,7 @@
 // The arithmetic lives in js/profit.js, next to the cash side it must never be
 // confused with.
 
-import { el, button, showPopup } from "../ui.js";
+import { el, button, modeButton, showPopup } from "../ui.js";
 import { fmtRM } from "../state.js";
 import { profitBetween, expenseRows, refundRows, tradingRows } from "../profit.js";
 import { addDays, longDate, todayISO } from "../dates.js";
@@ -306,8 +306,7 @@ export function renderProfit(root, state) {
       // ★★ WHAT KIND OF WINDOW, AND THEN WHICH ONE (v403) — the same two-part chooser as Money and the
       // invoice, so all three screens ask the same question the same way.
       el("div", { class: "cal-modes" },
-        ...MODES.map(([id, text]) => button(text, () => draw(id),
-          `ghost small${pRange === id ? " cal-mode-on" : ""}`))),
+        ...MODES.map(([id, text]) => modeButton(text, pRange === id, () => draw(id)))),
       // ⚠️ NO ARROWS ON "All" — nothing to step to, and a dead arrow reads as a fault.
       el("div", { class: "range-stepper" },
         pRange === "all" ? null : button("‹", () => { stepSpan(-1); draw(); }, "ghost small range-nav"),
