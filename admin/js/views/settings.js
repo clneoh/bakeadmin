@@ -1,6 +1,6 @@
 // views/settings.js — defaults, export/import backup, clear data.
 
-import { el, button, confirmDialog, toast } from "../ui.js";
+import { el, button, confirmDialog, toast, select } from "../ui.js";
 import { LS_KEY, newId, save, unreadableCopy, dropUnreadableCopy } from "../state.js";
 import { hashPin, isPin, hasStoredPin } from "../pin.js";
 import { parseImport } from "../validate.js";
@@ -130,6 +130,21 @@ export function renderSettings(root, state) {
     placeholder: "https://…/tng-qr.png",
     onchange: () => { sf.tngQr = sfTngQr.value.trim(); save(state); maybeSyncStorefront(state); } });
 
+  // ⚠️⚠️ WHICH PRODUCT THE HOMEPAGE CARD PRICES (v593 — her answer: "pick it in Settings"). ⚠️ The card took
+  // the first published name containing "focaccia", ⚠️ **so a "4 × Focaccia Box" filed first could put RM60
+  // on the loaf's card.** ⭐ She names the product once; the homepage follows it by its published name.
+  const homeChoices = [
+    { value: "", label: "Follow the first focaccia (default)" },
+    ...(state.products || [])
+      .filter((p) => p && p.active !== false && p.draft !== true && String(p.name || "").trim())
+      .map((p) => ({ value: p.id,
+        label: Number(p.price) > 0 ? `${p.name} — RM${Number(p.price)}` : `${p.name} — no price yet` })),
+  ];
+  const sfHome = select(homeChoices, String(sf.homeProductId || ""), () => {
+    sf.homeProductId = sfHome.value;
+    save(state); maybeSyncStorefront(state); toast("Saved");
+  });
+
   // Policies shown on the shop (cancellation / refunds). Written once in English;
   // the 中文 and Bahasa Malaysia boxes are machine-filled from it, and typing in
   // one makes that language hers (never overwritten again). Blank hides the
@@ -240,6 +255,11 @@ export function renderSettings(root, state) {
     el("div", { class: "form-grid", style: "margin-top:10px" },
       el("div", {}, el("label", {}, "Instagram handle"), sfInsta),
       el("div", {}, el("label", {}, "Facebook page"), sfFacebook)),
+    el("div", { class: "field", style: "margin-top:10px" },
+      el("label", {}, "Homepage price product"),
+      sfHome,
+      el("p", { class: "card-sub", style: "margin:4px 0 0" },
+        "The price on the homepage card is this product's, as you publish it. Leave the default if you sell one focaccia.")),
     el("div", { class: "field", style: "margin-top:10px" },
       el("label", {}, "TNG QR code (image URL)"),
       sfTngQr,

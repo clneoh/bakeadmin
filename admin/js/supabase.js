@@ -447,6 +447,15 @@ export function storefrontPayload(state) {
     deliveryDays: (state.settings && state.settings.deliveryDays) || [],
     cutoff: (state.settings && state.settings.cutoff) || "",
     capacity: (state.settings && state.settings.defaultCapacity) || 0,
+    // ⚠️⚠️ WHICH PRODUCT THE HOMEPAGE CARD PRICES (v593 — her choice). ⚠️ The card used to take the first
+    // name containing "focaccia", ⚠️ **so a pack named "4 × Focaccia Box" could put RM60 on the loaf's card.**
+    // ⭐ She names the product in Settings; the exact published NAME travels, because the shop addresses
+    // products by name and the id means nothing on the public page. Absent = the homepage's old rule.
+    homeProduct: (() => {
+      const pick = byId(state.products || [], sf.homeProductId);
+      return pick && pick.active !== false && pick.draft !== true && Number(pick.price) > 0
+        && String(pick.name || "").trim() ? String(pick.name).trim() : "";
+    })(),
     products,
     // The standard days she has loaded onto her own calendar, for the tinted days
     // and their tap-to-name bubble on the customer's delivery calendar. Always

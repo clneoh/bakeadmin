@@ -417,6 +417,25 @@ test("★★★ a product with no price is not published as RM0.00 (v589)", () =
   assert.equal(out.products[0].price, 16);
 });
 
+test("★★★ the payload names the product she picked for the homepage card (v593)", () => {
+  const st = liveState([]);
+  st.products = [
+    { id: "p1", name: "Focaccia 9x12 ~ 850g", price: 16, active: true, unit: "loaf" },
+    { id: "p2", name: "4 × Focaccia Box", price: 60, active: true, unit: "set" },
+  ];
+  st.settings.storefront = { ...(st.settings.storefront || {}), homeProductId: "p1" };
+  assert.equal(storefrontPayload(st).homeProduct, "Focaccia 9x12 ~ 850g",
+    "★ the homepage is not told which product its card belongs to");
+  // ⚠️ Nothing picked publishes nothing, so the homepage keeps its old rule.
+  st.settings.storefront = { ...(st.settings.storefront || {}), homeProductId: "" };
+  assert.equal("homeProduct" in storefrontPayload(st), true);
+  assert.equal(storefrontPayload(st).homeProduct, "");
+  // ⚠️ And an unpriced pick publishes nothing — it is not on the shop at all.
+  st.settings.storefront = { ...(st.settings.storefront || {}), homeProductId: "p1" };
+  st.products[0].price = 0;
+  assert.equal(storefrontPayload(st).homeProduct, "");
+});
+
 test("★★ the published payload carries the AREAS, and the Points in the order the shop draws them", () => {
   const st = areaState({
     areas: [

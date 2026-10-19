@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v592)
+# Jienluv2bake — change history (v54 → v593)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v593, THE HOMEPAGE PRICE YOU PICK, AND WHAT A SCREEN READER HEARS (NO DATABASE STEP).**
+
+**Your words:** __"go ahead with the rest of the sweep"__, and your answer to the price question: **pick it in Settings.**
+
+1. ⭐ **THE HOMEPAGE CARD NOW FOLLOWS THE PRODUCT YOU PICK.** Settings → Storefront has **Homepage price product**: choose the loaf, and the card shows that product's published price. Before, it took the first published name containing "focaccia" — **so a "4 × Focaccia Box" filed first could put RM60 on the loaf's card.** Leave it on the default and the old rule still applies.
+2. ⚠️ **EVERY GLYPH-ONLY PRESS IS NAMED IN WORDS.** "‹", "›" and "✕" were read by their character names — a screen reader said "‹, button" and voice control could not say "next" or "remove". ⭐ Every one is named now, including any written in future.
+3. ⚠️ **THE ORDER JOURNEY AND STATUS FLOW ARE GROUPS.** They carried an `aria-label` on a plain div, which names nothing; they are announced as groups now.
+4. ⚠️ **THE REVIEW DOTS SAY WHICH REVIEW IS SHOWING**, and their unselected colour went from 1.65:1 to 4.2:1 — **a low-vision baker could not see them.**
+5. ⚠️ **THE HOMEPAGE STARS WERE 1.48:1 AND 2.08:1 ON THE PAPER** — a one-star customer could not see which stars were lit. ⭐ They are 4.2:1 and 4.6:1 now.
+6. ⚠️ **THE SELECTED PILL WAS WHITE ON 4.48:1** — just under the 4.5 a control owes. ⭐ A darker brown measures 5.5:1.
+7. ⚠️ **THE CURRENT TAB IS SAID, NOT ONLY COLOURED** — `aria-current="page"` on the tab you are on.
+8. ⚠️ **TAPPING A BAKE DAY KEPT LOSING THE KEYBOARD** — the grid is rebuilt, the focused cell is removed, and focus fell to the body. ⭐ The rebuilt day takes focus back.
+9. ⚠️ **TWO TOUCH TARGETS BELOW THE APP'S OWN FLOOR** — the shop's promo dots were 28px and the "Coming 4 weeks" day chips 26px. ⭐ Both are 36px.
+
+**No database step.** Nothing of yours is rewritten. 3,769 tests green.
 
 **19 Oct 2026 — engine v592, THE THIRD SWEEP, PART 4: THE REST (⚠️ RE-RUN THE SLOTS SQL; REDEPLOY shop-geocode).**
 

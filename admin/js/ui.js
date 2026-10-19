@@ -158,8 +158,16 @@ function trapTab(e, root) {
   return false;
 }
 
+// ⚠️⚠️ A GLYPH IS NOT A NAME (v593). ⚠️ "‹", "›" and "✕" were announced by their CHARACTER names, so a
+// screen reader said "‹, button" and voice control could not say "next month". ⭐ Every glyph press is named
+// here, once, so every one written tomorrow is named too; call sites that know more say more.
+const GLYPH_NAMES = { "‹": "Previous", "›": "Next", "✕": "Remove", "×": "Remove", "＋": "Add", "+": "Add" };
+
 export function button(text, onClick, cls = "") {
-  return el("button", { class: `btn ${cls}`.trim(), onclick: onClick }, text);
+  const node = el("button", { class: `btn ${cls}`.trim(), onclick: onClick }, text);
+  const name = GLYPH_NAMES[String(text).trim()];
+  if (name) node.setAttribute("aria-label", name);
+  return node;
 }
 
 // ★ ONE ROW OF "SOMEWHERE ELSE TO GO" (v312). A title, a line under it saying

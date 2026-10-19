@@ -77,7 +77,13 @@ export function priceText(n) {
 
 export function publishedPrice(products, word = "focaccia") {
   const list = Array.isArray(products) ? products : [];
-  const hit = list.find((p) => p && typeof p.name === "string"
-    && p.name.toLowerCase().includes(String(word).toLowerCase()) && Number(p.price) > 0);
+  const want = String(word || "").trim().toLowerCase();
+  if (!want) return "";
+  const priced = (p) => p && typeof p.name === "string" && Number(p.price) > 0;
+  // ⚠️ AN EXACT NAME WINS (v593) — the product she picked in Settings. ⚠️ The old "first name that CONTAINS
+  // the word" rule is kept as the fallback, so a page published before this version still prices — and a
+  // pack named "4 × Focaccia Box" can no longer put RM60 on the loaf's card when she has named the loaf.
+  const exact = list.find((p) => priced(p) && p.name.trim().toLowerCase() === want);
+  const hit = exact || list.find((p) => priced(p) && p.name.toLowerCase().includes(want));
   return hit ? priceText(hit.price) : "";
 }

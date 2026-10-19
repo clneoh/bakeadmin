@@ -110,7 +110,8 @@ async function loadDevConfig() {
     // ★★ AND THE CUT-OFF AND THE BAKE DAYS (v581). ⚠️ A malformed cut-off is ignored rather than printed;
     // an EMPTY day list is an answer — she has none open — and `bakeDaysText` says so with a dash.
     // ⭐ AND THE PRICE ON THE CARD IS THE PRODUCT'S (v588) — the published list, by the word in its name.
-    const price = publishedPrice(cfg.products);
+    // ⚠️ THE PRODUCT SHE PICKED IN SETTINGS, when one is published (v593); otherwise the old rule.
+    const price = publishedPrice(cfg.products, String(cfg.homeProduct || "").trim() || "focaccia");
     if (price) {
       for (const el of document.querySelectorAll('[data-price="focaccia"]')) el.textContent = price;
     }

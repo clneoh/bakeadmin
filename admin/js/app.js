@@ -220,7 +220,14 @@ function render() {
   document.getElementById("view-sub").textContent = "";
 
   for (const tab of document.querySelectorAll(".tabbar .tab")) {
-    tab.classList.toggle("active", tab.dataset.tab === route.tab);
+    const on = tab.dataset.tab === route.tab;
+    tab.classList.toggle("active", on);
+    // ⚠️⚠️ AND THE CURRENT TAB IS SAID, NOT ONLY COLOURED (v593). ⚠️ A screen reader heard "Home, Orders,
+    // Products…" with nothing naming the screen she was on. ⭐ `aria-current="page"` is the standard word.
+    if (typeof tab.setAttribute === "function") {
+      if (on) tab.setAttribute("aria-current", "page");
+      else if (typeof tab.removeAttribute === "function") tab.removeAttribute("aria-current");
+    }
   }
 
   // ★★★★ AND THE PAGE DOES NOT JUMP WHEN IT REPAINTS (v520).

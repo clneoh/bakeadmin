@@ -146,8 +146,10 @@ footer a{text-decoration:none}
 .field-input{width:100%;border:1px solid var(--line);border-radius:10px;padding:13px 14px;font-family:Arial,sans-serif;font-size:15px;background:#fff;color:var(--brown)}
 textarea.field-input{resize:vertical;min-height:110px}
 .rv-stars{display:flex;gap:6px}
-.rv-stars button{font-size:38px;line-height:1;width:50px;height:50px;border:none;background:none;color:#e0cba6;cursor:pointer;padding:0}
-.rv-stars button.is-on{color:#d9a62e}
+/* ⚠️ THE STAR COLOURS WERE 1.48:1 AND 2.08:1 ON THE PAPER (v593) — a one-star customer could not see which
+   stars were lit, because the control owes 3:1. ⭐ #8a7355 (4.2:1) and #95680f (4.6:1) clear it. */
+.rv-stars button{font-size:38px;line-height:1;width:50px;height:50px;border:none;background:none;color:#8a7355;cursor:pointer;padding:0}
+.rv-stars button.is-on{color:#95680f}
 .rv-langs{display:flex;flex-wrap:wrap;gap:8px}
 .rv-lang{border:1px solid var(--green);background:none;color:var(--green);font-family:Arial,sans-serif;font-size:13px;font-weight:700;border-radius:999px;padding:8px 14px;cursor:pointer}
 .rv-lang.is-on{background:var(--green);color:#fff}

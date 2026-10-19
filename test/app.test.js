@@ -62,6 +62,7 @@ function createEl(tag) {
     removeEventListener() {},
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return this.attrs[k]; },
+    removeAttribute(k) { delete this.attrs[k]; },
     querySelector() { return null; },
     querySelectorAll() { return []; },
     focus() {},

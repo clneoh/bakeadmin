@@ -64,7 +64,7 @@ globalThis.document = {
   body: createEl("body"),
 };
 
-import { select, showPopup, confirmDialog, nameFields, printPage, el } from "../admin/js/ui.js";
+import { select, showPopup, confirmDialog, nameFields, printPage, button, el } from "../admin/js/ui.js";
 
 const STATUSES = [
   { value: "new", label: "New" },
@@ -487,4 +487,16 @@ test("★★★ a Print press that cannot print says so instead of failing silen
     assert.equal(printPage(), true);
     assert.equal(printed, 1, "a phone that CAN print did not");
   } finally { globalThis.window = realWin; }
+});
+
+
+// ── ★★★ a glyph is not a name (v593) ──────────────────────────────────────────
+test("★★★ a glyph press is named in words, and a named press is left alone (v593)", () => {
+  // ⚠️⚠️ MEASURED: "‹", "›" and "✕" were announced by their CHARACTER names — voice control could not say
+  // "next month" or "remove this line".
+  assert.equal(button("‹", () => {}).getAttribute("aria-label"), "Previous");
+  assert.equal(button("›", () => {}).getAttribute("aria-label"), "Next");
+  assert.equal(button("✕", () => {}).getAttribute("aria-label"), "Remove");
+  assert.ok(!button("Save", () => {}).getAttribute("aria-label"),
+    "a press with its own words was given a second name");
 });

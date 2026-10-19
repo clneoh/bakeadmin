@@ -168,7 +168,12 @@ function reviewCarousel(rows, startId, actions, state) {
   let cur = Math.max(0, rows.findIndex((x) => x.id === startId));
   function move() {
     track.style.transform = `translateX(-${cur * 100}%)`;
-    dotEls.forEach((d, j) => d.classList.toggle("is-on", j === cur));
+    // ⚠️ WHICH REVIEW IS SHOWING IS SAID, NOT ONLY COLOURED (v593) — a screen reader heard "Review 2 of 4,
+    // button" for every dot with no way to tell the one on screen.
+    dotEls.forEach((d, j) => {
+      d.classList.toggle("is-on", j === cur);
+      if (typeof d.setAttribute === "function") d.setAttribute("aria-pressed", j === cur ? "true" : "false");
+    });
     live.textContent = `${cur + 1} / ${rows.length}`;
   }
   function go(target) {

@@ -139,7 +139,7 @@ function statusFlowEl() {
     if (i) kids.push(el("span", { class: "flow-arrow", "aria-hidden": "true" }, "→"));
     kids.push(el("span", { class: "flow-step" }, label));
   });
-  return el("div", { class: "status-flow", "aria-label": "Order status flow" }, ...kids);
+  return el("div", { class: "status-flow", role: "group", "aria-label": "Order status flow" }, ...kids);
 }
 
 // How far an order has actually travelled, as a prefix of done steps. New is
@@ -191,7 +191,7 @@ export function journeyMarks(order) {
 // done. An order at the last stage shows the whole line green, matching what the
 // customer sees.
 function orderJourneyEl(order) {
-  const root = el("div", { class: "oj", "aria-label": "Order status journey" });
+  const root = el("div", { class: "oj", role: "group", "aria-label": "Order status journey" });
   const marks = journeyMarks(order);
   STATUSES.forEach(([, label], i) => {
     const state = marks[i];

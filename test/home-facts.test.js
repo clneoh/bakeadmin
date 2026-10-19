@@ -65,6 +65,21 @@ test("★★ bakeDaysText names HER bake days, in the visitor's language", () =>
   assert.equal(bakeDaysText(null, "en"), null, "a payload with no day list replaced her translated line");
 });
 
+test("★★★ the product she picks in Settings wins, even when a pack is listed first (v593)", () => {
+  // ⚠️⚠️ MEASURED: the card took the FIRST published name containing "focaccia" — ⚠️ **a "4 × Focaccia Box"
+  // filed before the loaf put RM60 on the loaf's card.** ⭐ Her answer: pick the product in Settings.
+  const products = [
+    { name: "4 × Focaccia Box", price: 60 },
+    { name: "Focaccia", price: 16 },
+  ];
+  assert.equal(publishedPrice(products, "Focaccia"), "RM16",
+    "★ a pack's price won the loaf's card — **the exact name must beat a name that merely contains it**");
+  // An exact pack name still prices the pack, and the old contains rule still governs a word with no exact hit.
+  assert.equal(publishedPrice(products, "4 × Focaccia Box"), "RM60");
+  assert.equal(publishedPrice(products, "box"), "RM60");
+  assert.equal(publishedPrice(products, ""), "", "an empty choice never prices");
+});
+
 test("★★★ the homepage card shows the price she publishes, not a typed number (v588)", () => {
   // ⚠️⚠️ MEASURED: the card said RM16 while the shop printed her published price — ⚠️ **one price, two sources,
   // and the homepage is the one nobody re-publishes.**

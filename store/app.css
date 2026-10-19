@@ -1884,7 +1884,9 @@ button.prod-next.off::after { content: ""; }
   word-break: break-word;
 }
 .promo-dot {
-  width: 28px; height: 28px;           /* WCAG 2.5.8 floor is 24; this clears it */
+  /* ⚠️ 36, THE APP'S OWN FLOOR (v593): the homepage's identical dot is 36, and two dots that look alike must
+     be as easy to hit as each other. WCAG's 24 is a minimum, not this app's standard. */
+  width: 36px; height: 36px;
   padding: 0; border: 0; background: none; cursor: pointer;
   display: grid; place-items: center;
   border-radius: 999px;

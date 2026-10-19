@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "592";
+export const SHOP_BUILD = "593";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -2990,6 +2990,11 @@ function clearFieldMarks() {
   // cleared by the very next paint, so a live refresh never animates.
   let calSlide = 0;
 
+  // ⚠️⚠️ THE DAY THE CUSTOMER TAPPED, SO FOCUS CAN GO BACK TO IT (v593). ⚠️ The tap rebuilds the whole grid,
+  // and `replaceChildren` removes the focused cell — ⚠️ **focus fell to the body and the next Tab started at the
+  // top of the page.** ⭐ The rebuilt cell with the same date takes the keyboard.
+  let focusIso = null;
+
   // The marked day whose name is showing, as a YYYY-MM-DD key, or null. A tap sets
   // it; any tap elsewhere clears it. It is read while the grid is rebuilt, so the
   // bubble survives the rerender the tap itself triggers.
@@ -3149,9 +3154,11 @@ function clearFieldMarks() {
           class: cls + (open ? " tappable" : "") + (named ? " tippable" : ""),
           "aria-label": full ? `${dayName}, ${t("soldOut")}` : dayName,
           "aria-pressed": isSel ? "true" : "false",
+          dataset: { iso },
           onclick: () => {
             if (named) tipIso = iso;
             if (open) { selected = iso; dayPicked = true; } // their own tap (v434)
+            focusIso = iso;
             // Rebuild the grid + menu together so the chosen day and the quantities
             // the customer chose are re-checked against this day's availability.
             rerender();
@@ -3199,6 +3206,17 @@ function clearFieldMarks() {
             : sub(t("calChosenFor"), fmtDay(new Date(`${selected}T00:00:00`)))),
         // Any day in this window with no room left, named rather than guessed at.
         soldOutLine(specs, new Set(weeks.flat()))));
+    // ⚠️⚠️ AND THE DAY THE CUSTOMER TAPPED TAKES THE KEYBOARD BACK (v593). ⚠️ `replaceChildren` removed the
+    // cell that had focus — ⚠️ **it fell to the body and the next Tab started at the top of the shop.** ⭐ The
+    // rebuilt cell for the same date is focused, without scrolling.
+    if (focusIso) {
+      const want = focusIso;
+      focusIso = null;
+      const node = dateWrap.querySelector && dateWrap.querySelector(`[data-iso="${want}"]`);
+      if (node && typeof node.focus === "function") {
+        try { node.focus({ preventScroll: true }); } catch { node.focus(); }
+      }
+    }
   };
 
   // "Sold out: 18 Sep, 25 Sep" — the days on screen that are already full. Empty
@@ -4219,7 +4237,7 @@ function journeyEl(row) {
     return true;                                 // Baked/Packed/Delivered: on selection
   });
   // ⚠️ English only until v565 — the dictionary carries it in all three languages now.
-  const root = el("div", { class: "tj", "aria-label": t("journeyAria") });
+  const root = el("div", { class: "tj", role: "group", "aria-label": t("journeyAria") });
   let live = false; // the first step still to do is the one that flashes
   JOURNEY.forEach(([id, labelKey], i) => {
     const skipped = i === PAID_AT && paidSkipped;
