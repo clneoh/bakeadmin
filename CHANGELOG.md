@@ -1,8 +1,41 @@
-# Jienluv2bake — change history (v54 → v584)
+# Jienluv2bake — change history (v54 → v585)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v585, THE BACKEND'S OPEN DOORS (⚠️ THREE SQL FILES TO RUN, TWO FUNCTIONS TO DEPLOY).**
+
+**Your words:** __"go ahead with the backend"__ — group 8, the last group of the complete audit.
+
+**⚠️ WHAT YOU HAVE TO DO (three SQL files and two function deploys — details at the end):**
+run **`supabase/tracking.sql`**, **`supabase/receipts.sql`** and **`supabase/storefront.sql`**; then deploy **`shop-feedback`** and **`courier`** again.
+
+**1. ⚠️⚠️ ANY PHONE-LESS ORDER WAS READABLE BY ITS CODE ALONE.** ⚠️ The tracking lookup had a "while it is republished" door: a row with no phone was found by its six characters — ⚠️ **name, delivery address and the driver's phone.** ⭐ **That door is shut.** An order with no phone on it cannot be looked up publicly; a code is not a key. ⭐ **Tracking now needs the phone as its second key, always.**
+
+**2. ⚠️⚠️ A REFUND COULD BE ANY SIZE.** The app clamped a refund to the customer's bill; the database did not — ⚠️ **any signed-in client could write a refund of RM 999,999 and the register would print it as the size of the refund.** ⭐ **The bill is now stored with the receipt number** (what the order was worth when the money was recorded), and a refund above it is refused. Old receipts with no stored bill fall back to a flat RM 100,000 ceiling.
+
+**3. ⚠️ A CLEANUP FILE COULD DELETE WAITING ORDERS.** `incoming_cleanup.sql` deleted every queued order older than an hour — ⚠️ **and that queue is the only copy of an order until a phone imports it; both phones off overnight, and a re-run destroyed real orders.** ⭐ **The file no longer deletes anything.** It now SHOWS you what is waiting, safely; a single row can be removed by its own id, one decision at a time.
+
+**4. ⚠️⚠️ A HUNG LALAMOVE COULD BOOK A TRIP YOU NEVER SAW.** ⚠️ The courier's calls had **no timeout at all** — ⚠️ **a slow Lalamove could complete a booking AFTER the app had given up, so a customer's trip is booked and the app does not know.** ⭐ Twenty seconds now, and a call that runs out says the trip is **UNKNOWN, not refused** — so you are never sent to book a second one.
+
+**5. ⚠️ A HUNG MAIL SERVICE HELD THE FEEDBACK FUNCTION.** The note-to-us send had no timeout either; ⚠️ **a Resend that never answered left the function running after the shop had told the customer it failed.** ⭐ Ten seconds, then it is refused in words.
+
+**6. ⚠️ THE RATE LIMITS COULD BE BYPASSED BY THE HEADER THE CALLER WRITES.** Both the note limiter and the address lookup keyed on the FIRST `x-forwarded-for` entry — ⚠️ **which is the caller's own text; rotating it bought unlimited emails and unlimited Google lookups on your quota.** ⭐ They key on the LAST entry now, the one the proxy appended.
+
+**7. ⚠️ TRACKING.SQL COULD NOT RUN FIRST ON A NEW PROJECT.** Its lookup reads columns that four other files add — ⚠️ **so on a fresh project the whole file failed, and no file said what to run first.** ⭐ It creates every column it reads itself, so it stands alone.
+
+**8. ⭐ AND ONE HONEST LIMIT: the shop has no login, so anyone can post order rows.** Fake orders can still zero a bake day and ping your phone once each — that is accepted and unchanged. What is new is a **shape limit**: a row may not be a megabyte.
+
+**9. Nothing of yours was rewritten. ⭐ 3,691 tests green (was 3,684); every rule above has a test that fails without it.**
+
+**What to run, in this order**
+1. `supabase/tracking.sql` (it is safe first — it creates everything it uses)
+2. `supabase/receipts.sql` (the stored bill and the refund ceiling)
+3. `supabase/storefront.sql` (the row-shape limit)
+4. Deploy the edge function **`shop-feedback`**, then **`courier`** — each is its own upload.
+
+---
 
 **19 Oct 2026 — engine v584, THE GUARDS THAT COULD NOT FAIL (no database step).**
 

@@ -142,6 +142,10 @@ Deno.serve(async (req) => {
 
   const from = Deno.env.get("RESEND_FROM") || "Jien Luv 2 Bake <wishlist@send.jienluv2bake.com.my>";
   console.log("[shop-feedback] sending via Resend from", from, "to", recipients.length, "recipient(s)");
+  // ⚠️⚠️ A HUNG VENDOR MUST NOT HOLD THE INVOCATION (v585). ⚠️ Without a timeout, a Resend that never answers
+  // keeps this function running until the platform kills it — ⚠️ **while the shop's caller has already given up,
+  // so the customer is told their note failed and it may still arrive.** ⭐ Ten seconds, then it is refused in
+  // the same words an HTTP failure uses.
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -149,7 +153,12 @@ Deno.serve(async (req) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ from, to: recipients, subject, text }),
-  });
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  if (!res) {
+    console.error("[shop-feedback] Resend did not answer within ten seconds");
+    return json({ error: "The mail service did not answer" }, 504);
+  }
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     console.error(`[shop-feedback] Resend rejected the send (HTTP ${res.status}):`, detail.slice(0, 300));

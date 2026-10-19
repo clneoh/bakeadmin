@@ -570,3 +570,14 @@ test("a window that has closed is not a record of anything", () => {
   sweep(hits, T + 1000);
   assert.equal(hits.size, 0, "a window past its reset is dropped rather than kept forever");
 });
+
+test("★★★ the lookup keys its limit on the LAST forwarded address (v585)", () => {
+  // ⚠️⚠️ MEASURED FAULT: `callerOf` took the FIRST entry — ⚠️ **the one the caller writes.** ⚠️ **A script
+  // rotating it bought unlimited lookups against her 300-a-day Google quota.** ⭐ A source check, and named as
+  // such: the function runs on Deno, so its request handling cannot be imported here.
+  const src = readFileSync(new URL("../supabase/functions/shop-geocode/index.ts", import.meta.url), "utf8");
+  assert.match(src, /parts\[parts\.length - 1\]/,
+    "★ the geocode limit keys on the caller's own header, not the address the proxy saw");
+  assert.doesNotMatch(src, /split\(","\)\[0\]/,
+    "★ the first entry of x-forwarded-for is being used again");
+});

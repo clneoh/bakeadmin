@@ -177,9 +177,21 @@ export async function llmRequest(
       // that a strict server may or may not read as "no body". The signature over
       // an empty body is the same either way, because sign.mjs is given `raw`.
       body: body == null ? undefined : raw,
+      // ⚠️⚠️ A CALL THAT NEVER ANSWERS MUST END (v585). ⚠️ There was no timeout on ANY Lalamove call — ⚠️ **a
+      // hung vendor held the invocation, and `book` could complete AFTER the app gave up at 25 seconds: the
+      // customer's trip is booked and the app does not know.** ⭐ Twenty seconds, so the answer — including the
+      // failure — lands inside the app's wait.
+      // ⚠️ WHAT THIS DOES NOT FIX, SAID PLAINLY: a booking that DID land just before the abort is still a trip
+      // the app must treat as UNKNOWN (v561). The timeout shrinks that window; only Lalamove's own idempotency
+      // could close it, and its nonce is per attempt.
+      signal: AbortSignal.timeout(20_000),
     });
   } catch (err) {
-    return { ok: false, status: 0, data: null, reason: `Could not reach Lalamove — ${(err as Error)?.message || "the request failed"}` };
+    const timedOut = /abort|timed? ?out/i.test(String((err as Error)?.name || (err as Error)?.message || ""));
+    return { ok: false, status: 0, data: null,
+      reason: timedOut
+        ? "Lalamove did not answer within 20 seconds — the trip is UNKNOWN, not refused"
+        : `Could not reach Lalamove — ${(err as Error)?.message || "the request failed"}` };
   }
   let data: unknown = null;
   const text = await res.text().catch(() => "");

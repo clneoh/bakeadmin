@@ -46,10 +46,14 @@ export function overLimit(hits: Hits, key: string, nowMs: number): boolean {
   return cur.n > MAX_PER_WINDOW;
 }
 
-// The first address in `x-forwarded-for`, which is what Supabase's edge sets. ⚠️ When there is none the
-// caller shares one bucket — that can only make the cap STRICTER, never looser.
+// ★★★ THE LAST ADDRESS IN `x-forwarded-for`, NOT THE FIRST (v585). ⚠️⚠️ A standard proxy APPENDS the address
+// it saw, so the FIRST entry is whatever the caller wrote — ⚠️ **a script rotating a made-up first entry got
+// unlimited notes (and unlimited emails on her Resend bill).** ⭐ The LAST entry is the one the nearest proxy
+// observed, which a caller cannot choose. ⚠️ A single-value header is unchanged: first and last are the same.
+// ⚠️ When there is none the caller shares one bucket — that can only make the cap STRICTER, never looser.
 export function callerKey(headers: { get(name: string): string | null }): string {
   const fwd = String(headers.get("x-forwarded-for") || "");
-  const first = fwd.split(",")[0].trim();
-  return first || "unknown";
+  const parts = fwd.split(",").map((s) => s.trim()).filter(Boolean);
+  const last = parts.length ? parts[parts.length - 1] : "";
+  return last || "unknown";
 }

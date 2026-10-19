@@ -24,6 +24,7 @@
 // The only thing stubbed anywhere below is `fetch` — never a function under test.
 
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 
@@ -1151,4 +1152,16 @@ test("every price wears the vehicle's own name, and a refused vehicle wears one 
     const again = await lalamove.quote(STATE, readyTrip(), { services: ["7FT_VAN"] });
     assert.equal(again.quotes[0].name, "7Ft Van");
   } finally { lalamove.forget(); s.restore(); }
+});
+
+test("★★★ no Lalamove call may hang, and a timed-out BOOKING is UNKNOWN (v585)", () => {
+  // ⚠️⚠️ MEASURED FAULT: there was no timeout on ANY Lalamove call — ⚠️ **a hung vendor held the invocation, and
+  // `book` could complete after the app gave up at 25 seconds: a trip booked, and the app does not know.**
+  // ⭐ Source-level, and named as such: the provider runs on Deno. ⚠️ What it can hold is the rule, and the
+  // words a timeout must use — an aborted booking is UNKNOWN, never "refused".
+  const src = readFileSync(new URL("../supabase/functions/courier/providers/lalamove.ts", import.meta.url), "utf8");
+  assert.match(src, /signal:\s*AbortSignal\.timeout\(\s*20_?000\s*\)/,
+    "★ the Lalamove call has no timeout again — a hung vendor can hold the invocation past the app's wait");
+  assert.match(src, /the trip is UNKNOWN, not refused/,
+    "★ a timed-out request must say the trip is UNKNOWN — **saying it was refused would send her to book a second one**");
 });

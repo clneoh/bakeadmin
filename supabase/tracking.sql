@@ -1,7 +1,11 @@
--- Order tracking table.
+-- Order tracking table. ★ RUN THIS FILE FIRST on a fresh project.
 -- Run this once in the Supabase SQL editor (Dashboard → SQL → New query → Run).
 -- Safe to re-run: table is created only if missing, policies are dropped and
 -- recreated.
+-- ⚠️⚠️ AND IT IS SELF-CONTAINED (v585). ⚠️ The lookup below reads columns that FOUR other files also add
+-- (courier_job, courier_fee, courier_cod, promo_track) — ⚠️ **on a fresh project, running this file before them
+-- failed as a whole and nothing anywhere said what to run first.** ⭐ Every column the lookup reads is created
+-- here, `if not exists`, so this file stands alone and the other four add nothing new.
 --
 -- order_tracking: one row per customer order (keyed by its 6-char order code).
 -- When the baker confirms an order, the backoffice publishes the order's
@@ -71,6 +75,18 @@ alter table order_tracking add column if not exists promo_role text not null def
 -- FOR WORD:** `ERROR: 42P13: cannot change return type of existing function. DETAIL: Row type defined by OUT
 -- parameters is different. HINT: Use DROP FUNCTION track_order(text,text) first.` ⭐ The hint is right, and the
 -- reason the first version failed is that the drop sat UNDER the create.
+-- ⭐ EVERY COLUMN THE LOOKUP READS, created here so this file runs on its own (no-ops where another file
+-- already added them). ⚠️ A column the function names but the table lacks makes the whole file fail.
+alter table order_tracking add column if not exists courier_fee   numeric;
+alter table order_tracking add column if not exists courier_cod   boolean;
+alter table order_tracking add column if not exists courier_name  text;
+alter table order_tracking add column if not exists courier_phase text;
+alter table order_tracking add column if not exists courier_driver text;
+alter table order_tracking add column if not exists courier_plate text;
+alter table order_tracking add column if not exists courier_phone text;
+alter table order_tracking add column if not exists promo_code    text;
+alter table order_tracking add column if not exists promo_rm      numeric;
+
 drop function if exists public.track_order(text, text);
 
 create or replace function public.track_order(p_code text, p_phone text default null)
@@ -110,13 +126,12 @@ as $$
     -- ⚠️⚠️ AND THE PHONE MUST MATCH TOO (v558). ⭐ Compared on DIGITS ONLY, and on the LAST NINE of them,
     -- so 012-345 6789, 0123456789 and 60123456789 are the same number — the customer's own fingers decide
     -- the spelling, and a lookup that refused because of a dash would be a bug, not a security rule.
-    -- ⚠️ A row whose `whatsapp` is still '' was published before this change and is NOT republished yet;
-    -- it stays findable by its code alone so a customer mid-order is not locked out of their own card.
-    -- ⭐ Every order republishes its phone the next time its card changes, and every NEW order carries it
-    -- from the start — so the open door closes as the old rows are refreshed.
+    -- ⚠️⚠️ AND THERE IS NO CODE-ONLY DOOR ANY MORE (v585). ⚠️ A row whose `whatsapp` was '' stayed findable
+    -- by its code alone "while it was republished" — ⚠️ **so every phone-less order was readable by anyone who
+    -- knew six characters: name, delivery address and the driver's phone.** ⭐ An order with no phone on it has
+    -- no second key, and a code is not a key: it is not published, and she can tell that customer the status
+    -- herself. ⚠️ A row with no phone finds nothing now, which is the honest answer.
     and (
-      coalesce(t.whatsapp, '') = ''
-      or (
         -- ⚠️ A TYPED NUMBER SHORTER THAN EIGHT DIGITS IS NOT A KEY AT ALL — below this, a guess stops being a guess.
         length(regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g')) >= 8
         and (
@@ -131,7 +146,6 @@ as $$
           or right(regexp_replace(t.whatsapp, '[^0-9]', '', 'g'), length(regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g')))
              = regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g')
         )
-      )
     )
   limit 1;
 $$;

@@ -41,6 +41,13 @@ create table if not exists receipt_numbers (
 -- exactly what the old boolean meant, so a refund made before v370 still lands right.
 alter table receipt_numbers add column if not exists refunded_amount numeric;
 
+-- ★★★ WHAT THE ORDER WAS WORTH, STORED WHEN THE NUMBER IS DRAWN (v585). ⚠️⚠️ `refund_receipt` refused only
+-- zero and negatives — ⚠️ **any signed-in client could write a refund of RM 999,999**, and nothing in this
+-- table knew what the sale had been. ⭐ The bill is written here, at the one moment the app knows it (the
+-- money was just recorded), so the refund has a real ceiling. ⚠️ A row drawn before this carries NULL and
+-- falls back to the flat ceiling below — old receipts cannot gain a bill they never had.
+alter table receipt_numbers add column if not exists bill_rm numeric;
+
 -- ⚠️ THE SEQUENCE IS THE COUNTER, AND IT IS THE DATABASE'S. `nextval` is atomic, so
 -- two phones claiming at the same instant cannot draw the same number, and no
 -- number is ever handed out twice.
@@ -55,8 +62,11 @@ create sequence if not exists receipt_number_seq start 1;
 -- takes the grant with it, which is why the grant at the foot of this file is repeated after
 -- every create rather than assumed.
 drop function if exists public.claim_receipt_number(text);
+-- ⚠️ AND THE TWO-ARGUMENT SIGNATURE A PREVIOUS RUN OF THIS FILE MAY HAVE MADE (v585) — the same lesson
+-- as `refund_receipt`: drop every shape before creating, or the file fails on its second run.
+drop function if exists public.claim_receipt_number(text, numeric);
 
-create function public.claim_receipt_number(p_order_code text)
+create function public.claim_receipt_number(p_order_code text, p_bill numeric default null)
 returns table (number bigint, refunded_at timestamptz, refunded_amount numeric)
 language plpgsql
 security definer
@@ -93,8 +103,8 @@ begin
   if v_num is null then
     -- The insert is now the only writer for this code, so it always lands. `on conflict`
     -- stays as the belt-and-braces guard it always was — it should now never fire.
-    insert into receipt_numbers (order_code, number)
-      values (v_code, nextval('receipt_number_seq'))
+    insert into receipt_numbers (order_code, number, bill_rm)
+      values (v_code, nextval('receipt_number_seq'), case when p_bill is not null and p_bill > 0 then p_bill end)
       on conflict (order_code) do nothing
       returning receipt_numbers.number into v_num;
 
@@ -102,6 +112,12 @@ begin
       select r.number, r.refunded_at, r.refunded_amount into v_num, v_ref, v_amt
         from receipt_numbers r where r.order_code = v_code;
     end if;
+  end if;
+
+  -- ⭐ A LATER CLAIM MAY FILL A BILL AN EARLIER ONE DID NOT KNOW. ⚠️ It is never overwritten: the first
+  -- recorded bill is the sale's, and a later one would be a figure the sale has since moved away from.
+  if p_bill is not null and p_bill > 0 then
+    update receipt_numbers set bill_rm = p_bill where order_code = v_code and bill_rm is null;
   end if;
 
   if v_num is null then
@@ -153,6 +169,15 @@ begin
   -- ⚠️ The true ceiling is the order's own bill, which this table does not hold — the app enforces that,
   -- and this function cannot see it. What it can refuse, it refuses.
   if p_amount is not null and p_amount <= 0 then
+    return null;
+  end if;
+  -- ★★★ AND AN UPPER BOUND (v585). ⚠️⚠️ The app clamps to the customer's bill; this function did not — ⚠️ **any
+  -- signed-in client could write a refund of RM 999,999, and the register would print it as the size of
+  -- the refund.** ⭐ The ceiling is the bill stored when the number was drawn; a receipt drawn before that
+  -- column existed has none, so it falls back to a flat RM 100,000 — a figure no focaccia order reaches,
+  -- which still turns 999,999 into "no".
+  if p_amount is not null
+     and p_amount > coalesce((select r.bill_rm from receipt_numbers r where r.order_code = v_code), 100000) then
     return null;
   end if;
   update receipt_numbers

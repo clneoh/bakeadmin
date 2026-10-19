@@ -317,6 +317,28 @@ test("the public cannot read the tracking table, only ask for one order", () => 
     "the old permissive read is dropped, so a database that already has it is repaired");
 });
 
+test("★★★ the lookup has NO code-only door, and this file creates every column it reads (v585)", () => {
+  const raw = readFileSync(new URL("../supabase/tracking.sql", import.meta.url), "utf8");
+  // ⚠️ CODE, not comments — this file explains the closed door in its own paragraphs.
+  const sql = raw.split("\n").filter((l) => !/^\s*(--|\*)/.test(l)).join("\n");
+  // ⚠️⚠️ MEASURED FAULT: a row whose `whatsapp` was '' stayed findable by its code alone — ⚠️ **name, address
+  // and the driver's phone, to anyone who knew six characters.**
+  assert.ok(!/coalesce\(t\.whatsapp,\s*''\)\s*=\s*''/.test(sql),
+    "★ the code-only door is back — a phone-less order is readable by its code alone");
+
+  // ⚠️ AND ON A FRESH PROJECT THIS FILE USED TO FAIL AS A WHOLE: its lookup reads courier_* and promo_*
+  // columns that four other files add. ⭐ It creates them itself now, `if not exists`.
+  const body = sql.slice(sql.indexOf("as $$"), sql.indexOf("$$;"));
+  const reads = [...new Set([...body.matchAll(/\bt\.([a-z_]+)/g)].map((m) => m[1]))];
+  const added = new Set([...sql.matchAll(/add column if not exists ([a-z_]+)/g)].map((m) => m[1]));
+  const tableAt = sql.indexOf("create table if not exists order_tracking");
+  const tableBlock = sql.slice(tableAt, sql.indexOf(");", tableAt));
+  const declared = new Set([...tableBlock.matchAll(/^\s{2}([a-z_]+)\s+[a-z]/gm)].map((m) => m[1]));
+  const missing = reads.filter((c) => !added.has(c) && !declared.has(c));
+  assert.deepEqual(missing, [],
+    `★ the lookup reads ${missing.join(", ")}, which this file never creates — **on a fresh project it fails whole**`);
+});
+
 // ── the silent failure, measured off the lookup's own column list ────────────
 test("every trip column the card reads is named in the lookup's own column list", async () => {
   TRACK_ROW = null;

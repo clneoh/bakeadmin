@@ -944,6 +944,17 @@ export async function claimReceipt(state, order) {
     try { token = await login(c.url, c.anonKey, c.email, c.password); }
     catch { return false; }
   }
+  // ★★★ AND WHAT THE ORDER WAS WORTH, SO A REFUND HAS A CEILING (v585). ⚠️ The database now refuses a refund
+  // larger than the bill stored with the number — ⚠️ **before this, any signed-in client could write RM 999,999
+  // as the size of a refund.** ⭐ The bill is computed HERE, at the one moment the app knows it: the same
+  // `customerTotal` the confirmation, the tracking card and the invoice read. ⚠️ The whole order, not this row
+  // — a cart's lines share a groupId.
+  // ⚠️ THE ORDER ITSELF IS ALWAYS IN THE FAMILY — a groupId with no other rows on this phone (a
+  // just-placed order, or a phone that has not synced) must not price an empty cart.
+  const gid = order.groupId;
+  const family = [order].concat((state.orders || []).filter((o) => o && o !== order
+    && (!gid || o.groupId === gid)));
+  const bill = round2(customerTotal(state, { orders: family }).total);
   try {
     const res = await fetch(`${c.url}/rest/v1/rpc/claim_receipt_number`, {
       method: "POST",
@@ -952,7 +963,9 @@ export async function claimReceipt(state, order) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ p_order_code: code }),
+      body: JSON.stringify(Number.isFinite(bill) && bill > 0
+        ? { p_order_code: code, p_bill: bill }
+        : { p_order_code: code }),
     });
     if (!res || !res.ok) return false;
     const rows = await res.json();

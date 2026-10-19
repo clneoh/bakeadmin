@@ -30,6 +30,8 @@ const { receiptNoOf, receiptLabel, receiptLine, isRefunded, receiptStatus,
 const { claimReceipt, pullReceiptRegister, refundReceipt } = await import("../admin/js/supabase.js");
 const { journalSheet, buildJournalText } = await import("../admin/js/journal.js");
 const { orderCode } = await import("../admin/js/state.js");
+const { customerTotal } = await import("../admin/js/courier.js");
+const { readFileSync } = await import("node:fs");
 
 const stateWith = () => ({
   settings: {
@@ -38,8 +40,10 @@ const stateWith = () => ({
       email: "a@b.c", password: "p" },
   },
   orders: [],
+  products: [{ id: "p1", name: "Focaccia", price: 15, active: true }],
 });
-const paidUnnumbered = () => ({ id: "ord_1", groupId: "ordg_1", paidReceived: true });
+const paidUnnumbered = () => ({ id: "ord_1", groupId: "ordg_1", paidReceived: true,
+  productId: "p1", qty: 1, unitPrice: 15 });
 
 // ── what the paper says ──────────────────────────────────────────────────────
 
@@ -173,6 +177,11 @@ test("a paid order claims its number, and NAMES THE ORDER rather than the press"
   assert.match(seen.url, /\/rest\/v1\/rpc\/claim_receipt_number$/, "it asks the claiming function");
   assert.equal(seen.body.p_order_code, orderCode(order),
     "★ the ORDER is named — which is what makes a second press return the same number");
+  // ⚠️⚠️ AND THE BILL GOES WITH IT (v585) — the ceiling the database refuses a refund above.
+  // ⚠️ Before this, `refund_receipt` had no upper bound at all: **any signed-in client could write
+  // RM 999,999 as the size of a refund.**
+  assert.equal(seen.body.p_bill, customerTotal(st, { orders: [order] }).total,
+    "★ the claim does not carry the order's bill, so the refund has no ceiling to refuse against");
   assert.equal(order.receiptNo, 123, "and the number the server handed back is the one stored");
 });
 
@@ -474,4 +483,28 @@ test("★★★ no receipt number is drawn for a code ANOTHER ORDER is already w
   assert.equal(ok, false,
     "★ a number was drawn for a code two orders share — **both invoices would print the same serial**");
   assert.equal(called, false, "it should not even ask the register");
+});
+
+test("★★★ refund_receipt has an UPPER bound, and the bill it is measured against (v585)", () => {
+  // ⚠️⚠️ MEASURED FAULT: the app clamped to the customer's bill and the FUNCTION did not — ⚠️ **a signed-in
+  // client could write a refund of RM 999,999, and the register would print it as the size of the refund.**
+  const raw = readFileSync(new URL("../supabase/receipts.sql", import.meta.url), "utf8");
+  const sql = raw.split("\n").filter((l) => !/^\s*--/.test(l)).join("\n");
+
+  assert.match(sql, /add column if not exists bill_rm numeric/i,
+    "★ nothing stores what the order was worth, so a refund has nothing to be measured against");
+  assert.match(sql, /claim_receipt_number\(p_order_code text, p_bill numeric default null\)/,
+    "★ the claim does not take the bill");
+  const refund = sql.slice(sql.indexOf("create function public.refund_receipt"));
+  assert.match(refund, /p_amount\s*>\s*coalesce\(\s*\(select r\.bill_rm/,
+    "★ the refund is not bounded by the stored bill — **a refund of any size can be written**");
+  assert.match(refund, /100000/, "a receipt drawn before the bill existed has no fallback ceiling");
+
+  // ⚠️ AND THE ORDER OF THE DROPS — the lesson of her own 42P13, and of a second run of this file.
+  for (const sig of ["claim_receipt_number(text)", "claim_receipt_number(text, numeric)"]) {
+    const drop = sql.indexOf(`drop function if exists public.${sig}`);
+    const create = sql.indexOf("create function public.claim_receipt_number");
+    assert.ok(drop > 0 && create > 0 && drop < create,
+      `★ ${sig} is not dropped before the claim is created — **the second run of this file fails**`);
+  }
 });
