@@ -1,8 +1,17 @@
-# Jienluv2bake — change history (v54 → v601)
+# Jienluv2bake — change history (v54 → v602)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v602, A RECEIPT NUMBER CANNOT BE TAKEN BACK BY THE OTHER PHONE (NO DATABASE STEP).**
+
+**Your words:** __"fix it if you are having the same problem"__ — I reproduced it in our own merge before touching it.
+
+1. ⚠️⚠️ **A RECEIPT NUMBER COULD BE WIPED BY A SYNC.** A record travels whole: when a newer copy of an order arrives from the other phone, **every field that copy does not carry is deleted from this phone's copy.** So a phone that had never learned the receipt number could wipe it just by saving that order — the munchies book measured exactly that on one order, twice. **A receipt is money recorded, and the app already promises a receipt is never rewritten** — so a number this phone is holding is carried onto the incoming copy.
+2. ⚠️ **IT ONLY EVER FILLS A GAP.** A cloud copy that carries its own number still wins, and this can never invent a number. Two tests drive a real sync: one where the newer copy has no number, one where it has its own. **The first was watched failing before the fix.**
+
+**No database step and no function deploy.** 3,839 tests green.
 
 **19 Oct 2026 — engine v601, THE EDIT CARD SHOWS THE WHOLE SALE (NO DATABASE STEP).**
 

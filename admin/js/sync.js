@@ -1028,6 +1028,15 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString(), { for
       // merged record is exactly the payload.
       const target = list[idx];
       if (target && typeof target === "object" && payload && typeof payload === "object") {
+        // ⚠️⚠️ A RECEIPT NUMBER IS NEVER TAKEN BACK BY A SYNC (v602). ⚠️ MEASURED on munchies' book, 19 Oct:
+        // a number was stamped and minutes later both rows arrived from the other phone WITHOUT it —
+        // ⚠️ **a phone holding an older copy had saved the order, and that copy replaced the row whole.** The
+        // wipe is the key-deletion loop below. ⭐ A receipt is money recorded, and the app already promises a
+        // receipt is never rewritten — so a number this phone holds is carried onto the incoming copy. It can
+        // only ADD: a cloud row that carries one still wins, and a number is never taken away here.
+        if (row.kind === "orders" && Number(target.receiptNo) > 0 && !(Number(payload.receiptNo) > 0)) {
+          payload.receiptNo = target.receiptNo;
+        }
         for (const k of Object.keys(target)) if (!(k in payload)) delete target[k];
         // ⚠️⚠️ A FORGOTTEN CUSTOMER STAYS FORGOTTEN UNDER A NEWER EDIT (v592). ⚠️ The redaction is applied
         // after the merge as well, but the payload must not put the name back for even one repaint — and an

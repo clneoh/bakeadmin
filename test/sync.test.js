@@ -3048,3 +3048,48 @@ test("★★★ a pull drops a stale Removed row AND queues the removal (v600)",
     } finally { restoreFetch(); }
   } finally { restore(); }
 });
+
+// ── v602: a receipt number is never taken back by a sync ─────────────────
+
+test("★★★ a receipt number is never taken back by a sync (v602)", async () => {
+  // ⚠️⚠️ MEASURED on munchies' book, 19 Oct: an order's number was stamped, then both of its rows came down
+  // from the other phone WITHOUT it — **a phone holding an older copy had saved the order, and its copy
+  // replaced the row whole** (`mergeCloudRows` deletes every key the incoming row lacks). ⭐ A receipt is money
+  // recorded, and the app already promises one is never rewritten — so the number is carried.
+  const { store, restore } = installStorage();
+  try {
+    seedToken(store);
+    seedJournal(store, {});
+    const st = cloudOn(baseState());
+    st.orders = [{ id: "o1", productId: "p1", qty: 1, paidReceived: true, receiptNo: 3 }];
+    const restoreFetch = installFetch(async () => ({ ok: true, json: async () => ([
+      cloudRow("orders", "o1", { id: "o1", productId: "p1", qty: 2, paidReceived: true }, "2099-01-01T00:00:00.000Z"),
+    ]) }));
+    try {
+      await sync.pull(st);
+      assert.equal(st.orders[0].qty, 2, "precondition: the newer cloud copy did not win at all");
+      assert.equal(st.orders[0].receiptNo, 3,
+        "★ the receipt number was wiped by a newer copy that never carried it — **a receipt is never "
+        + "rewritten, and a phone that never saw the number must not take it away**");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("★★⚠️ and a cloud row that DOES carry a number still wins (v602)", async () => {
+  const { store, restore } = installStorage();
+  try {
+    seedToken(store);
+    seedJournal(store, {});
+    const st = cloudOn(baseState());
+    st.orders = [{ id: "o1", productId: "p1", qty: 1, paidReceived: true, receiptNo: 3 }];
+    const restoreFetch = installFetch(async () => ({ ok: true, json: async () => ([
+      cloudRow("orders", "o1", { id: "o1", productId: "p1", qty: 1, paidReceived: true, receiptNo: 7 },
+        "2099-01-01T00:00:00.000Z"),
+    ]) }));
+    try {
+      await sync.pull(st);
+      assert.equal(st.orders[0].receiptNo, 7,
+        "★ the repair kept a local number over one the cloud had — **it must only fill a gap**");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
