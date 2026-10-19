@@ -689,6 +689,8 @@ export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses
         return el("button", {
           class: `${cls} ${tip ? "tippable" : "tappable"}`,
           dataset: { date: iso },
+          // ⚠️ A MARKED DAY THAT IS NOT A DELIVERY DAY SAYS ITS DATE TOO (v598).
+          "aria-label": longDate(iso),
           onclick: () => {
             nameDay(state.occasions, iso, past); // names a marked day, exactly as everywhere else
             if (askable) missedIso = iso;
@@ -2761,7 +2763,12 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // included the charge. ⚠️ **So editing ANY paid order with a customer-borne courier charge falsely asked
     // "has the extra RM8 been paid too?", and "Not yet" un-paid the order.** ⭐ `draftNow` is the goods-only
     // figure; the receipt above still shows the whole total.
-    draftNow = Math.max(0, round2(itemsTotal - off - coupon.amount));
+    // ⚠️⚠️ AND THE DRAFT IS THE WHOLE ORDER'S WORTH (v598). ⚠️ It was the day's slice, while `paidWas` is the
+    // whole sale — ⚠️ **on a split order the two figures were of different things.** ⭐ The other days' rows
+    // ride along untouched; only this day's lines are the draft.
+    const _others = familyOfOrder(state, group.orders).filter((o) => !group.orders.some((g) => g.id === o.id));
+    const _draftRows = priced.map((l) => ({ ...first, id: l.id, productId: l.productId, qty: l.qty, unitPrice: l.price }));
+    draftNow = orderTakings(state, { orders: [..._others, ..._draftRows] });
     // ⚠️⚠️ AND THE HINT SPEAKS THE SAME FIGURE THE QUESTION WILL (v595). ⚠️ It compared the goods-only paid
     // amount with `nowTotal` INCLUDING the courier charge — ⚠️ **RM7 in the hint and RM15 in the question, two
     // money figures on one flow.** ⭐ One draft figure, goods only.
@@ -2870,13 +2877,17 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // ⚠️⚠️ AN EDIT'S OWN REFUND IS ALREADY IN THE LINES (v595). ⚠️ `orderNet` then reads frozen − refund = 0,
     // so a later edit UP asked nothing and the extra was silently accepted. ⭐ The baseline is what the order
     // is worth now; an ordinary refund still comes off, because it did not change the lines.
-    const wasEditedRefund = !!(first && first.refundFromEdit && Number(first.paidWasRM) > 0);
-    const paidWas = isCollected(group)
-      ? (wasEditedRefund ? orderTakings(state, group) : orderNet(state, group)) : 0;
+    // ⚠️⚠️ THE WHOLE SALE, NOT THE DAY'S SLICE (v598). ⚠️ `orderNet(group)` on a split order was that day's
+    // part, and freezing it onto every row dropped the other day's takings — ⚠️ **RM45 paid on two bake days
+    // read RM30, and RM15 vanished from Money, Profit and the customer's lifetime spend.** ⭐ Held money is
+    // what orderNet answers: the frozen amount (or the current worth) less every refund given.
+    const family = familyOfOrder(state, group.orders);
+    const wasEditedRefund = !!(first && first.paidWasRM && Number(first.paidWasRM) > 0);
+    const paidWas = isCollected(group) ? orderNet(state, { orders: family }) : 0;
     // ⚠️ AND THE SALE AS IT WAS PAID IS CAPTURED BEFORE ANY EDIT RUNS (v595). ⚠️ It used to be read inside the
     // refund card's callback, which fires AFTER `applyEdits()` — ⚠️ **so `paidWasRM` froze the EDITED amount
     // (RM15) and a past month was rewritten**, the exact fault v589 meant to end.
-    const freezeAt = wasEditedRefund ? Number(first.paidWasRM) : orderTakings(state, group);
+    const freezeAt = wasEditedRefund ? Number(first.paidWasRM) : orderTakings(state, { orders: family });
     const short = round2(paidWas - draftNow);
     // ⚠️⚠️ AND THE OTHER DIRECTION: THE ORDER CAN NOW COME TO MORE (v577). ⭐ Only the shortfall was asked
     // about, so an order edited UP while it was paid **counted the whole new total as money received** —
@@ -2889,7 +2900,10 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       return confirmDialog(
         `THE MONEY IS IN — this order was paid ${fmtRM(paidWas, cfgCur)} and now comes to `
         + `${fmtRM(draftNow, cfgCur)}. Has the extra ${fmtRM(extra, cfgCur)} been paid too?`,
-        () => applyEdits(),
+        // ⚠️⚠️ AND PAYING THE EXTRA MOVES THE FROZEN SALE UP WITH IT (v598). ⚠️ `orderTakings` answers the
+        // frozen amount, so the extra was never counted anywhere — ⚠️ **RM30 paid, edited to RM15 with a RM15
+        // refund, then edited back and paid again still read RM15.** ⭐ The new worth is what she has now.
+        () => applyEdits(wasEditedRefund ? { refreezeTo: draftNow } : {}),
         {
           yesLabel: "Yes, paid too",
           noLabel: "Not yet",
@@ -2897,10 +2911,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
         });
     }
     if (paidWas > 0 && draftNow != null && short > 0) {
-      // ⚠️⚠️ A SECOND REFUND WOULD OVERWRITE THE FIRST (v595). ⚠️ An order carries ONE refund amount and date;
-      // ⚠️ **editing down again erased the earlier refund from Money, Profit and the register.** ⭐ Further money
-      // back goes through the Refund press, which is built for it.
-      if (isRefunded(group)) return applyEdits();
+      // ⚠️ AN EARLIER REFUND IS ADDED TO, NEVER ERASED (v598 — the writer accumulates; see `refundOrder`).
       return confirmDialog(
         `THE MONEY IS IN — this order was paid ${fmtRM(paidWas, cfgCur)} and now comes to `
         + `${fmtRM(draftNow, cfgCur)}. Saving takes ${fmtRM(short, cfgCur)} out of your accounts — `
@@ -2931,7 +2942,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     applyEdits();
   };
 
-  const applyEdits = ({ markUnpaid = false } = {}) => {
+  const applyEdits = ({ markUnpaid = false, refreezeTo = null } = {}) => {
     const chosen = lines.filter((l) => l.productId);
     if (!chosen.length) return toast("Choose a product");
     const destId = draft.deliveryDateId || curId;
@@ -3004,6 +3015,12 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // ⚠️⚠️ AND "NOT YET" MEANS THE MONEY IS NOT IN (v577). ⭐ The Pay press returns and Money stops counting
     // the sale — the honest answer, and the only one that keeps her accounts true when she adds bread to an
     // order the customer has not paid the extra for.
+    // ⚠️ AND THE FROZEN SALE FOLLOWS A PAYMENT FOR THE EXTRA (v598).
+    if (refreezeTo != null && Number(refreezeTo) > 0) {
+      for (const o of familyOfOrder(state, group.orders)) o.paidWasRM = round2(Number(refreezeTo));
+      save(state);
+      maybeSync(state);
+    }
     if (markUnpaid) {
       // ⚠️⚠️ THE WHOLE ORDER, NOT THE DAY'S SLICE (v589). ⚠️ Every book reads the order through its FIRST
       // row, so clearing only the rows on the day she edited left a two-bake-day order reading PAID — ⚠️
@@ -4622,7 +4639,7 @@ function printActiveLabel() {
   };
   const timer = setTimeout(done, 10000);
   window.addEventListener("afterprint", done);
-  window.print();
+  try { window.print(); } catch { done(); toast("This phone couldn't print — use Share instead."); }
 }
 
 // "Print label": pick one of the preset styles, preview it live, then print.
@@ -5487,10 +5504,17 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
   // ⚠️⚠️ THE CAP IS WHAT THE CUSTOMER ACTUALLY PAID — never the goods' face price. A coupon or a
   // promo code means they handed over less than the bread was priced at, and handing back the
   // discount as cash would be paying out money she never received (v370).
-  const bill = customerTotal(state, group);
-  const cap = round2(bill.total);
+  // ⚠️⚠️ THE WHOLE SALE, ON THE CARD THAT GIVES IT BACK (v598). ⚠️ The write covers the whole family, but the
+  // bill, the cap and the ticked lines came from the day's slice — ⚠️ **a split order paid RM45 could only refund
+  // RM30 and the rest was unreachable.** ⭐ One list, the same rows the writer changes.
+  const family = familyOfOrder(state, group.orders);
+  const bill = customerTotal(state, { orders: family });
+  // ⚠️ AND MONEY ALREADY GIVEN BACK IS NOT REFUNDABLE AGAIN (v598): refunds accumulate now, so the cap is the
+  // bill less what has already gone back.
+  const priorRefund = round2(Number(first && first.refundAmountRM) || 0);
+  const cap = round2(Math.max(0, bill.total - priorRefund));
 
-  const lines = group.orders.map((o) => ({
+  const lines = family.map((o) => ({
     id: o.id, qty: Number(o.qty) || 0, price: orderLinePrice(state, o), name: orderLineName(state, o),
   }));
   // ⚠️⚠️ ONLY THE CHARGE SHE ACTUALLY RECEIVED IS REFUNDABLE (v549). ⭐ A cash-on-delivery fee is paid to
@@ -5552,7 +5576,7 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
     const rows = lines.map((line) => {
       const amt = el("span", { class: "refund-amt" }, "");
       const qtyBox = line.qty > 1
-        ? el("input", { class: "input refund-qty", type: "number", inputmode: "numeric",
+        ? el("input", { class: "input refund-qty", type: "number", inputmode: "numeric", "aria-label": "How many came back",
             min: "1", max: String(line.qty),
             oninput: () => {
               const v = Math.max(1, Math.min(line.qty, parseInt(qtyBox.value, 10) || 1));
@@ -5621,7 +5645,10 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
           // rows, so one writer fixes both.
           for (const o of familyOfOrder(state, group.orders)) {
             o.refundedAt = at;
-            o.refundAmountRM = value;
+            // ⚠️⚠️ A SECOND REFUND IS ADDED, NOT OVERWRITTEN (v598). ⚠️ One amount/date per order meant a later
+            // refund erased the earlier one from Money, Profit and the register. ⭐ The total returned is the
+            // sum; the day shown is the latest money that moved.
+            o.refundAmountRM = round2((Number(o.refundAmountRM) || 0) + value);
             // ⚠️⚠️ AND WHETHER THIS REFUND IS ANSWERING AN EDIT (v549). ⭐ A refund recorded from the
             // ordinary Refund press is money going back on top of what the order is worth; **a refund
             // recorded right after an edit-down is the SAME money the edit has already taken off** — so
@@ -5653,7 +5680,7 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
           // the moment she confirms, whatever the register says. But a register that was never told
           // would print an UNMARKED receipt for a refunded sale, and that disagreement is hers to
           // know about: it is said on her screen rather than carried in silence.
-          const marked = await refundReceipt(state, first, value);
+          const marked = await refundReceipt(state, first, round2((Number(first && first.refundAmountRM) || 0)));
           save(state);
           close();
           toast(marked
@@ -5706,7 +5733,8 @@ function undoRefundOrder(state, group, first, { root, dateId } = {}) {
       // answered an edit, and an undone refund is not answering anything.
       delete o.refundedFull;
       delete o.refundFromEdit;
-      delete o.paidWasRM;
+      // ⚠️ AND THE FROZEN SALE STAYS (v598): the money she keeps is what she was paid; deleting it re-priced
+      // an edited sale from the edited lines and the RM15 she still holds vanished from every book.
     }
     anchorRowId = first.id;
     save(state);

@@ -20,7 +20,7 @@
 
 import { cachedToken } from "./supabase.js";
 import * as sync from "./sync.js";
-import { LS_KEY, normalize, orderCode, codeFromId, groupOrders, fmtRM } from "./state.js";
+import { LS_KEY, normalize, applyRedactions, orderCode, codeFromId, groupOrders, fmtRM } from "./state.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { fmtPlaced, longDate, toISODate, todayISO } from "./dates.js";
 import { fmtStockAmount, belowReserve } from "./purchasing.js";
@@ -171,6 +171,16 @@ export function rewindTo(current, snapState) {
   restored.settings.supabase = keep("supabase");
   restored.settings.cloud = keep("cloud");
   restored.settings.lock = keep("lock");
+  // ⚠️⚠️ AND A FORGOTTEN CUSTOMER IS NOT UN-FORGOTTEN BY AN OLD COPY (v598). ⚠️ A copy taken before the forget
+  // carries the name, number and address, and the restored book was pushed as-is — ⚠️ **a Restore quietly put a
+  // person back.** ⭐ This phone's redactions survive the rewind and are applied to the restored orders.
+  const mine = Array.isArray(current && current.redactions) ? current.redactions : [];
+  if (mine.length) {
+    const merged = new Map((restored.redactions || []).map((r) => [r && r.id, r]));
+    for (const r of mine) if (r && r.id) merged.set(r.id, r);
+    restored.redactions = [...merged.values()].filter(Boolean);
+    applyRedactions(restored);
+  }
   return restored;
 }
 

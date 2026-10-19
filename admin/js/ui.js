@@ -323,7 +323,17 @@ export function confirmDialog(message, onYes, { danger = false, yesLabel = "Conf
   card.addEventListener("keydown", onKey);
   try { card.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
   function restoreOpener() {
-    try { if (opener && opener.focus && opener.isConnected !== false) opener.focus({ preventScroll: true }); } catch { /* gone */ }
+    try {
+      if (opener && opener.focus && opener.isConnected !== false) { opener.focus({ preventScroll: true }); return; }
+      // ⚠️⚠️ AND WHEN THE ACTION REBUILT THE SCREEN, FOCUS GOES SOMEWHERE SAID (v598). ⚠️ A delete's re-render
+      // removes the control that opened the question, so focus fell to `<body>` and the next Tab started at the
+      // top — ⚠️ **the very fault v591 set out to fix.** ⭐ The screen's own title takes the keyboard.
+      const title = typeof document !== "undefined" && document.getElementById && document.getElementById("view-title-text");
+      if (title && title.focus) {
+        if (typeof title.setAttribute === "function") title.setAttribute("tabindex", "-1");
+        title.focus({ preventScroll: true });
+      }
+    } catch { /* no focus in a shim */ }
   }
   function close({ restore = true } = {}) {
     card.removeEventListener("keydown", onKey);
@@ -731,8 +741,9 @@ export async function guarded({ btn = null, hold, work, said, trouble }) {
 // it silently did nothing.** ⭐ One guard, the same sentence the journal uses.
 export function printPage() {
   if (typeof window !== "undefined" && typeof window.print === "function") {
-    window.print();
-    return true;
+    // ⚠️ A print that THROWS says so (v598) — a defined-but-broken print used to leave the press silent.
+    try { window.print(); return true; }
+    catch { toast("This phone couldn't print — use Share instead."); return false; }
   }
   toast("This phone can't print — use Share instead.");
   return false;

@@ -264,7 +264,13 @@ function tally(state, groups) {
     // never marked paid is a real shape, and without this line the refund would land in the
     // owed column and read as a customer who still has to pay for a sale that was undone.
     if (!isCollected(g)) {
-      if (!isRefunded(g)) { out.toCollect += customerTotal(state, g).total; out.toCollectCount++; }
+      // ⚠️⚠️ A PARTLY REFUNDED BILL CAN STILL BE OWED (v598). ⚠️ `isRefunded` skipped the whole order, so an
+      // unpaid order carrying an edit's refund read as "nothing owed" while the consolidated page showed a
+      // balance. ⭐ Only what has not gone back is owed.
+      const billTotal = customerTotal(state, g).total;
+      const back = isRefunded(g) ? refundOf(state, g) : 0;
+      const stillOwed = round2(Math.max(0, billTotal - back));
+      if (stillOwed > 0) { out.toCollect += stillOwed; out.toCollectCount++; }
       continue;
     }
     // ★★ WHAT THE SALE TOOK, AND NOTHING TAKEN BACK OUT OF IT (v578). Not the face price — that would

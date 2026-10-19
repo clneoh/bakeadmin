@@ -166,8 +166,16 @@ function deleteUnit(state, uom, root) {
     // unit was deleted, or it re-seeds the unit and pushes it straight back.
     const gone = Array.isArray(state.uomsRemoved) ? state.uomsRemoved : (state.uomsRemoved = []);
     const name = String(uom.name || "").trim().toLowerCase();
-    if (name && !gone.some((r) => String((r && r.id) || r).toLowerCase() === name)) {
-      gone.push({ id: name, at: new Date().toISOString() });
+    // ⚠️⚠️ A RENAMED SEEDED UNIT IS STILL THAT SEEDED UNIT (v598). ⚠️ Only the CURRENT name was recorded, so
+    // "dozen" renamed to "doz" and then deleted came back on the next load as "dozen" — ⚠️ **the seed matched its
+    // own id and its own name, while the tombstone named something else.** ⭐ Both names are recorded.
+    const names = [name];
+    const seed = /^uom_(.+)$/.exec(String(uom.id || ""));
+    if (seed) names.push(String(seed[1] || "").toLowerCase());
+    for (const n of names) {
+      if (!n) continue;
+      if (gone.some((r) => String((r && r.id) || r).toLowerCase() === n)) continue;
+      gone.push({ id: n, at: new Date().toISOString() });
     }
     toast("Unit deleted");
     save(state);

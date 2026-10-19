@@ -332,6 +332,7 @@ const en = {
   // Shown where the menu would be when every product is marked off today's
   // delivery date — an empty space reads like a broken page.
   noMenuToday: "Nothing is on the menu for this day. Please pick another bake day.",
+  noMenu: "The menu is empty right now — please check back soon.",
   // The last heading on the menu, over the products the baker has not filed
   // under any category. Nothing is ever hidden for want of filing, so the
   // heading is plainly a place rather than a warning.
@@ -631,6 +632,7 @@ const zh = {
   nextAvailableLeft: "下次可预订：%1 · 剩 %2 份",
   sentenceEnd: "。",
   noMenuToday: "这一天没有商品在菜单上，请另选一个烘焙日。",
+  noMenu: "菜单暂时是空的 — 请稍后再来。",
   moreItems: "更多商品",
   fixSoldOut: "%1 刚刚售完 — 已从你的订单中移除。",
   fixGone: "%1 已不在菜单上 — 已从你的订单中移除。",
@@ -873,6 +875,7 @@ const ms = {
   nextAvailableLeft: "Seterusnya tersedia: %1 · tinggal %2",
   sentenceEnd: ".",
   noMenuToday: "Tiada apa-apa pada menu untuk hari ini. Sila pilih hari membakar yang lain.",
+  noMenu: "Menu sedang kosong — sila semak semula nanti.",
   moreItems: "Lebih banyak item",
   fixSoldOut: "%1 baru habis — kami keluarkan dari order anda.",
   fixGone: "%1 tiada lagi dalam menu — kami keluarkan dari order anda.",

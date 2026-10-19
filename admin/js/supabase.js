@@ -10,8 +10,8 @@ import { normRules } from "../../availability.js";
 import { publishOccasions } from "./occasion_catalog.js";
 import { flattenTree, primaryCategoryId, productsInCategory } from "./productCategories.js";
 import { isThumb, lineNoteOf } from "../../storefront-fields.js";
-import { costOf, effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
-import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, saveFailure, stampOrderLine, duplicateOrderCodes, waNumber, groupOrders } from "./state.js";
+import { costOf, effectiveCapacity, effectiveLimit, hiddenPackBase, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
+import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, saveFailure, stampOrderLine, duplicateOrderCodes, waNumber, groupOrders, redactedPhones, discardImportedRows } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { customerTotal } from "./courier.js";
 // ⚠️ ONE WORDING FOR HOW AN ORDER REACHES THE CUSTOMER (v569) — the messages already read these; the card
@@ -243,18 +243,25 @@ export async function syncAvailability(state) {
   const plainRows = productRows.filter((r) => !("pool_base" in r));
   const packRows = productRows.filter((r) => "pool_base" in r);
   let pushedProducts = 0;
-  const pushProductBatch = async (rows) => {
+  const pushProductBatch = async (rows, count = true) => {
     if (!rows.length) return null;
     const res = await upsert("product_availability", rows, "date,product");
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       return { ok: false, reason: `Product sync failed (HTTP ${res.status})${text ? " — " + text.slice(0, 160) : ""}` };
     }
-    pushedProducts += rows.length;
+    // ⚠️ The clearing batch publishes no stamp, so it is not counted as a product row (v598).
+    if (count) pushedProducts += rows.length;
     return null;
   };
-  for (const batch of [plainRows, packRows]) {
-    const batchErr = await pushProductBatch(batch);
+  // ⚠️⚠️ AND A PRODUCT THAT STOPPED BEING A PACK LOSES ITS OLD POOL COLUMNS (v598). ⚠️ The upsert merges by key
+  // and omits keys it is not given, so a pack made into a plain product kept `pool_base` — ⚠️ **the trigger then
+  // treated it as derived and ignored its own limit and sales.** ⭐ One more batch, of explicit NULLs for the plain
+  // rows: on a project without the pool columns it fails alone, exactly like the pack batch, and the singles
+  // still publish.
+  const clearedRows = plainRows.map((r) => ({ date: r.date, product: r.product, pool_base: null, pool_qty: null }));
+  for (const [batch, count] of [[plainRows, true], [clearedRows, false], [packRows, true]]) {
+    const batchErr = await pushProductBatch(batch, count);
     if (batchErr) return batchErr;
   }
 
@@ -308,7 +315,10 @@ export function storefrontPayload(state) {
     // price reader refused zero and kept its typed figure. ⭐ Only a priced product reaches the shop; the
     // Products screen says which ones are waiting for a price.
     .filter((p) => p && p.draft !== true && p.active !== false && String(p.name || "").trim()
-      && Number(p.price) > 0)
+      && Number(p.price) > 0
+      // ⚠️ AND A PACK WHOSE BASE IS HIDDEN IS NOT OFFERED (v598) — its cap has left the shop, so selling it
+      // would be selling pieces of a bread she has taken off.
+      && !hiddenPackBase(state, p))
     .map((p) => {
       const out = {
         name: String(p.name).trim(),
@@ -569,6 +579,15 @@ export async function refreshStorefront(state) {
     if (typeof remote.instagram === "string") sf.instagram = remote.instagram;
     if (typeof remote.facebook === "string") sf.facebook = remote.facebook;
     if (typeof remote.tngQr === "string") sf.tngQr = remote.tngQr;
+    // ⚠️⚠️ AND THE HOMEPAGE PRODUCT FOLLOWS THE PUBLISHED NAME (v598). ⚠️ Without this the second phone kept an
+    // empty choice and its next publish sent `homeProduct: ""` — ⚠️ **silently reverting the homepage card to the
+    // first name containing focaccia.** ⭐ A NAME that is published is adopted onto the local product; an empty
+    // one is "no opinion" and clears nothing (a phone that never chose must not erase another phone's choice).
+    if (typeof remote.homeProduct === "string" && remote.homeProduct.trim()) {
+      const wanted = remote.homeProduct.trim().toLowerCase();
+      const hit = (state.products || []).find((p) => p && String(p.name || "").trim().toLowerCase() === wanted);
+      if (hit) sf.homeProductId = hit.id;
+    }
     // The developer credit follows the same rule: the published values win, so
     // the More → Settings & this app ✉ rows and the footers match what customers see.
     let dev = state.settings.developer;
@@ -1292,7 +1311,20 @@ export async function pullIncoming(state) {
       // exist only in memory while the queue row was DELETED — ⚠️ **the customer's order would then exist
       // nowhere.** ⭐ The row is left `imported` (not re-queued, which would duplicate it) and the order stays
       // for the next successful save.
-      if (saveFailure()) continue;
+      if (saveFailure()) {
+        // ⚠️⚠️ AND THE IMPORT IS UNDONE AND THE ROW RE-QUEUED (v598). ⚠️ Leaving it `imported` meant the queue
+        // never retried (`status=eq.new`) while the order existed only in memory — ⚠️ **a phone closed before
+        // any save succeeded lost that customer's order from everywhere the app can reach.** ⭐ The rows this
+        // import created are removed from memory (so a retry cannot duplicate them) and the claim is released.
+        const ids = Array.isArray(created) ? created.map(String) : [];
+        discardImportedRows(state, ids);
+        await fetch(`${c.url}/rest/v1/incoming_orders?id=eq.${row.id}`, {
+          method: "PATCH",
+          headers: { ...auth, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ status: "new" }),
+        }).catch(() => {});
+        continue;
+      }
       // The claim already prevents a second import; delete is just cleanup.
       await fetch(`${c.url}/rest/v1/incoming_orders?id=eq.${row.id}`, {
         method: "DELETE",
@@ -1463,6 +1495,20 @@ function importIncoming(state, row) {
     if (first) {
       const said = unmatchedLinesNote(droppedLines, (state.settings && state.settings.currency) || "RM");
       first.note = [first.note, said].filter(Boolean).join("\n");
+    }
+  }
+  // ⚠️⚠️ AN ORDER FROM SOMEONE SHE HAS FORGOTTEN ARRIVES WITHOUT THEIR DETAILS (v598). ⚠️ A storefront order
+  // imported after the forget carried the name, number and address straight back into the book — ⚠️ **the sale
+  // is kept; the identification is not.** ⭐ Matched on the phone the redaction recorded.
+  const forgotten = redactedPhones(state);
+  if (forgotten.size) {
+    for (const id of created) {
+      const o = state.orders.find((x) => x && x.id === id);
+      if (!o) continue;
+      if (!forgotten.has(waNumber(o.whatsapp))) continue;
+      delete o.customerName;
+      delete o.whatsapp;
+      delete o.address;
     }
   }
   return created.length ? created : null;

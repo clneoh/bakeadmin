@@ -578,7 +578,7 @@ export function printJournal(sheet, cur = "RM") {
   };
   const timer = setTimeout(done, 10000);
   if (typeof window !== "undefined") window.addEventListener("afterprint", done);
-  window.print();
+  try { window.print(); } catch { done(); toast("This phone couldn't print — use Share instead."); }
 }
 
 // Share one sheet. The journal goes as a PDF FILE, because that is the one form WhatsApp

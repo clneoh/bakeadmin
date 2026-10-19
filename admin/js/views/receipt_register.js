@@ -200,7 +200,7 @@ export function renderReceiptRegister(root, state) {
             if (typeof window !== "undefined" && window.addEventListener) {
               window.addEventListener("afterprint", done);
             }
-            window.print();
+            try { window.print(); } catch { done(); toast("This phone couldn't print — use Share instead."); }
           }, "soft small"))),
 
       el("div", { class: "card" },

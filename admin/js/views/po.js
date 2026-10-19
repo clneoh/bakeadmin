@@ -380,7 +380,7 @@ function previewCard(state, chosen, bom, needsReview) {
     el("p", { class: "card-sub", style: "margin:0 0 8px" }, sub),
     chips,
     overCap ? el("div", { class: "danger-banner" }, "Over capacity — check the order list.") : null,
-    bom.warnings.length ? el("div", { class: "warn" }, bom.warnings.join(" ")) : null,
+    bom.warnings.length ? el("div", { class: "warn no-print" }, bom.warnings.join(" ")) : null,
     table,
     notBought.length ? el("p", { class: "po-snapshot-note" },
       `Not on this list: ${notBought.join(", ")} — marked as not something you buy. Their cost still counts in the products that use them.`) : null,

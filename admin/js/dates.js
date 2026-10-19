@@ -78,8 +78,14 @@ function isoParts(dateStr) {
   const month = Number(m[2]);
   const day = Number(m[3]);
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const d = new Date(Number(m[1]), month - 1, day);
-  return Number.isNaN(d.getTime()) ? null : d;
+  // ⚠️⚠️ AND A DAY THAT DOES NOT EXIST IS NOT A DATE (v598). ⚠️ `new Date(2026, 1, 31)` ROLLS OVER to 3 March,
+  // so the range check above let 31 February print as a plausible wrong day. ⭐ The parts must survive the round
+  // trip: a date the calendar does not have answers nothing.
+  const year = Number(m[1]);
+  const d = new Date(year, month - 1, day);
+  if (Number.isNaN(d.getTime())) return null;
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+  return d;
 }
 
 export function weekdayName(dateStr) {

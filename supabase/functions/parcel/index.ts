@@ -205,6 +205,9 @@ Deno.serve(async (req) => {
   // time of packing the box.
   if (action === "balance") {
     const out = await ask(cfg, ACTION.balance, {});
+    // ⚠️⚠️ A SERVICE FAULT IS NOT "YOU HAVE NO MONEY" (v598). ⚠️ `readBalance` replaced a 5xx/timeout with "did
+    // not send a balance", which reads as a business answer. ⭐ Its own reason is passed through.
+    if (out.ok === false) return json({ ok: false, ...(out.unknown ? { unknown: true } : {}), reason: out.reason });
     return json(readBalance(out));
   }
 
@@ -226,6 +229,8 @@ Deno.serve(async (req) => {
       // with every price, which is a reply too big to send to a phone and of no use to her.
       exclude_fields: RATE_EXCLUDE,
     });
+    // ⚠️ AND THE SAME FOR A PRICE: a 503 is not "no courier offered a price" (v598).
+    if (out.ok === false) return json({ ok: false, ...(out.unknown ? { unknown: true } : {}), reason: out.reason });
     return json(readRates(out));
   }
 
@@ -275,7 +280,9 @@ Deno.serve(async (req) => {
           + "you twice.",
       });
     }
-    return json(readOrder(out));
+    const bookedOut = readOrder(out);
+    // ⚠️ AND AN UNKNOWN OUTCOME KEEPS ITS FLAG THROUGH THIS DOOR (v598).
+    return json(bookedOut.ok ? bookedOut : { ...bookedOut, ...(bookedOut.unknown ? { unknown: true } : {}) });
   }
 
   // ── where it is ────────────────────────────────────────────────────────────

@@ -29,8 +29,10 @@ test("★★★ an absurd line cannot zero a whole bake day (v592)", () => {
     assert.match(src, /lqty > 100/, `${file}: the per-line ceiling is not 100`);
     assert.equal(/lqty > 999/.test(src), false, `${file}: the 999 ceiling is back`);
   }
-  assert.match(read("supabase/shared_pool_slots.sql"), /pqty > 100/,
-    "the pool line's own ceiling is not 100");
+  // ⚠️ v598: the pool row is an AGGREGATE of pieces (26 four-packs is 104), so the per-row cap is gone and the
+  // whole-order ceiling bounds it instead.
+  assert.match(read("supabase/shared_pool_slots.sql"), /total_wanted > 200/,
+    "the pool order is not bounded at all");
 });
 
 test("★★ the advisor file cannot abort on a project without those functions (v592)", () => {

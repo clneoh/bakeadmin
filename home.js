@@ -21,6 +21,7 @@ let lang = loadLang();
 let siteFacts = { cutoff: "", days: null };
 let devConfig = null; // { name, emails, wa } fetched once from the published storefront
 let devLoaded = false;
+let retryTimer = null;
 
 function byId(id) {
   return document.getElementById(id);
@@ -123,7 +124,12 @@ async function loadDevConfig() {
     if (Array.isArray(cfg.deliveryDays)) siteFacts.days = cfg.deliveryDays;
     renderSiteFacts();
     devLoaded = true;   // ⭐ only now: a failed visit retries on the next call
-  } catch { /* offline — the next call tries again */ }
+  } catch {
+    // ⚠️⚠️ AND IT ACTUALLY TRIES AGAIN (v598). ⚠️ v596 stopped latching the failure, but nothing called this
+    // function again — ⚠️ **so a homepage opened in a tunnel kept the typed RM16 for the whole visit while the
+    // shop polled and recovered.** ⭐ One retry on a timer, and one the moment the phone is back online.
+    if (!retryTimer) retryTimer = setTimeout(() => { retryTimer = null; loadDevConfig(); }, 30000);
+  }
 }
 
 // The way the footer has always written it: +60 16-960 1268 for a Malaysian mobile, a plain
@@ -185,6 +191,10 @@ function renderDevLine() {
 async function init() {
   initSwitch();
   render();
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    // ⚠️ The phone coming back online is the moment to try (v598).
+    window.addEventListener("online", () => loadDevConfig());
+  }
   await loadDevConfig();
   renderDevLine();
 }

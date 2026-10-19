@@ -257,6 +257,22 @@ export function tradingRows(state, from, to) {
     });
     if (t.promo > 0) adjust("promo", `Code ${t.promoCode || ""}`.trim(), t.promo);
     if (t.coupon > 0) adjust("coupon", "Bring-a-friend discount", t.coupon);
+    // ⚠️⚠️ AND A SALE EDITED DOWN IS EXPLAINED, NOT SILENTLY SHORT (v598). ⚠️ The Sales line reads the frozen
+    // amount while these rows are the CURRENT lines — ⚠️ **the journal summed to RM15 under a line of RM30.**
+    // ⭐ The difference is its own row, the same way a discount and a refund are.
+    const frozen = Number(first.paidWasRM);
+    if (frozen > 0) {
+      const linesSum = g.orders.reduce((sum, o) => sum + (Number(o.qty) || 0) * (orderLinePrice(state, o) || 0), 0);
+      const worthNow = round2(linesSum - t.promo - t.coupon);
+      const diff = round2(frozen - worthNow);
+      if (diff) {
+        rows.push({
+          id: `${first.id}-frozen`, date: orderDay(state, first),
+          what: "The sale as it was paid — before it was edited down",
+          customer, qty: 0, price: 0, sales: diff, cost: 0, uncosted: false,
+        });
+      }
+    }
     // ★★ THE REFUND'S ROW IS DATED THE DAY IT WENT BACK, NOT THE DAY OF THE SALE (v578) — and it is
     // drawn by the second loop below, which walks every order rather than only this stretch's sales.
   }

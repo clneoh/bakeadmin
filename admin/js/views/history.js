@@ -45,9 +45,11 @@ function poHeadline(po) {
   // kind this is. Her words: __"I want to add a manual PO issuing … it dont tie to specific bake date"__.
   if (po && po.manual) return "Written by hand";
   const dates = poDateStrs(po);
-  const base = dates.length
+  // ⚠️ A MALFORMED DATE PRINTS NOTHING (v596), so the join would leave a bare ", " — fall back to the name.
+  const named = dates.length && longDate(dates[0])
     ? `${weekdayName(dates[0])}, ${longDate(dates[0])}`
-    : "Purchase order";
+    : "";
+  const base = named || "Purchase order";
   if (dates.length <= 1) return base;
   return el("span", {},
     base,

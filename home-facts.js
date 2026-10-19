@@ -84,6 +84,10 @@ export function publishedPrice(products, word = "focaccia") {
   // the word" rule is kept as the fallback, so a page published before this version still prices — and a
   // pack named "4 × Focaccia Box" can no longer put RM60 on the loaf's card when she has named the loaf.
   const exact = list.find((p) => priced(p) && p.name.trim().toLowerCase() === want);
-  const hit = exact || list.find((p) => priced(p) && p.name.toLowerCase().includes(want));
+  // ⚠️⚠️ THE FALLBACK TAKES THE CHEAPEST MATCH (v598). ⚠️ "first containing focaccia" could be a multi-pack, so a
+  // page whose chosen product was cleared priced a loaf card at the pack's figure. ⭐ A pack costs more than the
+  // loaf it holds, so the cheapest is the loaf in practice.
+  const hit = exact || list.filter((p) => priced(p) && p.name.toLowerCase().includes(want))
+    .sort((a, b) => Number(a.price) - Number(b.price))[0];
   return hit ? priceText(hit.price) : "";
 }

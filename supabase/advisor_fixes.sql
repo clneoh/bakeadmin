@@ -113,9 +113,13 @@ select p.proname as function,
    and p.proname in ('alert_new_order', 'decrement_slots_on_order')
  order by p.proname;
 
+-- ⚠️ THE LAST SELECT IS GUARDED TOO (v598) — a `::regclass` here raised 42P01 on a project without the table,
+-- the exact abort the block above is guarded against. ⭐ `to_regclass` answers NULL instead of raising.
 select conname as key_on_order_alert_errors
   from pg_constraint
- where conrelid = 'public.order_alert_errors'::regclass and contype = 'p';
+ where to_regclass('public.order_alert_errors') is not null
+   and conrelid = to_regclass('public.order_alert_errors')
+   and contype = 'p';
 
 
 -- ── LEFT ALONE ON PURPOSE — each of these is the app's design, not a fault ─────────────────────

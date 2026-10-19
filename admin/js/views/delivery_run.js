@@ -133,7 +133,11 @@ export function renderDeliveryRun(root, state, params) {
   // ⚠️⚠️ A BOOKING WHOSE REPLY WAS LOST (v587) — the same fact the single-trip card keeps as `bookUnknown`.
   // ⚠️ Without it a timed-out run read as an ordinary refusal, ⚠️ **the Book press came straight back, and the
   // one press that books a second, charged trip was on screen.**
-  let bookUnknown = false;
+  // ⚠️⚠️ AND IT STAYS TRUE ACROSS A REOPEN (v598). ⚠️ This was memory-only, so leaving the screen and coming
+  // back brought every Book press back under a trip whose outcome nobody knows — ⚠️ **a second charged trip.**
+  // ⭐ The order card's stamp (`courierUnknownAt`) is read when the run opens.
+  let bookUnknown = (state.orders || []).some((o) => o && o.courierUnknownAt
+    && (o.deliveryDateId === dayId || o.deliveryDate === dayId));
   const clocks = [];
   // ★★ WHOSE ORDER IS UNFOLDED (v342). Her ask: *"clicking a button inside the red ribbon, drop down its
   // full detail, as what is shown in edit order, get a delivery price."* It holds the STOP's row key, so

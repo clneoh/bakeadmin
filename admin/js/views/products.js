@@ -16,7 +16,7 @@ import { translateAllowed, autoTranslateProduct, translateTo, LANG_OF, SRC_OF } 
 import { dateField } from "../datepicker.js";
 import { DOW, addMonth, monthLabel, monthWeeks } from "../calendar.js";
 import { boxClass, nameDay, occBox, occPapers, tipEl } from "../occgrid.js";
-import { todayISO } from "../dates.js";
+import { longDate, todayISO } from "../dates.js";
 // The sell-day rules themselves — one shared copy, the same file the shop reads,
 // so the day she marks here and the day a customer may order can never drift.
 import { availRules, dayOfWeek, monthBounds, normRules, ruleLabel, ruleOpen, rulesOpen, rulesSummary } from "../../../availability.js";
@@ -486,7 +486,8 @@ function availabilityCard(state, product) {
       if (past) { cells.push(el("span", { class: cls }, dayNum)); continue; }
       // Tapping a marked day names it as well as marking it — a holiday is the one
       // thing that decides a sell day for her, so it has to be readable here too.
-      const cell = el("button", { class: `${cls} tappable`, type: "button", dataset: { date: d } },
+      const cell = el("button", { class: `${cls} tappable`, type: "button", dataset: { date: d },
+        "aria-label": longDate(d) },
         dayNum, tipEl(state.occasions, d, past));
       byDate.set(d, cell);
       cells.push(cell);

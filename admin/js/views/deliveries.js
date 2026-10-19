@@ -397,6 +397,9 @@ function dayCell(state, date, today, addedMap, pickable, allowPast = false) {
   const cell = el("button", {
     class: `${cls} tappable pick-cell${selected ? " sel" : ""}`,
     dataset: { date },
+    // ⚠️ A DAY IS NAMED BY ITS DATE HERE TOO (v598) — "14, button" on the calendar she adds days from.
+    "aria-label": longDate(date),
+    "aria-pressed": selected ? "true" : "false",
   }, ...inner);
   pickable.set(date, cell);
   return cell;
@@ -758,7 +761,7 @@ function buildOccGrid(state, weeks) {
       const inner = cellInner(added || sol, added, dayNum);
       const tip = tipEl(state.occasions, d, past);
       if (tip) inner.push(tip);
-      const cell = el("button", { class: base, dataset: { date: d } }, ...inner);
+      const cell = el("button", { class: base, dataset: { date: d }, "aria-label": longDate(d) }, ...inner);
       byDate.set(d, cell);
       cells.push(cell);
     }

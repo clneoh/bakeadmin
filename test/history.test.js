@@ -928,10 +928,12 @@ test("⚠️ the words are a PAIR: Buy and Not buying are the two answers to one
 
 // ⚠️⚠️ A MALFORMED DATE PRINTS NOTHING, NEVER "undefined, NaN undefined" (v596).
 test("★★★ a malformed date formatter answers an empty string, not NaN (v596)", () => {
-  for (const bad of ["18/09/2026", "2026-13-45", "", null, "abc", "2026-09"]) {
+  for (const bad of ["18/09/2026", "2026-13-45", "", null, "abc", "2026-09",
+    "2026-02-31", "2026-04-31", "2026-02-29"]) {
     assert.equal(longDate(bad), "", `longDate(${JSON.stringify(bad)}) printed something`);
     assert.equal(shortDate(bad), "", `shortDate(${JSON.stringify(bad)}) printed something`);
     assert.equal(weekdayName(bad), "", `weekdayName(${JSON.stringify(bad)}) printed something`);
   }
   assert.equal(longDate("2026-10-19"), "19 Oct 2026");
+  assert.equal(longDate("2024-02-29"), "29 Feb 2024", "a real leap day is still a date");
 });

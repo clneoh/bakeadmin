@@ -171,7 +171,14 @@ function reviewCarousel(rows, startId, actions, state) {
   function move() {
     track.style.transform = `translateX(-${cur * 100}%)`;
     // ⚠️ ONLY THE REVIEW ON SCREEN IS READ (v597) — the off-screen slides stayed in the tree.
-    slideEls.forEach((sl, j) => { if (sl && typeof sl.setAttribute === "function") sl.setAttribute("aria-hidden", j === cur ? "false" : "true"); });
+    slideEls.forEach((sl, j) => {
+      if (!sl || typeof sl.setAttribute !== "function") return;
+      sl.setAttribute("aria-hidden", j === cur ? "false" : "true");
+      // ⚠️⚠️ AND THE UNSEEN SLIDES LEAVE THE TAB ORDER (v598). ⚠️ `aria-hidden` hides a subtree from a screen
+      // reader but NOT from the keyboard — ⚠️ **Tab reached the Publish/Delete buttons of a review that was not
+      // on screen, with no focus ring inside the clipped track.** ⭐ `visibility:hidden` removes both.
+      if (sl.style) sl.style.visibility = j === cur ? "" : "hidden";
+    });
     // ⚠️ WHICH REVIEW IS SHOWING IS SAID, NOT ONLY COLOURED (v593) — a screen reader heard "Review 2 of 4,
     // button" for every dot with no way to tell the one on screen.
     dotEls.forEach((d, j) => {

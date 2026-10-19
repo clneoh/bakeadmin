@@ -45,7 +45,7 @@ const COST_OF_SALES_NOTE = "Cost of sales is built from the recipe and the ingre
 // function of the statement rather than a fixed string.
 const cashFooter = (pl) => "A pack bought today is not costed all at once — it is cash on the Money screen and stock on the shelf, and becomes cost of sales as the bread made from it is sold. Sales are counted by the day you deliver. "
   + (pl.uncosted ? `${pl.uncosted} line${pl.uncosted === 1 ? "" : "s"} this month had no recipe cost and was counted as nothing — check that product's recipe. ` : "")
-  + "Your own unpaid hours are not costed on their own: either pay yourself a Salary (you), with EPF and SOCSO as their own category, or mark Labour as a not-bought ingredient (More → Ingredients) and put the hours into the recipes. Count them one way, never both.";
+  + "Your own unpaid hours are not costed on their own: either pay yourself a Salary (you), with EPF and SOCSO as their own category, or mark Labour as a not-bought ingredient (Ingredients, in the app) and put the hours into the recipes. Count them one way, never both.";
 
 // A statement line is a total, and a total nobody can open is a figure to be trusted on
 // faith. Tap it and the rows it is made of are here — the same rows the Money screen

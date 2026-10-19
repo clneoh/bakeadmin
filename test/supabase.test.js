@@ -293,12 +293,17 @@ test("syncAvailability pushes value-pack rows as a separate uniform batch (no PG
     assert.ok(r.ok);
     assert.equal(r.pushedProducts, 30); // 2 bases + 1 pack × 10 dates
     const upserts = calls.filter((c) => c.url.includes("on_conflict=date,product"));
-    assert.equal(upserts.length, 2, "plain rows and value-pack rows are two separate upserts");
-    const [plain, pack] = upserts;
+    // ⚠️ v598: a THIRD batch clears old pool columns from products that stopped being packs.
+    assert.equal(upserts.length, 3, "plain rows, the clearing batch, and the value-pack rows");
+    const [plain, cleared, pack] = upserts;
     const plainBody = JSON.parse(plain.opts.body);
+    const clearedBody = JSON.parse(cleared.opts.body);
     const packBody = JSON.parse(pack.opts.body);
     assert.equal(plainBody.length, 20);
     assert.equal(packBody.length, 10);
+    assert.equal(clearedBody.length, 20, "every plain row is cleared of pool columns");
+    assert.ok(clearedBody.every((row) => row.pool_base === null && row.pool_qty === null),
+      "★ a product that stopped being a pack keeps its old pool_base");
     assert.ok(plainBody.every((row) => !("pool_base" in row)), "plain batch never carries pool keys");
     assert.ok(packBody.every((row) => "pool_base" in row && "pool_qty" in row), "pack batch carries pool keys");
     const keyShape = (rows) => new Set(rows.map((row) => Object.keys(row).sort().join(",")));

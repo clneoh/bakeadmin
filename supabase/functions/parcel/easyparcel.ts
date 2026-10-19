@@ -348,12 +348,14 @@ export type Booked = {
 // MONEY OUT OF THE WALLET, so a partial failure is a real thing that has to be reported per
 // parcel rather than swallowed: `booked` is what went through, `failed` is what did not and
 // why. Anything in `failed` was NOT charged.
-export function readOrder(json: unknown): { ok: true; booked: Booked[]; failed: { orderNumber: string; reason: string }[] } | { ok: false; reason: string } {
+export function readOrder(json: unknown): { ok: true; booked: Booked[]; failed: { orderNumber: string; reason: string }[] } | { ok: false; reason: string; unknown?: boolean } {
   const why = reasonIn(json, "EasyParcel did not accept the order.");
   if (why) return { ok: false, reason: why };
   const r = (json || {}) as Reply;
   const result = Array.isArray(r.result) ? (r.result[0] as Reply) : null;
-  if (!result) return { ok: false, reason: "EasyParcel did not answer with an order." };
+  // ⚠️⚠️ NO ORDER ROW IN A READABLE ANSWER IS UNKNOWN, NOT A REFUSAL (v598). ⚠️ The call both creates and charges,
+  // so an empty `result` says nothing about whether it happened — ⚠️ **the Book press stayed live.**
+  if (!result) return { ok: false, unknown: true, reason: "EasyParcel did not answer with an order." };
 
   const booked: Booked[] = [];
   const failed: { orderNumber: string; reason: string }[] = [];

@@ -806,6 +806,47 @@ test("★★★ a book that could not be read writes NOTHING — no tombstones, 
   } finally { restore(); }
 });
 
+test("★★★ a damaged book is RESTORED by a full read, and only then released (v598)", async () => {
+  // ⚠️⚠️ MEASURED: the v595 hold released on any COMPLETE read — ⚠️ **but the merge skipped every row this phone
+  // itself had pushed (its timestamp equalled `b.meta`), so the book stayed the seed and the next save
+  // tombstoned everything.** ⭐ A damaged book forces the cloud's rows to win, and the hold is released only
+  // after they are applied.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.unreadableSave = { kept: "bakeadmin.v1.unreadable", at: "2026-10-19T00:00:00.000Z" };
+    // The seed book is empty; the journal remembers what this phone had synced, timestamps included.
+    st.orders = []; st.products = [];
+    seedToken(store);
+    seedJournal(store, {
+      meta: { "orders:o1": "2026-10-02T00:00:00.000Z", "products:p1": "2026-10-02T00:00:00.000Z" },
+      snapshot: { "orders:o1": '{"id":"o1"}', "products:p1": '{"id":"p1"}' },
+      lastSeq: 10, lastPullAt: "2026-10-19T00:00:00.000Z",
+    });
+    const urls = [];
+    const restoreFetch = installFetch(async (url) => {
+      urls.push(String(url));
+      return { ok: true, json: async () => [
+        { ...cloudRow("orders", "o1", { id: "o1", qty: 2 }, "2026-10-02T00:00:00.000Z"), seq: 9 },
+        { ...cloudRow("products", "p1", { id: "p1", name: "Focaccia" }, "2026-10-02T00:00:00.000Z"), seq: 9 },
+      ] };
+    });
+    try {
+      await sync.pull(st);
+      assert.equal(urls.some((u) => u.includes("seq=gt.")), false,
+        "★ a damaged book was read with the cursor — **the rest of the book was never asked for**");
+      assert.equal(st.orders.length, 1, "★ the cloud order was skipped as 'not newer' — the book stayed empty");
+      assert.equal(st.products.length, 1, "and the product");
+      assert.equal(st.unreadableSave, null, "the hold did not release after the book was restored");
+      // And the save that follows queues no tombstone for what it now holds.
+      st.unreadableSave = null;
+      const out = sync.markDirty(st);
+      const tombstones = Object.values(out.pending || {}).filter((r) => r && r._deleted).map((r) => `${r.kind}:${r.id}`);
+      assert.deepEqual(tombstones, [], `★ a surviving record was queued as deleted: ${tombstones.join(", ")}`);
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
 test("★★★ a forgotten customer cannot come back on a newer row (v592)", async () => {
   // ⚠️⚠️ MEASURED: the cleared fields lived only on the order rows, and the merge is newest-wins — ⚠️ **one
   // Paid press on the other phone (which still held the row) put the name, number and address straight back

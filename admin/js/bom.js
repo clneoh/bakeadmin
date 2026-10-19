@@ -60,6 +60,15 @@ export function explodePicks(state, picks) {
       warnings.push(`Order for a deleted product (${order.qty} pcs) was skipped.`);
       continue;
     }
+    // ⚠️⚠️ THE SAME SET THE DAY COUNTS (v598). ⚠️ This counted only orders it could cost, so a no-recipe
+    // product's units were missing from "units planned" while the day counted them — and an off-sale line was
+    // counted here while the day did not. ⭐ Units first, from the day's own rule; the recipe checks below only
+    // decide what is bought.
+    // ⚠️ EACH ORDER'S OWN DAY (v598) — a multi-day list merges picks from several dатеs, so the rule is asked
+    // of the order's date, not of a single day passed in.
+    const orderDay = order.deliveryDate || (byId(state.deliveryDates || [], order.deliveryDateId) || {}).date;
+    if (!sellOpen(product, orderDay)) continue;
+    totalUnits += unitsOfOrder(state, order);
     // ⚠️ AND THIS HALF WAS SILENT (v362). A product with no `recipe` array is skipped — which is
     // right for COSTING, there is nothing to explode — but it said nothing, so the order simply
     // vanished from the costing totals with no line anywhere to say a product cannot be costed.
@@ -75,9 +84,6 @@ export function explodePicks(state, picks) {
       warnings.push(`${product.name} has an empty recipe, so its ${order.qty} pcs add nothing to the list.`);
       continue;
     }
-    // ⚠️ A PACK'S PIECES COUNT TOWARD THE DAY (v597) — the same rule as `unitsOfOrder`, so the PO's own
-    // preview cannot say "4 units planned" for sixteen pieces.
-    totalUnits += unitsOfOrder(state, order);
     const cycleWarnings = [];
     const perUnit = demandMap(state, product.id, memo, new Set(), cycleWarnings);
     if (cycleWarnings.length) {
@@ -267,7 +273,9 @@ export function dayChangeInfo(state, dateStr, savedFp) {
         acc.set(line.ingredientId, it);
       }
       // ⚠️ Converted into the unit already accumulating (v548) — the third accumulator with this fault.
-      it.totalQty = round2(it.totalQty + convertQty(state, ing, line.qty, line.unit, it.unit));
+      // ⚠️ NOT ROUNDED (v598) — v590 stopped rounding the recipe quantities, and this second path put the
+      // 2-decimal rounding back: a 0.004 kg salt line became 0 and the ingredient vanished from the list.
+      it.totalQty += convertQty(state, ing, line.qty, line.unit, it.unit);
       it.unitsOk = it.unitsOk && unitInFamily(state, ing, line.unit);
     }
   }
@@ -595,10 +603,15 @@ export function poolRemaining(state, deliveryDateId, baseId, excludeOrderId = nu
   const limit = effectiveLimit(state, rec && rec.date, baseId) ?? 0;
   const memo = new Map();
   let booked = 0;
+  const dateStr = rec && rec.date;
   for (const o of state.orders) {
     if (o.deliveryDateId !== deliveryDateId) continue;
     // ⚠️ AN ORDER BEING EDITED DOES NOT COUNT AGAINST ITSELF (v580) — the picker passes its own id.
     if (excludeOrderId && o.id === excludeOrderId) continue;
+    // ⚠️ AND AN OFF-SALE OR HIDDEN PRODUCT DOES NOT EAT THE POOL (v598) — the same rule the day follows, so
+    // the picker's "N left" and the day cannot disagree about the same boxes.
+    const op = byId(state.products, o.productId);
+    if (op && (op.active === false || !sellOpen(op, dateStr))) continue;
     const qty = Number(o.qty) || 0;
     if (qty <= 0) continue;
     booked += qty * baseUnitsOf(state, baseId, o.productId, memo, new Set());
@@ -815,8 +828,20 @@ export function capacityStatus(state, deliveryDateId) {
 // day's own capacity.
 export function unitsOfOrder(state, o) {
   const qty = Number(o && o.qty) || 0;
-  const pack = isPoolablePack(state, byId(state.products, o && o.productId));
-  return qty * (pack ? pack.baseQty : 1);
+  // ⚠️⚠️ THE PIECES ARE COUNTED EVEN WHEN THE BASE IS HIDDEN (v598). ⚠️ `isPoolablePack` answers null for a pack
+  // whose base is hidden (it is not OFFERED any more) — ⚠️ **so its orders counted 1 each and 48 loaves read as
+  // 12.** ⭐ How much bread a pack takes is a fact of its recipe, not of whether the base is on sale.
+  const t = terminalPackOf(state, o && o.productId, new Set());
+  return qty * (t ? t.qty : 1);
+}
+
+// The base a pack draws from when that base is HIDDEN — the pack cannot be offered (its cap has left the shop).
+export function hiddenPackBase(state, product) {
+  if (!product) return null;
+  const t = terminalPackOf(state, product.id, new Set());
+  if (!t || t.baseId === product.id) return null;
+  const base = byId(state.products, t.baseId);
+  return base && base.active === false ? base.id : null;
 }
 
 // Total planned units across ALL delivery dates (for the dashboard strip).
@@ -831,6 +856,9 @@ export function totalUnitsOnDate(state, deliveryDateId) {
     // capacity is what is ON SALE that day (the same list `dayCapacityParts` adds up).
     .filter((o) => {
       const p = byId(state.products, o.productId);
+      // ⚠️ AND A HIDDEN PRODUCT IS OUT TOO (v598): its limit has left the day's capacity, but its orders kept
+      // counting — ⚠️ **the day published Sold out with another product's bread unsold.**
+      if (p && p.active === false) return false;
       return !p || sellOpen(p, dateStr);
     })
     .reduce((s, o) => s + unitsOfOrder(state, o), 0);

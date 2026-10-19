@@ -111,16 +111,21 @@ export function forgetCustomer(state, rowKey) {
     delete o.lineNote;
     delete o.refundNote;
     state.redactions = state.redactions.filter((r) => !(r && r.id === o.id));
-    state.redactions.push({ id: o.id, at, key });
+    state.redactions.push({ id: o.id, at, key, ...(who ? { who } : {}) });
   }
 
   // 2 — their own record, their coupons, their hand-outs.
   removeProfile(state, rowKey);
   const keep = appliedCreditIds(state);
   const before = (state.credits || []).length;
-  state.credits = (state.credits || []).filter((c) => !(c && waNumber(c.holder) === who && !keep.has(c.id)));
-  const credits = before - state.credits.length;
-  state.rewards = (state.rewards || []).filter((r) => !(r && waNumber(r.holder) === who));
+  // ⚠️⚠️ ONLY A NAMED PHONE CAN BE MATCHED (v598). ⚠️ On an already-redacted row the key falls back to the order
+  // id and `who` is EMPTY — and an empty holder matches every credit and reward with no holder, ⚠️ **so pressing
+  // Forget a second time deleted unrelated people's hand-outs.** ⭐ No phone, nothing to clear here.
+  if (who) {
+    state.credits = (state.credits || []).filter((c) => !(c && waNumber(c.holder) === who && !keep.has(c.id)));
+    state.rewards = (state.rewards || []).filter((r) => !(r && waNumber(r.holder) === who));
+  }
+  const credits = before - (state.credits || []).length;
 
   // 3 — ⚠️ AND THEIR NAME OFF OTHER PEOPLE'S RECORDS. A referrer's reward reads "Brought <them> as a
   // new customer" and a friend's coupon reads "First order — via <them>'s link", so clearing only

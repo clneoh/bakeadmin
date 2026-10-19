@@ -16,6 +16,7 @@ import * as place from "../courier_place.js";
 import { callCourier } from "../couriers/api.js";
 import { activeCourier, courierLabel } from "../couriers.js";
 import { CONFIG } from "../../../store/config.js";
+import { isPoolablePack } from "../bom.js";
 
 export function renderSettings(root, state) {
   // ⚠️⚠️ INDEXED BY THE SAME NUMBER AS A CHECKBOX, and 0 IS SUNDAY (v548). The list used to start with
@@ -140,7 +141,10 @@ export function renderSettings(root, state) {
     // whose name is a focaccia; the card's own name and size are typed on the homepage and do not move.
     ...(state.products || [])
       .filter((p) => p && p.active !== false && p.draft !== true && String(p.name || "").trim()
-        && /focaccia/i.test(String(p.name)))
+        && /focaccia/i.test(String(p.name))
+        // ⚠️ AND NOT A VALUE PACK (v598) — "4 × Focaccia Box" contains the word and was offered, putting RM60
+        // under a card headed FOCACCIA. A pack is not a loaf.
+        && isPoolablePack(state, p) === null)
       .map((p) => ({ value: p.id,
         label: Number(p.price) > 0 ? `${p.name} — RM${Number(p.price)}` : `${p.name} — no price yet` })),
   ];
@@ -623,6 +627,8 @@ export function renderSettings(root, state) {
         try {
           localStorage.removeItem(LS_KEY);
           sync.clearJournal();
+          // ⚠️ AND THE "SEEN" MARKER (v598) — see `forgetSeen` in sync.js.
+          sync.forgetSeen();
         } catch (err) {
           return toast(`This phone's data could not be cleared (${(err && err.message) || "unknown reason"}).`);
         }
@@ -804,7 +810,12 @@ function loadSample(state) {
       { id: newId("ord"), deliveryDateId: deliveryDates[0].id, productId: products[1].id, qty: 2,
         customerName: "Mr Lim", note: "", createdAt: new Date().toISOString() });
   }
-  Object.assign(state, { ingredients, products, deliveryDates, orders, purchaseOrders: [] });
+  // ⚠️⚠️ IT ADDS, IT DOES NOT REPLACE (v598). ⚠️ The press assigned over `deliveryDates` and cleared
+  // `purchaseOrders`, so bake days she had already added vanished with no confirmation. ⭐ Empty lists only.
+  if (!(state.ingredients || []).length) state.ingredients = ingredients;
+  if (!(state.products || []).length) state.products = products;
+  if (!(state.deliveryDates || []).length) state.deliveryDates = deliveryDates;
+  if (!(state.orders || []).length) state.orders.push(...orders);
   save(state);
   toast("Sample data loaded");
   renderSettings(document.getElementById("view"), state);

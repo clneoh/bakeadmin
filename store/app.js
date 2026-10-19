@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "597";
+export const SHOP_BUILD = "598";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -635,9 +635,13 @@ export function todayStillOpen(cfg, now = new Date(), bakesTodayOverride) {
   // calendar offering it while this said "today's bake has closed" — and removing a date said it on a day she
   // was not baking. ⭐ The caller that knows the published rows passes the answer in.
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekdayBakes = Array.isArray(cfg && cfg.deliveryDays) && cfg.deliveryDays.includes(start.getDay());
   const bakesToday = bakesTodayOverride !== undefined
-    ? !!bakesTodayOverride
-    : Array.isArray(cfg && cfg.deliveryDays) && cfg.deliveryDays.includes(start.getDay());
+    // ⚠️⚠️ EITHER ANSWER MAY SAY YES (v598). ⚠️ The published table can start TOMORROW (the weekday fallback
+    // is written from tomorrow onward), so "not in the table" does not mean she is not baking today — ⚠️ **a
+    // Wednesday bake day said "You're in time".** ⭐ The pattern and the rows are both her answer.
+    ? (!!bakesTodayOverride || weekdayBakes)
+    : weekdayBakes;
   return !bakesToday || isOpen(cfg, start, now);
 }
 
@@ -2212,7 +2216,11 @@ function clearFieldMarks() {
       // behind the lit one, so a screen reader would otherwise take all of them in turn.
       s.setAttribute("aria-hidden", k === i ? "false" : "true");
     });
-    dots.forEach((d, k) => d.classList.toggle("is-on", k === i));
+    dots.forEach((d, k) => {
+      d.classList.toggle("is-on", k === i);
+      // ⚠️ AND WHICH OFFER IS SHOWING IS SAID (v598) — the review dots have done this since v597.
+      if (d.setAttribute) d.setAttribute("aria-pressed", k === i ? "true" : "false");
+    });
   }
 
   // Stand the turning down. There is no fade to undo any more — the move is a CSS transition
@@ -2789,7 +2797,11 @@ function clearFieldMarks() {
     // Every product marked off today leaves nothing at all — say so rather than
     // showing a blank space where the menu should be.
     if (!live.length) {
-      menu.replaceChildren(el("p", { class: "card-sub" }, t("noMenuToday")));
+      // ⚠️⚠️ WHEN THERE IS NO MENU AT ALL, "PICK ANOTHER DAY" IS WRONG ADVICE (v598). ⚠️ An emptied published
+      // product list is adopted since v581, so every visitor was told to pick another bake day — ⚠️ **no day
+      // would help.** ⭐ Two sentences: a day that is full, and a menu that is empty.
+      menu.replaceChildren(el("p", { class: "card-sub" },
+        (CONFIG.products || []).length ? t("noMenuToday") : t("noMenu")));
       return;
     }
     // A shop with no categories is drawn exactly as it always was: one plain
@@ -3081,6 +3093,7 @@ function clearFieldMarks() {
       return;
     }
     if (!open.length) {
+      focusIso = null;   // ⚠️ the same rule as the branch above (v598)
       dateWrap.replaceChildren(el("p", { class: "muted" }, t("noOpenDates")));
       return;
     }
@@ -4989,13 +5002,16 @@ function askSwitch({ title, body, yes, no }, onGo) {
   scrim.hidden = false;
   try { keep.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
 
-  const close = () => {
+  const restore = () => {
+    try { if (opener && opener.focus && opener.isConnected !== false) opener.focus({ preventScroll: true }); } catch { /* gone */ }
+  };
+  const close = ({ hand = true } = {}) => {
     scrim.hidden = true;
     scrim.removeEventListener("click", onScrim);
     document.removeEventListener("keydown", onKey);
     keep.removeEventListener("click", onKeep);
     go.removeEventListener("click", onGoPress);
-    try { if (opener && opener.focus && opener.isConnected !== false) opener.focus({ preventScroll: true }); } catch { /* gone */ }
+    if (hand) restore();
   };
   // ⚠️ "AWAY" IS THE DARK AREA ITSELF — a press on the CARD must not close it, or a customer
   // aiming at a button would dismiss the question with a near miss.
@@ -5012,7 +5028,9 @@ function askSwitch({ title, body, yes, no }, onGo) {
     try { list[at].focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
   }
   function onKeep() { close(); }
-  function onGoPress() { close(); onGo(); }
+  // ⚠️⚠️ THE ACTION RUNS BEFORE FOCUS IS HANDED BACK (v598). ⚠️ `close()` focused the Place row, then the
+  // change rebuilt the list and removed it — ⚠️ **focus fell to the body mid-checkout.** ⭐ Close, act, restore.
+  function onGoPress() { close({ hand: false }); try { onGo(); } finally { restore(); } }
 
   scrim.addEventListener("click", onScrim);
   document.addEventListener("keydown", onKey);

@@ -859,8 +859,11 @@ test("★★★ the kept damaged copy can be MEASURED and DELETED, and the warni
     const gone = st.dropUnreadableCopy(state);
     assert.equal(gone && gone.chars, 2048);
     assert.equal(store.has("bakeadmin.v1.unreadable"), false, "★ the press did not remove the copy");
-    assert.equal("unreadableSave" in state, false,
-      "★★ the note that makes the check speak survived the delete — **the page warns about a copy that is gone**");
+    // ⚠️ v598: the COPY note goes, but the HOLD stays — deleting the damaged text does not restore the book,
+    // and releasing the hold here let the next save tombstone her whole shared book.
+    assert.ok(state.unreadableSave && state.unreadableSave.removedAt,
+      "★ the hold was released by deleting the copy — **the next save can tombstone the cloud**");
+    assert.equal(store.has("bakeadmin.v1.unreadable"), false, "the copy is gone");
     // ⚠️ And a second press is not a second deletion.
     assert.equal(st.dropUnreadableCopy({ settings: {} }), null);
   } finally {

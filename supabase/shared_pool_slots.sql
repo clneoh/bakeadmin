@@ -46,6 +46,7 @@ declare
   p        jsonb;
   pname    text;
   pqty     integer;
+  hits     integer;
 begin
   -- Only newly placed orders change the counts.
   if new.status is distinct from 'new' then
@@ -82,7 +83,14 @@ begin
         else
           t_qty := 0;
         end if;
-        if t_qty between 1 and 100 then total_wanted := total_wanted + t_qty; end if;
+        -- ⚠️⚠️ A PACK LINE'S OWN QUANTITY IS NOT A DAY SLOT (v598) — its pieces arrive in `pool`, and counting
+        -- both would count every pack twice. The row tells us which kind it is.
+        if t_qty between 1 and 100 and not exists (
+          select 1 from public.product_availability pa
+           where pa.date = odate and pa.product = coalesce(btrim(t_line->>'name'), '') and pa.pool_base is not null
+        ) then
+          total_wanted := total_wanted + t_qty;
+        end if;
       end loop;
       if jsonb_typeof(j->'pool') = 'array' then
         for t_line in select * from jsonb_array_elements(j->'pool') loop
@@ -119,10 +127,13 @@ begin
       if lqty < 1 or lqty > 100 or lname = '' then
         continue;
       end if;
-      day_qty := day_qty + lqty;
       update public.product_availability
         set slots_left = greatest(0, slots_left - lqty), updated_at = now()
         where date = odate and product = lname and pool_base is null;
+      -- ⚠️⚠️ ONLY A LINE THAT HIT A BASE ROW IS A DAY SLOT (v598). ⚠️ A pack's line matched nothing here, and its
+      -- pieces are added by step 3 — counting this too dropped the day by 1 + 4 for one 4-pack.
+      get diagnostics hits = row_count;
+      if hits > 0 then day_qty := day_qty + lqty; end if;
     end loop;
 
     -- 3) Every pack in `pool` draws its base out of the shared pool in whole
@@ -136,7 +147,9 @@ begin
         else
           pqty := 0;
         end if;
-        if pqty < 1 or pqty > 100 or pname = '' then
+        -- ⚠️ A POOL ROW IS AN AGGREGATE OF PIECES, NOT ONE LINE (v598): 26 four-packs is a legitimate 104-piece
+        -- row. The whole-order ceiling above is what bounds abuse.
+        if pqty < 1 or pname = '' then
           continue;
         end if;
         update public.product_availability

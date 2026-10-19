@@ -281,6 +281,10 @@ export async function refreshReviews() {
   drawGrid();
 }
 
+// ⚠️ WHICH REVIEW IS ON SCREEN (v598) — survives a redraw, so a language switch keeps the reader's place.
+let currentReviewId = "";
+function onSlide(id) { currentReviewId = String(id || ""); }
+
 function drawGrid() {
   const grid = byId("review-grid");
   if (!grid) return;
@@ -302,7 +306,7 @@ function drawGrid() {
     grid.appendChild(card);
     return;
   }
-  const ctl = buildCarousel(rows);
+  const ctl = buildCarousel(rows, currentReviewId);
   grid.appendChild(ctl.el);
   stopCarousel = ctl.stop;
 }
@@ -370,7 +374,7 @@ function reviewCard(row) {
 
 // One published review at a time: auto-advances ~every 6 s, pauses on hover,
 // touch or a hidden tab, and is fully usable by arrows, dots or a swipe.
-function buildCarousel(rows) {
+function buildCarousel(rows, startId = "") {
   const n = rows.length;
   const holder = document.createElement("div");
   holder.className = "r-slider";
@@ -423,7 +427,10 @@ function buildCarousel(rows) {
 
   holder.append(stage, navEl, live);
 
-  let i = 0;
+  // ⚠️⚠️ A LANGUAGE SWITCH USED TO THROW THE READER TO SLIDE 1 (v598). ⚠️ The grid is rebuilt, and the
+  // carousel started at 0 every time — ⚠️ **a customer reading review 5 in English tapped BM and lost their
+  // place.** ⭐ The review they were reading is where the rebuilt carousel opens.
+  let i = Math.max(0, rows.findIndex((r) => r && r.id === startId));
   let timer = null;
   let downX = null;
   let hovered = false;
@@ -443,6 +450,7 @@ function buildCarousel(rows) {
       d.setAttribute("aria-pressed", j === i ? "true" : "false");
     });
     live.textContent = `${i + 1} / ${n}`;
+    onSlide(rows[i] && rows[i].id);
   }
   function go(target) {
     i = carouselStep(n, i, target - i);
@@ -687,7 +695,10 @@ if (hasDOM) {
   // Re-draw the reviews section in the new language (home.js persists the
   // choice and fires this event); the data is cached, so no re-fetch.
   window.addEventListener("i18nchange", () => {
+    // ⚠️⚠️ AND A FAILED LOAD'S NOTE FOLLOWS THE SWITCH TOO (v598). ⚠️ `rowsCache` is null after a failed
+    // fetch, so this skipped the redraw and "Reviews can't load right now" stayed English on the Chinese page.
     if (rowsCache) drawGrid();
+    else loadApproved();
   });
   initReviews();
 }

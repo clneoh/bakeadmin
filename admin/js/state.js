@@ -357,7 +357,11 @@ export function dropUnreadableCopy(state) {
     return null;
   }
   if (state && "unreadableSave" in state) {
-    delete state.unreadableSave;
+    // ⚠️⚠️ THE HOLD STAYS (v598). ⚠️ Deleting the damaged copy does not restore the book — the phone is still
+    // holding the SEED — ⚠️ **so releasing it here let the next save tombstone her whole shared book, while the
+    // dialog promised the cloud was not touched.** ⭐ The note stays (marked "the copy is gone"), and only a
+    // complete read releases it.
+    state.unreadableSave = { ...(state.unreadableSave || {}), removedAt: new Date().toISOString() };
     save(state);
   }
   return had;
@@ -768,6 +772,17 @@ export const REDACTED_FIELDS = ["customerName", "whatsapp", "address", "customer
 // Apply every synced redaction to the orders it names. ⭐ Returns how many rows it cleared.
 // ⚠️ A NEWER order row is still redacted: the redaction is a separate decision that outweighs an edit —
 // which is the whole point (v592). A redaction older than the row's OWN redaction loses to it.
+// ⚠️ THE PHONES OF EVERYONE SHE HAS FORGOTTEN (v598) — so a profile that merges back, or a storefront order
+// that arrives after the forget, cannot identify them again. ⭐ Read from the redaction records themselves.
+export function redactedPhones(state) {
+  const out = new Set();
+  for (const r of Array.isArray(state && state.redactions) ? state.redactions : []) {
+    const who = String((r && r.who) || "").trim();
+    if (who) out.add(who);
+  }
+  return out;
+}
+
 export function applyRedactions(state) {
   const best = new Map();
   for (const r of Array.isArray(state && state.redactions) ? state.redactions : []) {
@@ -776,6 +791,12 @@ export function applyRedactions(state) {
     if (!prev || String(r.at || "") >= String(prev.at || "")) best.set(r.id, r);
   }
   if (!best.size) return 0;
+  // ⚠️ AND THEIR PROFILE IS GONE FOR GOOD (v598) — a newer profile edit from the other phone used to merge it
+  // back as a live customer with the full name and number.
+  const phones = redactedPhones(state);
+  if (phones.size && Array.isArray(state.customers)) {
+    state.customers = state.customers.filter((c) => !(c && phones.has(String(c.whatsapp || "").trim())));
+  }
   let cleared = 0;
   // ⚠️⚠️ AND THE REMOVED SHELF (v595). ⚠️ It was not redacted: ⚠️ **a forgotten customer's cancelled order kept
   // their name in the Removed list, and "Put it back" restored the whole person.** ⭐ Both lists are hers.
@@ -1118,6 +1139,18 @@ function splitSharedDateIds(deliveryDates, orders, removedOrders) {
   // ⚠️⚠️ AND THE SHELF (v592) — the same predicate: the row's own deliveryDate names which of the two days
   // it belonged to.
   return { deliveryDates: out, orders: (orders || []).map(reId), removedOrders: (removedOrders || []).map(reId) };
+}
+
+// ★★ ROWS AN IMPORT CREATED AND COULD NOT SAVE (v598). ⚠️ They were never her orders — the write failed, so
+// they exist only in memory — and they must go without landing on the Removed shelf (which exists for orders
+// SHE removed). ⭐ A named door, so `order-removal-guard` still means what it says: every OTHER removal goes
+// through `removeOrders`.
+export function discardImportedRows(state, ids) {
+  const want = new Set((ids || []).map(String));
+  if (!want.size || !Array.isArray(state.orders)) return 0;
+  const before = state.orders.length;
+  state.orders = state.orders.filter((o) => !o || !want.has(String(o.id)));
+  return before - state.orders.length;
 }
 
 // ★★ THE ONE DOOR OUT, AND IT DOES NOT DESTROY (v444).

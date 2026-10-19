@@ -348,7 +348,7 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
       said.push("The receipt register could not be read, so any number belonging to an order that has been removed is NOT shown here. This page needs the internet to show them.");
     }
     if (unnumberedPaid) {
-      said.push(`${unnumberedPaid} of these ${unnumberedPaid === 1 ? "has" : "have"} no invoice number yet but ${unnumberedPaid === 1 ? "is" : "are"} already PAID — they came before the numbering started. Opening that order's invoice takes the next number.`);
+      said.push(`${unnumberedPaid} of these ${unnumberedPaid === 1 ? "has" : "have"} no invoice number yet but ${unnumberedPaid === 1 ? "is" : "are"} already PAID — they came before the numbering started. It takes the next number when the invoice is opened.`);
     }
   }
   if (refundedOut) {

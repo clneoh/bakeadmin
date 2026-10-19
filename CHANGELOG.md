@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v597)
+# Jienluv2bake — change history (v54 → v598)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v598, THE FIFTH SWEEP: WHAT MY OWN LAST FIXES BROKE (⚠️ RE-RUN shared_pool_slots.sql; REDEPLOY parcel).**
+
+**Your words:** __"go ahead with the fifth sweep"__, and then __"you continue to create bugs… when can it come to an end?"__ — a fair question. Most of what this version fixes is in **my own changes from this week**, and the stopping rule we agreed starts here: this batch, one verification sweep, then a freeze.
+
+1. ⚠️⚠️⚠️ **THE DAMAGED-BOOK PROTECTION RELEASED TOO EARLY.** After a damaged save the merge skipped every row this phone itself had pushed — so the book stayed empty, the protection was lifted, and the next save could still delete everything. ⭐ A damaged book now *forces* the cloud's rows in, and the protection lifts only once they have landed.
+2. ⚠️⚠️ **DELETING THE KEPT COPY COULD STILL EMPTY THE CLOUD** — the button promised the shared data was untouched. ⭐ The protection stays; the check says the copy is gone.
+3. ⚠️⚠️ **"DELETE ALL DATA" THEN SIGNING IN PUSHED FACTORY SETTINGS OVER YOURS** — the "this phone has read the cloud" marker survived the delete. ⭐ It is forgotten with the book.
+4. ⚠️ **AN IMPORT THAT COULD NOT BE SAVED IS NOW UNDONE AND RE-QUEUED** instead of vanishing.
+5. ⚠️ **"FORGET THIS CUSTOMER" NOW COVERS THE FUTURE** — a profile edited on the other phone, or a storefront order arriving afterwards, no longer brings the person back; and a second press on an already-redacted row no longer clears other people's blank-holder coupons.
+6. ⚠️ **SAMPLE DATA NO LONGER REPLACES BAKE DAYS** you already added.
+7. ⚠️ **THE HOMEPAGE PRODUCT YOU PICK NOW TRAVELS** to the other phone, so its next publish cannot reset it; **a renamed unit stays deleted**; **a restore keeps every redaction.**
+8. ⚠️⚠️ **THE EDIT-REFUND MONEY IS NOW THE WHOLE SALE.** The frozen amount was that day's slice — **RM48 paid on two bake days read RM32.** Also: refunds are **added to** rather than overwritten; paying the extra **moves the frozen sale**; Undo keeps it; the refund card covers the whole sale; the Profit journal explains the frozen difference; and "still to collect" survives a partial refund.
+9. ⚠️⚠️ **THE LIVE SLOT TRIGGER COUNTED A PACK TWICE TOWARD THE DAY** (its own quantity plus its pieces) — the shop could publish "sold out" early. ⭐ Counted once. A legitimate large pack order is no longer ignored, and a hidden base no longer leaves its packs uncapped or its orders eating a day whose limit has left.
+10. ⚠️ **THE PURCHASE ORDER, THE DAY AND THE SHOP NOW COUNT ONE SET OF UNITS** — pack pieces, off-sale and hidden products all agree; the "extra-only" list no longer rounds a 0.004 kg line to nothing; the PO's own breakdown is formatted.
+11. ⚠️ **THE HOMEPAGE PRICE CHOICE EXCLUDES VALUE PACKS**, the homepage retries a failed settings read, the contains-fallback takes the cheapest, and "today's bake" follows your dates or your weekday pattern — whichever says you bake.
+12. ⚠️ **A LANGUAGE SWITCH KEEPS YOUR PLACE IN THE REVIEWS**, and a failed-load note switches language too; an empty menu no longer says "pick another day".
+13. ⚠️ **SCREEN READERS.** Hide slides leave the Tab order; a delete that rebuilds the screen hands focus to the page title; the shop's change-method question acts before restoring focus; the bake-day, availability and marked-day calendars name each date; the refund quantity box, promo dots and stale focus are fixed.
+14. ⚠️ **PRINTING.** The customer's invoice no longer tells them to reopen an app; the register and the PO's unit warning are screen-only; the P&L note carries no app route; a malformed date no longer prints ", " as a title; a print that fails says so.
+15. ⚠️ **COURIER.** An unnamed trip reply, and a readable parcel reply with no order, are **UNKNOWN** and lock Book; reopening the Delivery run keeps the lock; a parcel service fault is no longer reported as "no balance" or "no price"; a product that stops being a pack loses its old pool columns.
+
+**⚠️ Re-run `supabase/shared_pool_slots.sql` — the live trigger currently counts a pack twice. ⚠️ Redeploy `parcel`.** Nothing of yours is rewritten. 3,816 tests green.
 
 **19 Oct 2026 — engine v597, THE FOURTH SWEEP: THE TAIL (NO DATABASE STEP).**
 

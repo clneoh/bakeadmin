@@ -101,7 +101,7 @@ function printOneShop(row) {
   };
   const timer = setTimeout(done, 10000);
   if (typeof window !== "undefined" && window.addEventListener) window.addEventListener("afterprint", done);
-  if (typeof window !== "undefined" && typeof window.print === "function") window.print();
+  try { window.print(); } catch { done(); toast("This phone couldn't print — use Share instead."); }
 }
 
 function groupHeaderRow(g, { interactive, dateTitle, currency, shopActions = null }) {
@@ -151,12 +151,15 @@ function groupHeaderRow(g, { interactive, dateTitle, currency, shopActions = nul
 }
 
 function rowFor(state, it, currency) {
+  // ⚠️⚠️ THE ONE FIGURE HERE NOT PASSED THROUGH THE FORMATTER (v598) — a 0.1 kg line × 3 loaves printed
+  // "0.30000000000000004kg" on screen and on paper. ⭐ Same formatter as everywhere else.
   const breakdown = (it.lines || []).map((l) =>
-    `${l.dateLabel ? l.dateLabel + ": " : ""}${l.productName} ×${l.orderQty} = ${l.orderQty * l.perUnitQty}${it.unit}`).join(" · ");
+    `${l.dateLabel ? l.dateLabel + ": " : ""}${l.productName} ×${l.orderQty} = ${fmtQty(l.orderQty * l.perUnitQty, it.unit)}`).join(" · ");
 
   const first = el("td", {},
     it.ingredientName,
-    it.unitsOk === false ? el("div", { class: "warn", style: "margin:4px 0 0" }, "⚠ check units") : null,
+    // ⚠️ An instruction to HER, not to the shop reading the sheet (v598).
+    it.unitsOk === false ? el("div", { class: "warn no-print", style: "margin:4px 0 0" }, "⚠ check units") : null,
     it.haveText ? el("div", { class: "po-have" }, it.haveText) : null,
     it.reserveText ? el("div", { class: "po-reserve" }, it.reserveText) : null,
     breakdown ? el("div", { class: "po-breakdown" }, breakdown) : null);

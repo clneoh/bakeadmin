@@ -290,6 +290,58 @@ test("★★★ an edit that refunds freezes the amount that was PAID, not the e
     "★ the frozen sale is the EDITED amount — **a past month is rewritten and the refund is counted twice**");
 });
 
+test("★★★ an edit on a split order freezes the WHOLE sale (v598)", async () => {
+  // ⚠️⚠️ MEASURED: `paidWasRM` froze the DAY'S slice — ⚠️ **RM48 paid on two bake days read RM32, and RM16
+  // vanished from Money, Profit and the customer's lifetime spend.**
+  const st = state({ orders: [
+    row({ id: "ord_aaaaaaaaaaaa", status: "paid", paidReceived: true, paidMethod: "Cash", qty: 2 }),
+    row({ id: "ord_bbbbbbbbbbbb", deliveryDateId: DAY_B.id, deliveryDate: DAY_B.date, status: "paid",
+      paidReceived: true, paidMethod: "Cash", qty: 1 }),
+  ] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_A.id }));
+  press(root, "Edit");
+  const popup = doc.getElementById("popup-layer");
+  const qty = all(popup).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "number"
+    && n.attrs.step === "1");
+  qty.value = "1";
+  qty._listeners.input[0].call(qty);              // day A: 2 → 1
+  press(popup, "Save changes");
+  const layer = doc.getElementById("confirm-layer");
+  const saveIt = all(layer).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Save it");
+  assert.ok(saveIt, "the money-in question did not appear");
+  saveIt._listeners.click.forEach((f) => f());
+  const refundIt = all(layer).find((n) => n.tagName === "BUTTON" && /^Refund RM/.test(String(n.textContent).trim()));
+  assert.ok(refundIt, "the refund question did not appear");
+  refundIt._listeners.click.forEach((f) => f());
+  const card = doc.getElementById("popup-layer");
+  const go = all(card).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Refund");
+  for (const f of go._listeners.click) await f();
+
+  assert.equal(st.orders[0].paidWasRM, 48,
+    "★ the frozen sale is one day's slice — **the other day's takings vanished from every book**");
+  assert.equal(st.orders[1].paidWasRM, 48, "and it is stamped on every row of the sale");
+  assert.equal(st.orders[0].refundAmountRM, 16, "the refund is the difference the dialog named");
+});
+
+test("★★★ a refund is ADDED to, and an edit-up after one moves the frozen sale (v598)", async () => {
+  const { refundOrder } = await import("../admin/js/views/orders.js");
+  const st = state({ orders: [row({ id: "ord_aaaaaaaaaaaa", status: "paid", paidReceived: true,
+    paidMethod: "Cash", qty: 2 })] });
+  const giveBack = async (value) => {
+    refundOrder(st, { orders: st.orders }, st.orders[0], { root: createEl("div"), dateId: DAY_A.id });
+    const card = doc.getElementById("popup-layer");
+    const box = all(card).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.step === "0.01");
+    box.value = String(value);
+    const go = all(card).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Refund");
+    for (const f of go._listeners.click) await f();
+  };
+  await giveBack(10);
+  await giveBack(5);
+  assert.equal(st.orders[0].refundAmountRM, 15,
+    "★ a second refund overwrote the first — **money given back disappeared from her books**");
+});
+
 test("★★★ the day's purse line counts money BY THE DAY IT LANDED (v597)", () => {
   // ⚠️⚠️ MEASURED: the header grouped by DELIVERY day while the Money screen credits a sale to the day it was
   // PAID — ⚠️ **an order delivered on the 18th but paid on the 16th read RM15 here and RM0 on Money.**

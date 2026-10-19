@@ -848,9 +848,17 @@ function markCloudSeen() {
   try { if (!localStorage.getItem(SEEN_KEY)) localStorage.setItem(SEEN_KEY, new Date().toISOString()); } catch { /* full phone — the merge still worked */ }
 }
 
-function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
+// ⚠️⚠️ AND "HAS THIS PHONE READ THE CLOUD" IS FORGOTTEN WITH THE BOOK (v598). ⚠️ Delete-all cleared the state
+// and the journal but NOT this marker, so the fresh book's settings counted as a deliberate answer and the next
+// sign-in PUSHED factory settings over hers — ⚠️ **while the dialog promised the shared data was untouched.**
+export function forgetSeen() {
+  try { localStorage.removeItem(SEEN_KEY); } catch { /* nothing to do */ }
+}
+
+function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString(), { forceCloud = false } = {}) {
   rows = expandOldBakeRows(rows);
   let changed = false;
+  let applied = 0;
 
   for (const row of rows || []) {
     if (!row || typeof row.kind !== "string" || typeof row.id !== "string") continue;
@@ -991,7 +999,11 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
     // Local wins (or the row is stale) whether or not the record still exists:
     // a newer local timestamp also means the record was deleted locally, so a
     // stale cloud row must not resurrect it.
-    if (localNewerOrSame || cloudAt <= localAt) continue;
+    // ⚠️⚠️ EXCEPT WHEN THIS PHONE COULD NOT READ ITS BOOK (v598). ⚠️ After a damaged save the local lists hold the
+    // SEED, while `b.meta` still holds the timestamps of everything this phone itself pushed — ⚠️ **so every
+    // cloud row was skipped as "not newer", the book stayed empty, and clearing the hold let the next save
+    // tombstone it all.** ⭐ A local UNSENT change still wins; anything else is taken from the cloud.
+    if (localNewerOrSame || (!forceCloud && cloudAt <= localAt)) continue;
 
     if (idx >= 0) {
       // ⚠️⚠️ MERGED IN PLACE, NEVER SWAPPED (v589). ⚠️ `list[idx] = payload` replaced the object, while an
@@ -1022,7 +1034,7 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
     delete b.pending[key];
   }
 
-  return { changed };
+  return { changed, applied };
 }
 
 // Testable wrapper: merge cloud rows into state and persist the journal.
@@ -1176,7 +1188,7 @@ export async function pull(state) {
   // read can account for the whole book; a partial one would clear the flag and let the next save speak for
   // records it never saw.
   const wasUnreadable = !!(state && state.unreadableSave);
-  const { changed } = mergeCloudRows(state, rows, b);
+  const { changed } = mergeCloudRows(state, rows, b, new Date().toISOString(), { forceCloud: wasUnreadable });
   if (wasUnreadable && read.complete) state.unreadableSave = null;
   // ⚠️⚠️ AND A REDACTION THAT ARRIVED IN THIS READ IS APPLIED NOW (v592). ⚠️ `mergeRows` carries it for the
   // other callers; a PULL goes straight to `mergeCloudRows`, so the same rule is applied at the one seam

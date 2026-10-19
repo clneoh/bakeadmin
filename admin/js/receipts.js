@@ -127,8 +127,11 @@ export function receiptStatus(order, cur = "RM", serial = receiptNoOf(order)) {
   // feature existed — has nothing to do with the records at all. What has not happened is
   // the DRAWING of a number, and that is what it now says. It is reached only when a claim
   // was just attempted and failed, so the advice it gives is the one that works: try again.
+  // ⚠️⚠️ THIS LINE IS PRINTED ON THE CUSTOMER'S INVOICE (v598). ⚠️ It used to instruct the READER to reopen
+  // the app on a phone they are not holding — ⚠️ **an instruction to her, printed for a customer.** ⭐ The
+  // document says the fact; the retrying belongs to the screen that can do it.
   return order.paidReceived
-    ? "No receipt number yet — the number could not be drawn from the bakery's records. Open this invoice again once the phone is back online."
+    ? "No receipt number yet — the number could not be drawn from the bakery's records."
     : "No receipt number yet — a receipt number is issued when the money is recorded as received.";
 }
 
