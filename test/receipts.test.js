@@ -508,3 +508,28 @@ test("★★★ refund_receipt has an UPPER bound, and the bill it is measured a
       `★ ${sig} is not dropped before the claim is created — **the second run of this file fails**`);
   }
 });
+
+test("★★★ every GRANT and REVOKE names a signature this file actually CREATES (v585)", () => {
+  // ⚠️⚠️ THIS IS THE FAULT THAT STOPPED THE FILE: the claim gained a second argument, and the revoke/grant
+  // block still named the ONE-argument signature — ⚠️ **the whole file failed with 42883, `function
+  // public.claim_receipt_number(text) does not exist`, because the one-argument version had already been
+  // dropped at the top.** ⭐ A grant naming a signature nobody created is an error, not a no-op — the file's
+  // own comment already said the grant must match exactly, and nothing measured it.
+  const raw = readFileSync(new URL("../supabase/receipts.sql", import.meta.url), "utf8");
+  const sql = raw.split("\n").filter((l) => !/^\s*--/.test(l)).join("\n");
+  const norm = (sig) => sig.replace(/\s+/g, "");
+  // ⚠️ A CREATE names its parameters; a GRANT names only their TYPES. ⭐ Postgres identifies a function by the
+  // types, so each parameter is reduced to its type — the last word, with any `default ...` removed first.
+  const typesOf = (params) => params.split(",").map((p) => {
+    const t = p.replace(/\bdefault\b[\s\S]*$/i, "").trim();
+    return t.split(/\s+/).pop();
+  }).join(",");
+  const created = new Set([...sql.matchAll(/create\s+(?:or\s+replace\s+)?function\s+public\.([a-z_]+)\(([^)]*)\)/gi)]
+    .map((m) => norm(`${m[1]}(${typesOf(m[2])})`)));
+  const named = [...sql.matchAll(/\b(?:grant|revoke)\b[^;]*?function\s+public\.([a-z_]+)\(([^)]*)\)/gi)]
+    .map((m) => norm(`${m[1]}(${m[2]})`));
+  assert.ok(named.length >= 6, "the grants and revokes were not found — this guard is looking at nothing");
+  const orphan = named.filter((sig) => !created.has(sig));
+  assert.deepEqual([...new Set(orphan)], [],
+    "★ a grant or revoke names a signature this file never creates — **the file fails at that line with 42883**");
+});

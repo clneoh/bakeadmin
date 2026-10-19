@@ -5,3 +5,6 @@ node_modules/
 
 # Marketing PDF — keep it off the public site.
 marketing/
+
+# Supabase CLI local state (machine-specific; rewritten on every deploy)
+supabase/.temp/

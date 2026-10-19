@@ -226,7 +226,12 @@ $$;
 -- ⚠️ THE BACKOFFICE ONLY, AND ONLY SIGNED IN. These are the bakery's own books: the
 -- public shop must never be able to draw a receipt number, or anyone who read the
 -- shop's page could burn through the sequence.
-revoke all on function public.claim_receipt_number(text) from public;
+-- ⚠️⚠️ THE CLAIM NOW TAKES TWO ARGUMENTS (v585), AND THESE LINES MUST NAME THAT EXACTLY. ⚠️ Naming the old
+-- one-argument signature made the whole file fail with **`ERROR: 42883: function public.claim_receipt_number(text)
+-- does not exist`** — the one-argument function had already been dropped at the top of the file, and the revoke
+-- had nothing to act on. ⭐ A grant or a revoke that names a signature nobody created is not a no-op: it is an
+-- error, and it stops the file before the lines below it.
+revoke all on function public.claim_receipt_number(text, numeric) from public;
 revoke all on function public.refund_receipt(text, numeric) from public;
 revoke all on function public.unrefund_receipt(text) from public;
 -- ⚠️⚠️ AND FROM `anon` ITSELF, WHICH `revoke ... from public` DOES NOT DO (v564). ⭐ Supabase's default
@@ -236,13 +241,13 @@ revoke all on function public.unrefund_receipt(text) from public;
 -- anon key (it ships in the shop, by design) could then draw receipt numbers, mark an order refunded, or
 -- read a code's refund state. ⭐ If anon never had the grant, these lines do nothing; if it did, they
 -- close it. Either way the answer is the same three words.
-revoke all on function public.claim_receipt_number(text) from anon;
+revoke all on function public.claim_receipt_number(text, numeric) from anon;
 revoke all on function public.refund_receipt(text, numeric) from anon;
 revoke all on function public.unrefund_receipt(text) from anon;
 -- ⚠️ THE GRANT MUST MATCH THE SIGNATURE EXACTLY, and v370 changed two of them: `claim` returns a
 -- wider row and `refund` takes an amount. A grant that names the OLD signature silently grants
 -- nothing, and the function is then callable by nobody.
-grant execute on function public.claim_receipt_number(text) to authenticated;
+grant execute on function public.claim_receipt_number(text, numeric) to authenticated;
 grant execute on function public.refund_receipt(text, numeric) to authenticated;
 grant execute on function public.unrefund_receipt(text) to authenticated;
 

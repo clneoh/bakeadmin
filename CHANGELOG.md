@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v585)
+# Jienluv2bake — change history (v54 → v586)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v586, THE FILE THAT COULD NOT APPLY THE LOCK (⚠️ RUN receipts.sql AGAIN).**
+
+**What happened:** running `receipts.sql` stopped with **`ERROR: 42883: function public.claim_receipt_number(text) does not exist`**. ⚠️ **My fault.** v585 gave the claim a second argument, and the block at the foot of the same file that takes these functions away from the public still named the OLD one-argument signature — ⚠️ **so the file failed on that line and the lock was never applied.**
+
+**And the check that found it:** a read of your live database showed the public **could still draw a receipt number** — it drew **#000031** for a made-up code. That number is the only thing written; nothing else was touched. ⭐ **The hole is real and older than v585** — the public-access fix from v564 has never been applied either, because this is the file that carries it.
+
+**1. ⭐ THE REVOKE AND GRANT LINES NOW NAME THE TWO-ARGUMENT CLAIM**, exactly as the file creates it. ⭐ A test now checks every grant and revoke against the signature the file actually creates — ⚠️ **a grant naming a signature nobody created is not a no-op, it is an error that stops the file.** That is the class of fault, and it is measured now.
+
+**2. ⭐ THE STRAY NUMBER #000031.** Mark it **void with your reason** in **More → Money → Receipt register** — that keeps the run whole, with a number drawn and withdrawn rather than a hole in the sequence.
+
+**3. ⭐ AND THE SUPABASE CLI'S OWN LOCAL STATE IS NO LONGER IN THE REPO** — it rewrites itself on every deploy.
+
+**What to do:** run **`supabase/receipts.sql`** again. It should answer **"Success. No rows returned."** Then tell me, and I will check from here that the public is refused.
+
+**4. Nothing of yours was rewritten. ⭐ 3,692 tests green; the new check was broken on purpose and watched to fail.**
+
+---
 
 **19 Oct 2026 — engine v585, THE BACKEND'S OPEN DOORS (⚠️ THREE SQL FILES TO RUN, TWO FUNCTIONS TO DEPLOY).**
 
