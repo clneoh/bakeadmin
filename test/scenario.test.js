@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 
 import {
   DEFAULT_DAY_START, DEFAULT_SCENARIO, PX_PER_MIN_CHOICES, blankModule, chainLine, clockOf,
-  climbSteps, descentSteps, combinedScenario, reassignSlot, computeScenario, concurrency, copyScenario, cycleOffsets,
+  climbSteps, descentSteps, descentToastWords, combinedScenario, forgetModuleSkills, reassignSlot, computeScenario, concurrency, copyScenario, cycleOffsets,
   cycleTouches, hoursAndMinutes, linesInForce, minuteAtPx, moduleFacts, moduleOf, moveModule, newModuleId,
   passesOf, pickLines, peopleRows, placesOn, removeModule, repeatsToPass, scenarioOf, touchWindows,
   shiftOf, coversWindow, skillsOf, canWork, skillRank,
@@ -1728,6 +1728,25 @@ test("the way down says why when a batch is bigger than the number she wants (v1
   assert.equal(down.end.pansPerDay, 6, "the day is left exactly where it was");
 });
 
+test("★★★ when the batches cannot make the number she asked for, the press says what it DID reach (v583)", () => {
+  // ⚠️⚠️ MEASURED: batch 6, repeats 4, asked for 10 — the day comes down to 12 and ⚠️ **the toast still said
+  // "down to the number you asked for".**
+  const day = {
+    ...ONE_BAKER_SCENARIO,
+    modules: ONE_BAKER_SCENARIO.modules.map((m) => ({ ...m, batch: 6, repeats: 4 })),
+  };
+  const down = descentSteps(day, 10);
+  assert.ok(down.steps.length, "the fixture is meant to offer a move");
+  assert.equal(down.reached, false, "the fixture is meant to miss the target");
+  const words = descentToastWords(down);
+  assert.match(words, new RegExp(String(down.steps[0].after)),
+    "★ the toast does not say how many pans the day actually came down to");
+  assert.match(words, /not a number these batches can make/, "★ it still claims it reached the target");
+  // And the ordinary case still says the ordinary thing.
+  assert.equal(descentToastWords({ reached: true, steps: [{ after: 24 }], want: 24 }),
+    "The day is down to the number you asked for");
+});
+
 // ── A new module arrives filled in (v151) ──────────────────────────────────
 // Her ask, 22 Sep 2026: *"default: Cycle1: Minutes=20, load=20,unload=0"*, the
 // pace *"should be empty? Or Auto"*, the batch count *"should be auto as it should
@@ -2478,4 +2497,17 @@ test("the calls follow the same arrangement the chart draws (v177)", () => {
   assert.equal(wash.who, 2, "the caller did not read the same skills the chart draws");
   assert.equal(computeScenario(sc).rows.find((r) => r.items.some((w) => w.module === "wash")).person, 2,
     "and the chart agrees with the caller");
+});
+
+test("★★★ deleting a module takes its training with it (v583)", () => {
+  // ⚠️⚠️ MEASURED: skills are keyed by module id, and a new module can be given an id the deleted one had —
+  // ⚠️ **so a person read as trained for a module they had never seen.** ⭐ The id leaves every list.
+  const skills = { 1: ["m1", "m2"], 2: ["m2"], 3: ["m1"], 4: [] };
+  const out = forgetModuleSkills(skills, "m2");
+  assert.deepEqual(out, { 1: ["m1"], 3: ["m1"], 4: [] },
+    "★ the deleted module is still on somebody's training list");
+  // A person trained ONLY for it has no list at all — the same "can work anything" an absent list means.
+  assert.equal(Object.prototype.hasOwnProperty.call(out, "2"), false);
+  // And a scenario with no skills is left exactly as it was.
+  assert.equal(forgetModuleSkills(null, "m1"), null);
 });

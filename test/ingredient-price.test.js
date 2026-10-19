@@ -105,6 +105,24 @@ test("a price corrected by hand on the ingredient screen is logged too", () => {
   assert.equal(priceLogOf(i)[0].source, "edit", "and it says where the change came from");
 });
 
+test("★★★ a changed PACK SIZE still records the old price (v583)", () => {
+  // ⚠️⚠️ MEASURED: the old row was matched by supplier AND qty, so "3 kg for RM27.50" edited to "5 kg for
+  // RM30" matched nothing — ⚠️ **and the journal said the price was "not on file", losing the figure it
+  // exists to record.**
+  const before = [{ supplierId: "s_mydin", qty: 3000, uomId: "g", price: 27.5 }];
+  const i = ing({ supplierPrices: [{ supplierId: "s_mydin", qty: 5000, uomId: "g", price: 30 }] });
+  logPriceMoves(i, before);
+  assert.equal(priceLogOf(i)[0].was, 27.5,
+    "★ the old price was lost because the pack size moved with it");
+  // ⚠️ And with TWO packs from one supplier a changed one is not guessed at.
+  const two = [{ supplierId: "s_mydin", qty: 3000, uomId: "g", price: 27.5 },
+    { supplierId: "s_mydin", qty: 1000, uomId: "g", price: 10 }];
+  const j = ing({ supplierPrices: [{ supplierId: "s_mydin", qty: 5000, uomId: "g", price: 30 },
+    { supplierId: "s_mydin", qty: 1000, uomId: "g", price: 10 }] });
+  logPriceMoves(j, two);
+  assert.equal(priceLogOf(j)[0].was, null, "★ a guessed old price was written for an ambiguous pack");
+});
+
 test("a hand-edit that changed nothing is not logged", () => {
   const before = [{ supplierId: "s_mydin", qty: 4000, uomId: "g", price: 25 }];
   const i = ing();

@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "582";
+export const SHOP_BUILD = "583";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -3113,8 +3113,14 @@ function clearFieldMarks() {
       // A day she delivers with room left is tapped to choose it; a marked day is
       // tapped to read its name — and the one day can be both.
       if (open || named) {
+        // ⚠️⚠️ EVERY DAY WAS A BUTTON WHOSE ONLY NAME WAS ITS NUMBER (v583) — ⚠️ **"12", with no month, no
+        // weekday and no word for whether it was chosen.** ⭐ The name is the date a person says, and the
+        // chosen day says so in `aria-pressed`.
+        const dayName = fmtDay(new Date(`${iso}T00:00:00`));
         return el("button", {
           class: cls + (open ? " tappable" : "") + (named ? " tippable" : ""),
+          "aria-label": full ? `${dayName}, ${t("soldOut")}` : dayName,
+          "aria-pressed": isSel ? "true" : "false",
           onclick: () => {
             if (named) tipIso = iso;
             if (open) { selected = iso; dayPicked = true; } // their own tap (v434)
@@ -4590,7 +4596,11 @@ function renderPointList(wrap, total = 0) {
       // from v410 unnoticed — **a wrong class with no styling is a wrong class nobody sees.** A row
       // is a row because it HAS an id.
       if (!b || !b.classList || !b.dataset || b.dataset.pointId === undefined) continue;
-      b.classList.toggle("active", b.dataset.pointId === id);
+      const on = b.dataset.pointId === id;
+      b.classList.toggle("active", on);
+      // ⚠️⚠️ THE CHOSEN PLACE WAS SAID BY COLOUR ALONE (v583). ⭐ `aria-pressed` is the same fact in words,
+      // so a screen reader says which place is chosen.
+      b.setAttribute("aria-pressed", on ? "true" : "false");
     }
     // ★★ AND THE INSTRUCTION GOES THE MOMENT HE PICKS ONE — HERE, not only in the repaint (v415).
     // ⚠️⚠️ THIS IS THE ONLY PLACE THAT KNOWS A PLACE WAS JUST CHOSEN, and `refreshPointList` does NOT
@@ -4653,6 +4663,7 @@ function renderPointList(wrap, total = 0) {
     const closed = short || off;
     const b = el("button", {
       class: `point-opt${closed ? (off ? " off" : " short") : ""}`, type: "button", "data-point-id": id,
+      "aria-pressed": "false",
       onclick: () => {
         if (closed) { flashRow(b); return; }
         // ★★ THE PLACE TRAVELS WITH THE CHANGE (v436). ⚠️ It used to be chosen FIRST and the way
@@ -4938,8 +4949,11 @@ function wireFulfillment() {
     // decision and the thing it decides. See .seg-opt in app.css.
     for (const b of buttons) {
       const card = b.closest ? b.closest(".seg-opt") : null;
-      if (card) card.classList.toggle("active", b.dataset.fulfillment === value);
-      else b.classList.toggle("active", b.dataset.fulfillment === value);
+      const on = b.dataset.fulfillment === value;
+      if (card) card.classList.toggle("active", on);
+      else b.classList.toggle("active", on);
+      // ⚠️ AND THE CHOSEN WAY IS SAID IN WORDS TOO (v583) — colour alone tells a screen reader nothing.
+      if (b.setAttribute) b.setAttribute("aria-pressed", on ? "true" : "false");
     }
     refreshPointList();
   };

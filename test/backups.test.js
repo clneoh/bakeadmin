@@ -185,6 +185,19 @@ test("pruneIds keeps newest 7 daily / 4 weekly / 3 monthly, never manual", () =>
   assert.equal(expected.size, 0);
 });
 
+test("★★★ a copy posted AFTER the list was read counts against the keep (v583)", () => {
+  // ⚠️⚠️ MEASURED: the rows are read BEFORE the new copy is written, so keeping 7 of them left **8** on the
+  // server — ⚠️ **one more than the card says it keeps.** ⭐ The copy about to be posted takes a slot.
+  const rows = [];
+  let n = 0;
+  const add = (kind, day) => rows.push({ id: ++n, kind, created_at: new Date(2026, 0, day).toISOString() });
+  for (let i = 1; i <= 10; i++) add("daily", i);
+  for (let i = 0; i < 6; i++) add("weekly", 1 + i);
+  const kill = backups.pruneIds(rows, { daily: 1, weekly: 1 });
+  // 10 dailies: 6 kept + 1 about to be written = 7. 6 weeklies: 3 + 1 = 4.
+  assert.deepEqual(kill.slice().sort((a, b) => a - b), [1, 2, 3, 4, 11, 12, 13]);
+});
+
 // ── naming / download envelope / restore merge ────────────────────────────
 
 test("backupFileName is date + kind with the brand prefix", () => {
@@ -318,7 +331,7 @@ test("maybeAutoBackup posts each due kind and sets the day guard", async () => {
   }
 });
 
-test("maybeAutoBackup prunes the oldest daily once 8 dailies exist", async () => {
+test("★★★ maybeAutoBackup prunes down to SEVEN dailies INCLUDING the one it writes (v583)", async () => {
   const ls = installStorage();
   seedToken(ls.store);
   const state = cloudState();
@@ -341,8 +354,11 @@ test("maybeAutoBackup prunes the oldest daily once 8 dailies exist", async () =>
   try {
     const r = await backups.maybeAutoBackup(state);
     assert.equal(r.ok, true);
+    // ⚠️⚠️ EIGHT ON THE SERVER, ONE ABOUT TO BE WRITTEN, SEVEN KEPT: ⚠️ the old rule kept seven of the EIGHT
+    // already there and then added another — **8 on a card that says 7.** ⭐ Two go.
     assert.equal(deletes.length, 1);
-    assert.ok(deletes[0].includes("id=in.(100)"), `expected oldest daily 100 pruned, got ${deletes[0]}`);
+    assert.ok(deletes[0].includes("id=in.(101,100)") && deletes[0].includes("100"),
+      `expected dailies 100 and 101 pruned, got ${deletes[0]}`);
   } finally {
     restoreFetch();
     ls.restore();

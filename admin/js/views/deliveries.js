@@ -8,7 +8,7 @@ import { navigate } from "../app.js";
 import { dayListLabel, dayName, deliveryStatus, generateUpcomingDates, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { effectiveCapacity, totalUnitsOnDate } from "../bom.js";
 import { el, button, confirmDialog, showPopup, toast } from "../ui.js";
-import { groupOrders, newId, save } from "../state.js";
+import { groupOrders, newId, ordersOnDate, save } from "../state.js";
 import { needsVan, runDayOf, stopKeyOf } from "../courier_job.js";
 import { maybeSync, maybeSyncStorefront } from "../supabase.js";
 import {
@@ -68,7 +68,10 @@ function renderAll(root, state) {
 // ⚠️ The message says what happens to the orders when there are any: they are KEPT, and the date is
 // un-set from the day rather than the order being touched.
 function deleteDate(state, date) {
-  const count = state.orders.filter((o) => o.deliveryDateId === date.id).length;
+  // ⚠️⚠️ ONE CUSTOMER WITH A TWO-ITEM CART IS ONE ORDER, NOT TWO (v583). ⚠️ The count was of order ROWS, so
+  // the question read **"has 2 order(s) on it"** about a single sale. ⭐ Counted by the order, the way the app
+  // and she both use the word.
+  const count = ordersOnDate(state, date.id);
   // ⚠️ THE DAY IS NAMED THE WAY SHE READS IT ("Tue, 13 Oct"), not as the ISO string it is stored in.
   // ⚠️⚠️ THIS MATTERS MORE THAN IT LOOKS ON A CONFIRMATION: a question that names the day in a form she
   // has to decode is one she has to stop and think about — **and a confirmation she has to think about is

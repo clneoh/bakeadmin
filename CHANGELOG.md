@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v582)
+# Jienluv2bake — change history (v54 → v583)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v583, WHO CAN READ IT, AND THE WORDS THAT WERE WRONG (no database step).**
+
+**Your words:** __"go ahead with accessibility and language"__ — group 6 of the complete audit. It is a long one; the fixes are grouped.
+
+**On the shop and the homepage**
+1. ⚠️ ⚠️ **A REVIEW SENT WITH NO PICTURE...** — that was v581. **Here:** the chosen **collection Point** and the chosen **way to receive** were said by colour alone; both now say which is chosen in words (seen live: pressing a place marks that place and "Self collect", and nothing else). **Every calendar day** was a button named only "12"; it now says **"Wednesday, 21 Oct"**, and whether it is chosen. The two **tracking boxes** had placeholders and no names; each has its name in all three languages. The calendar arrows were **31 px** tall and are **36 px**, the shop's own floor.
+2. ⚠️ **COLOURS THAT WERE JUST TOO QUIET TO READ.** Measured before and after: white on the **Place order** bar **3.81 → 4.81:1**; white on solid terracotta **4.48 → 4.72:1**; the **review stars 2.08 → 4.61:1**; an **unselected review dot 1.65 → 4.21:1**; a **sold-out title 2.18 → 5.38:1**; a sold-out stepper's figure **1.6 → 5.3:1**. ⭐ Same hues, one step deeper — no new colour entered the palette.
+3. ⚠️ **THE REVIEW DOTS SHRANK TO NOTHING.** As reviews were added the row squeezed them; by about ten the dot computed to **zero wide**. ⭐ They hold 36 px and the row **wraps to a second line** (seen live with ten).
+4. ⚠️ **A LONG OCCASION NAME PUSHED THE PAGE SIDEWAYS** at phone width. The name now wraps inside the screen.
+5. ⚠️ The review form's **"Your rating"** and **"Review language"** were labels pointing at boxes that are not form fields, so they named nothing; they now name their groups. The error message is now **tied to the boxes it is about** — each says whether *it* is the one to fill in.
+
+**The words**
+6. ⚠️ **Malay:** the homepage said **"TEMPOHAN SAHAJA"** — not a Malay word — and the review thanks called you a **"pembuat kek"** (cake maker) where your word is **bakeri**. A fully claimed code said **"everything is included"** where the English says it has been used; it now says **nothing is left** (your recorded decision bans "telah digunakan", so the truth is said the other way). **Chinese:** the collection window said **傍晚** (dusk), where the English says late afternoon; it now says **下午较晚时段**.
+
+**The planner and the smaller screens**
+7. ⚠️ **"The day is down to the number you asked for"** was said even when it was not: batch 6, four batches, asked for 10 → it reaches 12. ⭐ It now says **"down to 12 pans — 10 is not a number these batches can make"**.
+8. ⚠️ **THE BOARD'S "NEXT UP" HID PEOPLE.** Anyone with **calls switched off** vanished — ⚠️ **telling a worker at the bench "there is nobody to be anywhere next"** — and it kept only six people, so with seven or eight the last two never appeared. ⭐ Calls govern the phone's alerts, not who is on the day; every hand is listed, and a shared day's three shown jobs now say how many more follow.
+9. ⚠️ **A QUOTE WAS PRICED FOR A 10:00 PICKUP NOBODY SET** — the fallback read a setting no screen has written since that box was taken away, while the note promised the order's own time. ⭐ No time now means no time, and the card says so.
+10. ⚠️ **DELETING THE LAST MODULE OF A SCENARIO BROUGHT THE TEN DEFAULTS BACK.** ⭐ An emptied scenario stays empty.
+11. ⚠️ **A DELETED MODULE'S TRAINING TRANSFERRED TO A NEW ONE** — training is keyed by module id, and a new module could reuse it. ⭐ Deleting a module takes its training with it.
+12. ⚠️ The delete-day question counted **order lines** as orders — one customer with a two-item cart read **"has 2 order(s) on it"**. ⭐ It counts orders.
+13. ⚠️ Home's past dates stopped at **eight** and said nothing about the rest. ⭐ It draws every one.
+14. ⚠️ Typing **0 minutes** in the production plan was refused, though the plan accepts 0 for every time ("no early tolerance", "no cooling wait", midnight). ⭐ A time may be zero; a count still needs one.
+15. ⚠️ Backups kept **one more daily than the card says** (8, not 7), because the copy being written was not counted. ⭐ The keep includes the one about to be written.
+
+**Stock and the paper**
+16. ⚠️ A **unit's factor of zero** became **0.0001** in silence, rescaling every stock figure using it; and a Count unit showed a factor it then forced to 1. ⭐ A zero is refused in words, and a count unit has no factor box.
+17. ⚠️ A **cleared fallback cost** saved as **0**, costing every recipe at nothing, and a negative passed. ⭐ Blank means no price; a negative is refused.
+18. ⚠️ A **stock card's history stops at 50 rows and never said so** — its rows then look wrong against the shelf. ⭐ The card says its history is the newest 50, and a truncated card is never "repaired" with an invented opening balance.
+19. ⚠️ **Editing a pack size lost the old price** — the journal said the price "was not on file". ⭐ The old figure is kept.
+20. ⚠️ **A mailing label printed "Set your bakery address in Settings" ON the parcel.** ⭐ The label says nothing it cannot; the preview names what is missing. The **Consolidated invoice** called a forgotten customer **"No name"** (now **"Details removed"**), listed another order's void receipt on a **one-customer** page, and said **"In invoice-number order"** after a column sort — all three say what is true now.
+
+**21. Nothing of yours was rewritten, and there is no database step. ⭐ 3,676 tests green; every rule above has a test that fails without it.**
+
+---
 
 **19 Oct 2026 — engine v582, THE CAPS AND THE PAPER THAT SAID NOTHING (no database step).**
 

@@ -123,17 +123,19 @@ footer a{text-decoration:none}
 .r-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:18px}
 .r-btn{width:40px;height:40px;border-radius:50%;border:1px solid var(--green);background:var(--paper);color:var(--green);font-size:20px;line-height:1;cursor:pointer;font-family:Arial,sans-serif;padding:0}
 .r-btn:hover{background:var(--green);color:#fff}
-.r-dots{display:flex;gap:8px}
+.r-dots{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 /* ⚠️ A 10px dot is a 10px tap target. The BUTTON is 36px and the dot is drawn inside it, so the
    look is unchanged and the target meets the app's own 36px floor. */
-.r-dot{width:36px;height:36px;border:none;background:transparent;padding:0;cursor:pointer;position:relative;border-radius:50%}
-.r-dot::after{content:"";position:absolute;inset:13px;border-radius:50%;background:#d6c09e}
+/* ⚠️⚠️ A DOT MAY NOT SHRINK BELOW ITS 36px TARGET (v583): as reviews were added the flex row squeezed the
+   buttons, and by about ten the dot computed to ZERO wide. ⭐ It keeps its size and the row wraps. */
+.r-dot{width:36px;height:36px;flex:0 0 36px;border:none;background:transparent;padding:0;cursor:pointer;position:relative;border-radius:50%}
+.r-dot::after{content:"";position:absolute;inset:13px;border-radius:50%;background:#8a7355} /* 4.21:1 unselected — was 1.65 (v583) */
 .r-dot.is-on::after{background:var(--green)}
 
 .r-live{border:0;clip:rect(0 0 0 0);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute;width:1px}
 .review-card{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:22px 20px;box-shadow:0 8px 24px rgba(73,43,25,.05);display:flex;flex-direction:column}
 .review-card-photo{display:block;max-width:100%;max-height:340px;width:auto;height:auto;margin:0 auto 14px;border-radius:8px}
-.review-card-stars{color:#d9a62e;font-family:Arial,sans-serif;font-size:21px;letter-spacing:4px;line-height:1.2}
+.review-card-stars{color:#95680f;font-family:Arial,sans-serif;font-size:21px;letter-spacing:4px;line-height:1.2}
 .review-card-msg{margin:10px 0 0;font-size:15px;color:#553a2b;white-space:pre-wrap}
 .review-card-name{margin:14px 0 0;font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:var(--green);letter-spacing:.03em}
 .review-card-meta{font-family:Arial,sans-serif;font-size:12px;color:var(--muted);margin:2px 0 0}
@@ -340,8 +342,11 @@ if ("serviceWorker" in navigator) {
       <label class="flabel" for="rv-name" data-i18n="nameLabel">Your name</label>
       <input class="field-input" id="rv-name" name="name" type="text" maxlength="60" autocomplete="name" placeholder="e.g. Aisyah" data-i18n-ph="namePh">
 
-      <label class="flabel" for="rv-stars" data-i18n="ratingLabel">Your rating</label>
-      <div class="rv-stars" id="rv-stars" role="group" aria-label="Star rating, 1 to 5" data-i18n-aria="rvStarsAria">
+      <!-- ⚠️⚠️ A <label for> MUST POINT AT A FORM CONTROL, AND `rv-stars` IS A DIV (v583): ⚠️ the label was
+           never attached to anything, so a screen reader announced the group by its own aria-label and the
+           visible words "Your rating" named no control. ⭐ The words become the group's name instead. -->
+      <span class="flabel" id="rv-stars-label" data-i18n="ratingLabel">Your rating</span>
+      <div class="rv-stars" id="rv-stars" role="group" aria-labelledby="rv-stars-label">
         <button type="button" data-val="1" aria-label="1 star" data-i18n-aria="rvStar1">★</button>
         <button type="button" data-val="2" aria-label="2 stars" data-i18n-aria="rvStar2">★</button>
         <button type="button" data-val="3" aria-label="3 stars" data-i18n-aria="rvStar3">★</button>
@@ -353,8 +358,8 @@ if ("serviceWorker" in navigator) {
       <textarea class="field-input" id="rv-message" name="message" maxlength="400" rows="4" placeholder="How was your bake? What did you love?" data-i18n-ph="msgPh"></textarea>
       <p class="review-note" style="text-align:left;margin:6px 0 0" data-i18n="msgNote">Write in whichever language you are comfortable with — English, Mandarin or Bahasa Malaysia.</p>
 
-      <label class="flabel" for="rv-langs" data-i18n="langLabel">Review language</label>
-      <div class="rv-langs" id="rv-langs">
+      <span class="flabel" id="rv-langs-label" data-i18n="langLabel">Review language</span>
+      <div class="rv-langs" id="rv-langs" role="group" aria-labelledby="rv-langs-label">
         <button type="button" class="rv-lang is-on" data-lang="en">English</button>
         <button type="button" class="rv-lang" data-lang="zh">中文</button>
         <button type="button" class="rv-lang" data-lang="ms">Bahasa Malaysia</button>

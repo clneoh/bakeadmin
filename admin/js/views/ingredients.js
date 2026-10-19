@@ -11,7 +11,7 @@ import { indexForDrop, moveInTail, tailOrder } from "../productCategories.js";
 import { byId, fmtRM, newId, round2, save, sameNameIngredient } from "../state.js";
 import { fmtStockAmount, priceEntryLabels, belowReserve, chosenSupplier, trimNum } from "../purchasing.js";
 import { logPriceMoves, priceLogOf } from "../prices.js";
-import { setStock, stockLogOf, stockRowUndo, undoStockRow } from "../stock.js";
+import { STOCK_LOG_CAP, setStock, stockLogOf, stockRowUndo, undoStockRow } from "../stock.js";
 import { dayMonth, longDate } from "../dates.js";
 import { bakeryName, journalBodyEl, journalButtons, journalSheet } from "../journal.js";
 
@@ -269,6 +269,14 @@ function buildIngredientEditor(state, ingredient) {
   function collect() {
     const n = name.value.trim();
     if (!n) return { error: "Ingredient needs a name" };
+    // ⚠️⚠️ A CLEARED COST SAVED AS 0, AND A NEGATIVE PASSED (v583). ⚠️ **Every recipe using that
+    // ingredient was then costed at zero, or below** — a price nobody typed. ⭐ Blank means "no fallback
+    // price set", which costs nothing; a negative is refused in words.
+    const costText = String(cost.value).trim();
+    const costNum = Number(costText);
+    if (costText !== "" && (!Number.isFinite(costNum) || costNum < 0)) {
+      return { error: "The fallback cost cannot be below zero — leave it blank if there is no price" };
+    }
     const uomId = unitSel.value;
     const uom = byId(list, uomId);
     const supplierPrices = [];
@@ -283,14 +291,18 @@ function buildIngredientEditor(state, ingredient) {
         name: n,
         unit: uom ? uom.name : "g",
         uomId: uomId || undefined,
-        costPerUnit: Number(cost.value) || 0,
+        ...(costText === "" ? {} : { costPerUnit: costNum }),
         purchaseNote: note.value.trim() || undefined,
         supplierPrices: supplierPrices.length ? supplierPrices : undefined,
         // Only ever written when on; the edit path deletes the key when it is off, so
         // an unticked switch leaves an ingredient exactly as it was.
         notPurchased: notPurchased ? true : undefined,
       },
-      drop: notPurchased ? [] : ["notPurchased"],
+      drop: [
+        ...(notPurchased ? [] : ["notPurchased"]),
+        // ⚠️ AND A CLEARED PRICE TAKES THE KEY AWAY rather than writing 0 over it.
+        ...(costText === "" ? ["costPerUnit"] : []),
+      ],
     };
   }
 
@@ -587,8 +599,14 @@ export function stockCardSheet(state, ing, refresh = null) {
     // empty card both together read as a wall she has to wade through — found by looking at it. The
     // note is for a card that HAS rows, where it explains the columns; an empty card is explained by
     // its own sentence.
+    // ⚠️⚠️ A CARD KEEPS ITS NEWEST 50 MOVEMENTS, AND NEVER SAID SO (v583). ⚠️ Past that its oldest rows are
+    // gone, ⚠️ **so the rows above no longer add up to the amount at the top and the card looked like a fault
+    // with no explanation.** ⭐ It says WHICH of the two it is: full history, or its newest 50 only.
     note: lines.length
       ? "Stock: every time the amount on your shelf moved, and what moved it — baking takes the recipe off, un-baking puts it back, Bought adds what you bought, and a stocktake or Day one sets the real amount. Price: every time this ingredient's cost moved — what it moved to, and what it was before. Buying the same thing again at the same price is not a change, so it is not listed. The amount on the shelf and the price your recipes use are the two figures at the top."
+        + (stockLogOf(ing).length >= STOCK_LOG_CAP
+          ? " This card keeps its newest 50 stock movements: older ones have been dropped, so these rows may not add up to the amount at the top — the shelf figure is right, the history below it is short."
+          : "")
       : "",
     where: "Ingredients",
     bakery: bakeryName(state),

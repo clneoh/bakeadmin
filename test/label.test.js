@@ -287,13 +287,17 @@ test("mailing: FROM from the settings box, TO the customer, ORDER the parcel", (
   });
 });
 
-test("mailing without a bakery address prints a reminder instead of a blank FROM", () => {
+test("★★★ mailing without a bakery address prints NO reminder on the parcel (v583)", () => {
+  // ⚠️⚠️ THIS TEST USED TO PIN THE FAULT. ⚠️ With no mailing address the FROM block printed
+  // **"Set your bakery address in Settings → Mailing labels"** — ⚠️ **on the outside of a parcel a courier
+  // is carrying.** ⭐ The sheet says nothing it cannot say; the preview names what is missing.
   const data = packingLabelData(makeState(), group(singleOrder({
     fulfillment: "courier", whatsapp: "60123456789", address: "88 Jalan Merdeka",
   })), "mailing");
   assert.equal(data.style, "mailing");
   assert.equal(data.rows[0][1], "FROM");
-  assert.ok(data.rows.some(([k, t]) => k === "mail-line" && t.includes("Settings")));
+  assert.equal(data.rows.some(([k, t]) => k === "mail-line" && t.includes("Settings")), false,
+    "★ an instruction to the baker is printed on the parcel");
 });
 
 test("an unknown style behaves like full", () => {

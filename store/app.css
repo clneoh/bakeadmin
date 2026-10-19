@@ -11,7 +11,10 @@
      other — change them together or the two screens disagree about one word. */
   --muted: #7b6552;
   --line: #f0e2d2;
-  --brown: #c4552f;
+  /* ⚠️⚠️ ONE STEP DEEPER (v583): #c4552f carried white at **4.48:1**, a hair under the 4.5 floor — ⚠️ **every
+     solid terracotta control (track, apply, step numbers, the product stamp) was just under it.** ⭐ #c1502b
+     measures **4.72:1** and is the same hue. */
+  --brown: #c1502b;
   --brown-dark: #a84322;
   /* ★★ THE SHOP'S DELIVERY GREEN (v510) — **the backoffice's own `--green`, written out here**, for the
      same reason `--muted`, `--red` and `--amber` are: the two files define their own tokens, so moving
@@ -296,6 +299,12 @@ html, body {
   font-size: 17px;
   line-height: 1;
   min-width: 36px;
+  /* ⚠️⚠️ THE SHOP'S OWN 36px FLOOR, ON THE HEIGHT TOO (v583): these arrows were ~31px tall, ⚠️ **under the
+     target size this shop sets for every other control.** */
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 6px 0;
   border-radius: 9px;
   cursor: pointer;
@@ -507,7 +516,13 @@ html, body {
   transform: translateX(-50%);
   z-index: 3;
   pointer-events: none;
-  white-space: nowrap;
+  /* ⚠️⚠️ A LONG OCCASION NAME PUSHED THE PAGE SIDEWAYS AT 375px (v583): the bubble never wrapped and was
+     never clipped, ⚠️ **so its width became the page's.** ⭐ It wraps inside the screen now. */
+  white-space: normal;
+  width: max-content;
+  max-width: min(200px, 70vw);
+  overflow-wrap: anywhere;
+  text-align: center;
   background: var(--ink);
   color: #fff;
   font-size: 11px;
@@ -679,8 +694,8 @@ html, body {
   box-shadow: 0 1px 3px rgba(80, 50, 30, .25);
 }
 .prod-stamp.soldout { background: #c0392b; }
-.menu-item.soldout .card-title { color: #b6a892; }
-.menu-item.soldout .step-btn { background: #f1e9de; color: #c9b8a5; cursor: default; }
+.menu-item.soldout .card-title { color: #75634f; } /* 5.38:1 — was 2.18 (v583) */
+.menu-item.soldout .step-btn { background: #f1e9de; color: #6e5c49; cursor: default; } /* 5.3:1 — was 1.6 (v583) */
 
 /* Small notes under a product's stepper: why the card is unavailable on this
    date (a value pack's advance window, a from–to window, orders closed, or a day
@@ -1578,7 +1593,8 @@ button.prod-next.off::after { content: ""; }
   appearance: none;
   border: none;
   border-radius: 999px;
-  background: linear-gradient(180deg, #d0632f, #b34a28);
+  /* ⚠️⚠️ THE TOP STOP WAS 3.81:1 AGAINST WHITE (v583). ⭐ #bd5127 measures **4.81:1**; the bottom is unchanged. */
+  background: linear-gradient(180deg, #bd5127, #b34a28);
   color: #fff;
   font-size: 15px;
   font-weight: 700;

@@ -1192,9 +1192,11 @@ export function courierQuoteSection({
       return courierDayOf(first);
     }
     function whenTime() {
-      // ★ HER TYPED PICKUP TIME WINS (v341), and her own Settings dispatch time is the fallback.
-      // She set that fallback herself; what neither reads is the bake plan.
-      return pickupTimeOf(first) || String(((state.settings || {}).courier || {}).dispatch || "").trim();
+      // ⚠️⚠️ HER TYPED PICKUP TIME, AND NOTHING ELSE (v583). ⚠️ The old fallback read
+      // `settings.courier.dispatch` — a **10:00** no screen has written since that box was taken away — ⚠️ **so a
+      // price was asked for a ten o'clock collection she never asked for, while the note said it was for the
+      // order's own Pickup time.** ⭐ No time now means no time: the courier prices it as soon as possible.
+      return pickupTimeOf(first);
     }
     const whenNote = el("p", { class: "card-sub", style: "margin:6px 0 0" });
 
@@ -1211,8 +1213,11 @@ export function courierQuoteSection({
     // belong to a time she has since left, THAT.
     function paintWhen() {
       const d = String(whenDay() || "").trim();
+      const t = String(whenTime() || "").trim();
       whenNote.textContent = d
-        ? "The price is asked for the order's own Courier delivery date and Pickup time, above."
+        ? (t
+          ? "The price is asked for the order's own Courier delivery date and Pickup time, above."
+          : "The price is asked for the order's Courier delivery date, with no pickup time — the courier prices it as soon as possible that day. Type the Pickup time above to price the hour.")
         : "No day has been set for the van yet, so this prices collection as soon as possible. Set the Courier delivery date on the order, above, to schedule it.";
       if (pricedFor && pricedFor !== whenLabel()) {
         whenNote.textContent += ` The prices below were asked for ${pricedFor}.`;

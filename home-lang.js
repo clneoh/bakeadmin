@@ -248,7 +248,7 @@ const ms = {
   p5Desc: "Pastri keemasan dengan inti sayur-sayuran yang lazat. Makanan yang paling menenangkan.",
   soon: "SEGERA HADIR",
 
-  n1Title: "TEMPOHAN SAHAJA",
+  n1Title: "TEMPAHAN SAHAJA",
   n1Line: "Tempahan ditutup pada <strong>6:00PM</strong><br>sehari sebelum hari pembakaran.",
   n1Small: "Kuantiti terhad. Tempahan awal disyorkan.",
   n2Title: "DIBUAT DENGAN KASIH ♡",
@@ -307,9 +307,9 @@ const ms = {
   langAria: "Bahasa laman",
   rvStarsOf: "{n} daripada 5 bintang",
   rvNextAria: "Ulasan seterusnya",
-  rvThanksMain: "Terima kasih — ulasan dan foto anda telah sampai kepada pembuat kek. Setiap ulasan dibaca sendiri oleh beliau dan akan dipaparkan di sini sebaik sahaja diluluskan, biasanya dalam satu atau dua hari.",
-  rvThanksWords: "Terima kasih — ulasan anda telah sampai kepada pembuat kek. Setiap ulasan dibaca sendiri oleh beliau dan akan dipaparkan di sini sebaik sahaja diluluskan, biasanya dalam satu atau dua hari.",
-  rvThanksNoPhoto: "Kata-kata anda telah sampai kepada pembuat kek — tetapi foto tidak berjaya dimuat naik, jadi ulasan dihantar tanpa foto. Setiap ulasan dibaca sendiri dan akan dipaparkan di sini selepas diluluskan.",
+  rvThanksMain: "Terima kasih — ulasan dan foto anda telah sampai kepada bakeri. Setiap ulasan dibaca sendiri oleh beliau dan akan dipaparkan di sini sebaik sahaja diluluskan, biasanya dalam satu atau dua hari.",
+  rvThanksWords: "Terima kasih — ulasan anda telah sampai kepada bakeri. Setiap ulasan dibaca sendiri oleh beliau dan akan dipaparkan di sini sebaik sahaja diluluskan, biasanya dalam satu atau dua hari.",
+  rvThanksNoPhoto: "Kata-kata anda telah sampai kepada bakeri — tetapi foto tidak berjaya dimuat naik, jadi ulasan dihantar tanpa foto. Setiap ulasan dibaca sendiri dan akan dipaparkan di sini selepas diluluskan.",
   rvThanksHonest: "Ulasan yang jujur membantu pelanggan lain memilih dengan baik — terima kasih kerana berkongsi.",
 
   fConnectTitle: "JOM KITA BERHUBUNG ♡",

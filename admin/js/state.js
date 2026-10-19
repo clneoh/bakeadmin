@@ -1402,6 +1402,14 @@ export function duplicateIngredientPlan(state) {
 // ONE job: a receipt written before this fix holds THAT code, and the register must still be able to
 // find the order it belongs to. ⚠️ It is a look-up alias and nothing else — `orderCode` is what every
 // screen and every new receipt shows.
+// HOW MANY ORDERS ARE ON A BAKE DAY — counted the way she uses the word (v583). ⚠️ A customer with a
+// two-item cart is ONE order; the day's delete question used to count its two ROWS and say "2 order(s)".
+export function ordersOnDate(state, dateId) {
+  const rows = (Array.isArray(state && state.orders) ? state.orders : [])
+    .filter((o) => o && o.deliveryDateId === dateId);
+  return groupOrders(rows).length;
+}
+
 export function codeFromId(order) {
   const hex = String((order && order.id) || "")
     .replace(/[^0-9a-f]/gi, "")

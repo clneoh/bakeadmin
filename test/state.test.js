@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalize, defaultState, removeOrders, loadState, save, updateOrderBadge, groupOrders, orderCode, waNumber, ensureSupabase, productUnitOptions, productUsesUnit, sameNameIngredient, duplicateIngredientPlan } from "../admin/js/state.js";
+import { normalize, defaultState, removeOrders, loadState, save, updateOrderBadge, groupOrders, orderCode, ordersOnDate, waNumber, ensureSupabase, productUnitOptions, productUsesUnit, sameNameIngredient, duplicateIngredientPlan } from "../admin/js/state.js";
 import { lockEnabled } from "../admin/js/pin.js";
 import { planOf } from "../admin/js/production.js";
 import { planBackwards } from "../admin/js/bakeday.js";
@@ -831,4 +831,19 @@ test("★★★ two records with one id are ONE record on load (v582)", () => {
   clean.products = [{ id: "a", name: "A", price: 1 }, { id: "b", name: "B", price: 1 }];
   const same = normalize(clean);
   assert.equal(same.products.length, 2);
+});
+
+test("★★★ a bake day is asked about in ORDERS, not order lines (v583)", () => {
+  // ⚠️⚠️ MEASURED: one customer with a two-item cart read **"has 2 order(s) on it"** — ⚠️ **a single sale,
+  // described as two.**
+  const st = defaultState();
+  st.orders = [
+    { id: "a1", groupId: "cart1", deliveryDateId: "d1", productId: "p1", qty: 1 },
+    { id: "a2", groupId: "cart1", deliveryDateId: "d1", productId: "p2", qty: 1 },
+    { id: "b1", groupId: "cart2", deliveryDateId: "d1", productId: "p1", qty: 1 },
+    { id: "c1", groupId: "cart3", deliveryDateId: "d2", productId: "p1", qty: 1 },
+  ];
+  assert.equal(ordersOnDate(st, "d1"), 2, "★ a cart of two items is counted as two orders");
+  assert.equal(ordersOnDate(st, "d2"), 1);
+  assert.equal(ordersOnDate(st, "nope"), 0);
 });

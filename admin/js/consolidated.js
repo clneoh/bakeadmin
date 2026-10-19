@@ -176,7 +176,12 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     const name = row && row.name && row.name !== "(no name)" ? row.name : "";
     // ⚠️ THE SAME LABEL RULE THE CUSTOMER BOOK USES, including the one the grouping needed: a walk-in
     // with no name and no number has no person to name, and says so once rather than being blank.
-    const customer = name || waNumber(first.whatsapp) || "No name";
+    // ⚠️ "Details removed" IS NOT "(no name)" (v583). ⚠️ The customer book already says which of the two a
+    // row is, and this page said **"No name"** for a person whose details she had deliberately removed —
+    // ⚠️ **a filing document contradicting the privacy decision it was written under.**
+    const customer = first.redactedKey
+      ? "Details removed"
+      : (name || waNumber(first.whatsapp) || "No name");
     return {
       date: orderDay(state, first),
       code: orderCode(first),
@@ -235,6 +240,10 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
       const code = String((r && r.order_code) || "").trim().toUpperCase();
       const no = receiptNoOf({ receiptNo: r && r.number });
       if (!code || !no || have.has(code)) continue;
+      // ⚠️ AND A VOID NUMBER IS NOT THIS CUSTOMER'S (v583). ⚠️ A number whose order is gone belongs to
+      // nobody, so a page narrowed to ONE person listed it among their invoices — ⚠️ **a receipt they never
+      // held, on their own statement.**
+      if (customerKey) continue;
       const day = through(r.issued_at);
       if (kind !== "all" && (day < span.from || day > span.to)) continue;
       filing.push({
@@ -304,7 +313,14 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
       ? `This customer has nothing${kind === "all" ? " yet" : " in this period"}.`
       : kind === "all" ? "Nothing has been sold yet." : "Nothing was sold in this period.");
   } else {
-    said.push(`Every order is listed on the day it is FOR — the bake day. In invoice-number order.`);
+    // ⚠️⚠️ THE SENTENCE NAMED A SORT THE PAGE MIGHT NOT BE IN (v583): press a column and it still said
+    // **"In invoice-number order"**. ⭐ It names the order the rows are actually in.
+    const SORT_WORDS = { invoice: "invoice number", date: "date", order: "order number",
+      what: "what was bought", customer: "customer" };
+    said.push(`Every order is listed on the day it is FOR — the bake day. `
+      + (sort && by !== "invoice"
+        ? `Sorted by ${SORT_WORDS[by] || "the column you picked"}.`
+        : "In invoice-number order."));
     if (owed > 0) said.push(`Still to collect from these orders: ${cur} ${owed.toFixed(2)}.`);
     else said.push("Every order in this period has been paid.");
     // ★★ "none yet" IS ABOUT THE NUMBER, NOT ABOUT THE MONEY — and the page has to say so, or a paid

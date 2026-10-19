@@ -423,6 +423,15 @@ test("Generate adds the next dates on her own delivery days, and shows that mont
   assert.equal(state.deliveryDates.length, before + 12, "another six, on the same pattern");
 });
 
+test("★ Home's folded past-date group draws every day, not the first eight (v583)", () => {
+  // ⚠️⚠️ MEASURED: Home stopped at eight past dates and said nothing about the rest — ⚠️ **a list she opened
+  // to find a day quietly ended at eight.** ⚠️ Source-level, and named as such: Home's own harness is not in
+  // this file, and the rule is a slice that must not come back.
+  const src = readFileSync(new URL("../admin/js/views/dashboard.js", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /past\.slice\(0,\s*8\)/,
+    "★ Home still stops at eight past dates");
+});
+
 test("the past dates are one folded group, holding every one of them", () => {
   quiet();
   const root = createEl("div");

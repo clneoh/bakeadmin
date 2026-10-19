@@ -724,3 +724,13 @@ test("★★★ a PARTIAL correction gives back its share, not the whole take", 
   setBakedTotal(st, p, "2026-10-17", 6);           // four pans back = 400
   assert.equal(st.ingredients[0].onHand, 1400, "★ a partial correction did not give back its own share");
 });
+
+test("★★★ a card at its cap is never given an 'opening balance' it never needed (v583)", () => {
+  // ⚠️⚠️ Past 50 rows the oldest are gone, so the gap is TRUNCATION. ⚠️ Writing an opening-balance line
+  // would name a cause nobody found — and drop one more real row to make room for it.
+  const ing = { id: "i1", name: "Flour", unit: "g", unitId: "g", onHand: 6000,
+    stockLog: Array.from({ length: STOCK_LOG_CAP }, (_, i) => ({ at: "2026-09-0" + ((i % 9) + 1), delta: 100, why: "in" })) };
+  assert.notEqual(cardGap(ing), 0, "the fixture is meant to have a gap");
+  assert.equal(closeCardGap(ing), 0, "★ a truncated card was 'repaired' with an invented opening balance");
+  assert.equal(ing.stockLog.length, STOCK_LOG_CAP, "and the repair row pushed a real movement off the card");
+});

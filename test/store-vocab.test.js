@@ -15,6 +15,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { STORE } from "../store-lang.js";
+import { HOME } from "../home-lang.js";
 
 const { en, zh, ms } = STORE;
 
@@ -127,4 +128,36 @@ test("★★ `devBy` carries no stray colon — the English and Malay have none"
   assert.doesNotMatch(zh.devBy || "", /：/, "★ the colon is back — **it printed before the developer's name**");
   assert.equal(en.devBy, "Website by");
   assert.equal(ms.devBy, "Laman web oleh");
+});
+
+// ── v583 · four wordings the audit found — the fixes, pinned ──────────────────
+
+const ALL_HOME_MS = Object.entries(HOME.ms).map(([k, v]) => `${k}: ${v}`).join("\n");
+
+test("★★★ the homepage's Malay says TEMPAHAN, never TEMPOHAN (v583)", () => {
+  // ⚠️ "TEMPOHAN" is not a Malay word; the same file's very next line uses "Tempahan".
+  assert.doesNotMatch(ALL_HOME_MS, /tempohan/i, "★ a misspelling is back in the homepage's Malay");
+  assert.match(HOME.ms.n1Title, /tempahan sahaja/i);
+});
+
+test("★★★ a review reaches the BAKERI, never a cake maker (v583)", () => {
+  assert.doesNotMatch(ALL_HOME_MS, /pembuat kek/i,
+    "★ \"pembuat kek\" (cake maker) is back in the Malay review thanks — her word is `bakeri`");
+});
+
+test("★★★ a fully claimed code says nothing is left, not that everything was included (v583)", () => {
+  // ⚠️ The Malay ended "semuanya telah disertakan" — "everything has been included" — where the English says
+  // "all of it has been used": the two sentences contradicted each other about one code.
+  // ⚠️ AND HER OWN RECORDED DECISION (row 8) BANS "telah digunakan" in the Malay, so the truth is said the
+  // other way round: nothing is left.
+  assert.match(ms.promoClaimed, /tiada lagi/i, "★ the Malay promo sentence contradicts its own English");
+  assert.doesNotMatch(ms.promoClaimed, /disertakan/i);
+  assert.doesNotMatch(ms.promoClaimed, /telah digunakan/i, "★ her pinned wording decision was broken");
+});
+
+test("★★★ the collection window is the late AFTERNOON in Chinese, not dusk (v583)", () => {
+  // ⚠️ 傍晚 is dusk — late enough that a customer could arrive after the window has closed.
+  assert.doesNotMatch(zh.selfCollectSub, /傍晚/,
+    "★ the Chinese says dusk where the English says late afternoon");
+  assert.match(zh.selfCollectSub, /下午/);
 });

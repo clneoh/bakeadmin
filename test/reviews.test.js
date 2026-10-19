@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { REVIEW_LANGS, langName, stars, fmtDate, reviewOk, photoOk, loadApproved, submitReview, uploadPhoto, MAX_INPUT_BYTES, thanksKeyFor } from "../reviews.js";
+import { REVIEW_LANGS, langName, stars, fmtDate, reviewOk, reviewProblems, photoOk, loadApproved, submitReview, uploadPhoto, MAX_INPUT_BYTES, thanksKeyFor } from "../reviews.js";
 
 const realFetch = globalThis.fetch;
 
@@ -310,4 +310,16 @@ test("★★★ a review sent with NO picture is not thanked for a picture (v581
     "a picture that failed is not named as failed");
   assert.equal(thanksKeyFor("none"), "rvThanksWords",
     "★ a review with no picture is thanked for a photo that was never sent");
+});
+
+test("★★★ the review form names WHICH answer is missing (v583)", () => {
+  // ⚠️⚠️ MEASURED: the error was one alert with nothing it belonged to. ⭐ The rule now says, field by field,
+  // what is missing — which is what puts the message on the boxes themselves.
+  assert.deepEqual(reviewProblems("", 0, ""), { name: true, stars: true, message: true });
+  assert.deepEqual(reviewProblems("Aisyah", 5, "Lovely bread"), { name: false, stars: false, message: false });
+  assert.deepEqual(reviewProblems("Aisyah", 0, "Lovely"), { name: false, stars: true, message: false });
+  assert.deepEqual(reviewProblems("Aisyah", 4, "x".repeat(401)), { name: false, stars: false, message: true });
+  // And the yes/no still agrees with the per-field answer.
+  assert.equal(reviewOk("Aisyah", 0, "Lovely"), false);
+  assert.equal(reviewOk("Aisyah", 5, "Lovely"), true);
 });

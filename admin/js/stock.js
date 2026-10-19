@@ -140,6 +140,10 @@ export function cardGap(ingredient) {
 // says which of the two it is, so the row is honest about what it is: an opening balance she never
 // wrote down, or a correction of a history that counted a movement twice.
 export function closeCardGap(ingredient) {
+  // ⚠️⚠️ A CARD AT ITS CAP HAS ALREADY LOST ROWS, SO ITS "GAP" IS TRUNCATION, NOT AN OPENING BALANCE
+  // (v583). ⚠️ Writing an "opening balance" line there would name a cause nobody found — and drop one more
+  // real row to make room for it. ⭐ It writes nothing; the card itself now says its history is short.
+  if (stockLogOf(ingredient).length >= STOCK_LOG_CAP) return 0;
   const gap = cardGap(ingredient);
   if (!gap) return 0;
   logStock(ingredient, {

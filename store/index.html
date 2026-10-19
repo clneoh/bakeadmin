@@ -279,13 +279,15 @@
       <div class="card">
         <p class="card-sub" style="margin:0 0 10px" data-i18n-html="trackHint">Placed an order? Enter the order number from your confirmation (it starts with <strong>#</strong>, e.g. #A3F9C2).</p>
         <div class="track-row">
-          <input id="track-input" class="input" type="text" data-i18n-ph="trackPh" placeholder="e.g. A3F9C2" autocomplete="off" autocapitalize="characters">
+          <!-- ⚠️⚠️ A PLACEHOLDER IS NOT A NAME (v583): with no label, a screen reader announced these two
+               boxes as "edit text" and nothing said which was which. ⭐ Each carries its own name. -->
+          <input id="track-input" class="input" type="text" data-i18n-ph="trackPh" placeholder="e.g. A3F9C2" autocomplete="off" autocapitalize="characters" data-i18n-aria="trackNoLabel" aria-label="Order number">
         </div>
         <!-- ★★★ AND THE PHONE THE ORDER WAS PLACED WITH (v558). ⚠️ A six-character code is about 16.7
              million values and this lookup is open to anyone, so a stranger making requests could reach a
              real order. ⭐ The phone is the second key, and it is not published anywhere public. -->
         <div class="track-row track-row-phone">
-          <input id="track-phone" class="input" type="tel" inputmode="tel" data-i18n-ph="trackPhonePh" placeholder="phone you ordered with" autocomplete="tel">
+          <input id="track-phone" class="input" type="tel" inputmode="tel" data-i18n-ph="trackPhonePh" placeholder="phone you ordered with" autocomplete="tel" data-i18n-aria="trackPhoneLabel" aria-label="Phone you ordered with">
           <button id="track-btn" class="track-btn" data-i18n="trackBtn">Track</button>
         </div>
         <div id="track-result" class="track-result" hidden></div>

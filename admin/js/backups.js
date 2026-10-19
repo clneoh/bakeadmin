@@ -105,9 +105,10 @@ export function dueKinds(rows, now = new Date()) {
 }
 
 // Ids to delete so only the newest 7 daily / 4 weekly / 3 monthly survive.
-// Manual copies are never pruned. Callers pass the rows seen BEFORE posting a
-// new copy — the fresh copy is the newest, so pruning that list is exact.
-export function pruneIds(rows) {
+// Manual copies are never pruned. ⚠️⚠️ CALLERS PASS THE ROWS SEEN **BEFORE** THE NEW COPIES ARE POSTED (v583) —
+// ⚠️ so keeping 7 of those leaves **7 old + 1 new = 8**, ⚠️ **one more than the card promises.** ⭐ `extra` says
+// how many copies of each kind are about to be written, and those slots are counted against the keep.
+export function pruneIds(rows, extra = {}) {
   const kill = [];
   for (const kind of Object.keys(KEEP)) {
     const mine = (rows || [])
@@ -116,7 +117,8 @@ export function pruneIds(rows) {
         if (a.created_at !== b.created_at) return a.created_at < b.created_at ? 1 : -1;
         return String(b.id).localeCompare(String(a.id)); // newest id first on a tie
       });
-    for (const row of mine.slice(KEEP[kind])) kill.push(row.id);
+    const incoming = Math.max(0, Number(extra && extra[kind]) || 0);
+    for (const row of mine.slice(Math.max(0, KEEP[kind] - incoming))) kill.push(row.id);
   }
   return kill;
 }
@@ -526,7 +528,7 @@ export async function maybeAutoBackup(state) {
       if (!r.ok) return { ok: false, reason: r.reason };
     }
     // Prune after a successful capture; manual copies are never pruned.
-    const kill = pruneIds(meta.rows);
+    const kill = pruneIds(meta.rows, due.reduce((o, k) => ({ ...o, [k]: 1 }), {}));
     if (kill.length) await deleteSnapshots(state, kill);
     return { ok: true, made: due };
   } finally {

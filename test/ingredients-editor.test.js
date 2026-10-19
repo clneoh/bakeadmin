@@ -316,6 +316,36 @@ test("★★★ a pack in another unit family is NOT re-read as the new unit (v5
   assert.equal(state.ingredients[0].supplierPrices, undefined, "★ the dropped pack stayed on the ingredient");
 });
 
+test("★★★ a cleared cost is UNSET, and a negative one is refused (v583)", () => {
+  // ⚠️⚠️ MEASURED: a cleared box saved **0** — every recipe using that ingredient costed at nothing — and a
+  // negative passed straight through. ⭐ Blank now means "no fallback price", and a negative is refused.
+  const state = freshState();
+  state.ingredients.push({ id: "ing_f", name: "Strong flour", unit: "g", uomId: "u_g", costPerUnit: 0.006 });
+  const root = render(state);
+  const openEdit = () => {
+    const card = walk(root).find((n) => String(n.className).includes("card") && textOf(n).includes("Strong flour"));
+    fire(walk(card).find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Edit"));
+    return registry["popup-layer"];
+  };
+  const costBox = (layer) => walk(layer).find((n) => n.tagName === "INPUT"
+    && n.attrs.placeholder === "cost per unit (RM)");
+  const update = (layer) => fire(walk(layer).find((n) => n.tagName === "BUTTON"
+    && textOf(n).trim() === "Update ingredient"));
+
+  let layer = openEdit();
+  costBox(layer).value = "-5";
+  update(layer);
+  assert.equal(state.ingredients[0].costPerUnit, 0.006,
+    "★ a negative cost was written onto the ingredient");
+  assert.match(textOf(doc.body), /cannot be below zero/, "★ nothing said why it was refused");
+
+  layer = openEdit();
+  costBox(layer).value = "";
+  update(layer);
+  assert.equal(Object.prototype.hasOwnProperty.call(state.ingredients[0], "costPerUnit"), false,
+    "★ a cleared cost was saved as 0, which costs every recipe using it at nothing");
+});
+
 // ── v285: the ingredient's own price journal ────────────────────────────────
 // *"ingredient price journaled … So an ingredient need a journals."*
 
@@ -574,4 +604,19 @@ test("⚠️ an ingredient she has HIDDEN carries no grip — it is not part of 
     "⚠️ the hidden ingredient was drawn as one of the list's own rows");
   assert.equal(walk(root).filter((n) => String(n.className).includes("ing-handle")).length, 1,
     "⚠️ the hidden ingredient was given a grip");
+});
+
+test("★★★ the stock card says when its history is the newest 50 only (v583)", () => {
+  // ⚠️⚠️ Past 50 movements the oldest rows are gone, so the rows no longer add up to the amount at the top —
+  // and the card looked like a fault with no explanation.
+  const state = freshState();
+  const ing = { id: "ing_f", name: "Strong flour", unit: "g", uomId: "u_g", onHand: 6000,
+    stockLog: Array.from({ length: 50 }, (_, i) => ({ at: "2026-09-" + String((i % 28) + 1).padStart(2, "0"),
+      delta: 100, why: "in", what: "Bought" })) };
+  const sheet = stockCardSheet(state, ing);
+  assert.match(sheet.note, /newest 50 stock movements/,
+    "★ a truncated card does not say its history is short, so its rows look wrong");
+  // A short card says nothing about a cap.
+  const short = stockCardSheet(state, { ...ing, stockLog: ing.stockLog.slice(0, 5) });
+  assert.doesNotMatch(short.note, /newest 50/, "a card with its whole history claims to be truncated");
 });

@@ -85,12 +85,22 @@ export function carouselStep(total, index, step) {
 
 // Client-side gate before anything is sent: a name, an integer rating 1–5 and a
 // message of 1–400 characters. The database checks the same rules as a backstop.
-export function reviewOk(name, n, message) {
+// ★★★ WHICH ANSWER IS MISSING, ONE BY ONE (v583). ⚠️ The error was one alert with nothing it belonged to, so
+// a screen reader announced "fill in every field" with no field named. ⭐ The same rule is read twice: once for
+// the yes/no, and once to put the message ON the boxes that need it.
+export function reviewProblems(name, n, message) {
   const s = Number(n);
   const m = String(message || "").trim();
-  return String(name || "").trim().length > 0
-    && Number.isInteger(s) && s >= 1 && s <= 5
-    && m.length >= 1 && m.length <= 400;
+  return {
+    name: String(name || "").trim().length === 0,
+    stars: !(Number.isInteger(s) && s >= 1 && s <= 5),
+    message: m.length < 1 || m.length > 400,
+  };
+}
+
+export function reviewOk(name, n, message) {
+  const p = reviewProblems(name, n, message);
+  return !p.name && !p.stars && !p.message;
 }
 
 export function photoOk(file) {
@@ -569,6 +579,18 @@ function initReviews() {
     if (error) error.textContent = text;
   }
 
+  // ⚠️⚠️ THE ERROR NOW BELONGS TO THE BOXES IT IS ABOUT (v583). ⭐ Each field points at the message
+  // (`aria-describedby`) and says whether IT is the one that needs an answer (`aria-invalid`), so the alert is
+  // announced with the control it concerns rather than on its own.
+  function markFields(bad = {}) {
+    const pairs = [[nameInput, "name"], [message, "message"], [byId ? byId("rv-stars") : null, "stars"]];
+    for (const [node, key] of pairs) {
+      if (!node || typeof node.setAttribute !== "function") continue;
+      if (error && error.id) node.setAttribute("aria-describedby", error.id);
+      node.setAttribute("aria-invalid", bad[key] ? "true" : "false");
+    }
+  }
+
   // ⚠️⚠️ A PICTURE THAT DID NOT UPLOAD MUST NOT BE THANKED FOR (v553). ⭐ The review went out with
   // `photo: ""` and the thanks said **"your review and photo reached the baker"** — so the customer believed
   // a picture had arrived that never did, and the moderation card had none. ⭐ The words tell the truth now.
@@ -590,9 +612,11 @@ function initReviews() {
     ev.preventDefault();
     const name = (nameInput && nameInput.value) || "";
     if (!reviewOk(name, rating, message.value)) {
+      markFields(reviewProblems(name, rating, message.value));
       setError(tHome("rvErrFields"));
       return;
     }
+    markFields({});
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.textContent = tHome("rvSending");

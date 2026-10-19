@@ -412,7 +412,11 @@ export function personName(who, names) {
 // shown on screen is always the number the arithmetic used.
 export function scenarioOf(saved) {
   const s = { ...DEFAULT_SCENARIO, ...(saved || {}) };
-  const mods = Array.isArray(s.modules) && s.modules.length ? s.modules : DEFAULT_SCENARIO.modules;
+  // ⚠️⚠️ AN EMPTY LIST IS NOT "NEVER SET" (v583). ⚠️ Deleting the LAST module brought the ten defaults
+  // back on the next draw — ⚠️ **the toast said "Module deleted" and the template was saved back over her
+  // work.** ⭐ Absent means the template (a new scenario); an empty array means she emptied it, and that is
+  // an answer too.
+  const mods = Array.isArray(s.modules) ? s.modules : DEFAULT_SCENARIO.modules;
   return {
     // The working copy keeps its own id once it has been saved, so saving again
     // updates that scenario rather than growing a second copy of it.
@@ -537,6 +541,26 @@ export function skillsOf(skills, who) {
   if (p <= 0) return [];
   const raw = skills && typeof skills === "object" ? skills[String(p)] : null;
   return Array.isArray(raw) ? raw : [];
+}
+
+// ★★★ THE TRAINING OF A DELETED MODULE GOES WITH IT (v583). ⚠️⚠️ Skills are keyed by module ID, and a new
+// module can be given an id an old one had — ⚠️ **so a person read as trained for a module they had never
+// seen.** ⭐ Removing the id from every person's list is the one honest answer: nobody is trained for a thing
+// that no longer exists. ⚠️ A list left empty is DELETED, which is the same "can work anything" the app
+// already reads from an absent list.
+export function forgetModuleSkills(skills, moduleId) {
+  const id = String(moduleId == null ? "" : moduleId);
+  if (!id || !skills || typeof skills !== "object") return skills;
+  const out = {};
+  for (const [who, list] of Object.entries(skills)) {
+    if (!Array.isArray(list)) { out[who] = list; continue; }
+    // ⚠️ A PERSON NOT TRAINED FOR IT IS NOT TOUCHED AT ALL — an empty list she already had stays empty, rather
+    // than being read as "changed" by a delete that never concerned her.
+    if (!list.some((x) => String(x) === id)) { out[who] = list; continue; }
+    const next = list.filter((x) => String(x) !== id);
+    if (next.length) out[who] = next;
+  }
+  return out;
 }
 
 // Whether this person can be given this module. Nothing on the list is a yes to
@@ -2234,6 +2258,18 @@ export function descentSteps(saved, target) {
     end: next,
     want,
   };
+}
+
+// ★★★ WHAT THE PRESS SAYS AFTER IT HAS DONE ITS WORK (v583). ⚠️⚠️ MEASURED: batch 6, repeats 4, asked for 10
+// → the day comes down to 12, ⚠️ **and the toast still said "down to the number you asked for".** ⭐ It says what
+// the day IS, and names the target when that target was not reachable in whole batches.
+export function descentToastWords(down) {
+  const step = down && Array.isArray(down.steps) ? down.steps[0] : null;
+  if (down && down.reached === false && step) {
+    return `The day is down to ${step.after} pans — ${down.want} is not a number these batches can make, `
+      + "so this is as close as it gets";
+  }
+  return "The day is down to the number you asked for";
 }
 
 // How many batches this module would have to run to turn out `want` pans.

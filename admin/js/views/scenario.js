@@ -26,14 +26,14 @@ import { el, button, select, showPopup, toast, confirmDialog } from "../ui.js";
 import { save } from "../state.js";
 import { trim } from "../production.js";
 import {
-  computeScenario, climbSteps, descentSteps, DEFAULT_SCENARIO, SISTER_SCENARIO, ONE_BAKER_SCENARIO,
+  computeScenario, climbSteps, descentSteps, descentToastWords, DEFAULT_SCENARIO, SISTER_SCENARIO, ONE_BAKER_SCENARIO,
   hoursAndMinutes,
   clockOf, moveModule, removeModule, newModuleId, blankModule, copyScenario,
   PX_PER_MIN_CHOICES, scenarioFacts, moduleFacts, chainLine, latestStarts,
   combinedScenario, reassignSlot, pinArrangement, linesInForce, moduleOf, minuteAtPx, placesOn, clampBatchStart,
   alignBatches, batchMismatches, personName, callWindows, jobKey,
   START_MODES, START_MODE_LABELS, START_MODE_HINTS, START_MODE_READINGS,
-  startModeOf, setStartMode, skillsOf,
+  startModeOf, setStartMode, skillsOf, forgetModuleSkills,
 } from "../scenario.js";
 
 // A colour per PERSON, so a row reads as one worker's day rather than as a
@@ -852,7 +852,7 @@ function applyDescent(sc, down, on) {
   const to = new Map(down.steps[0].items.map((it) => [it.id, it.to]));
   sc.modules = sc.modules.map((m) => (to.has(m.id) ? { ...m, repeats: to.get(m.id) } : m));
   on.persist();
-  toast("The day is down to the number you asked for");
+  toast(descentToastWords(down));
   on.refresh();
 }
 
@@ -3006,20 +3006,25 @@ function boardCallsOff(run, on) {
 // and they are renamed whenever anything moves, so the board names the JOBS instead.
 // That is not a lesser answer — the job and the time are what somebody standing at
 // the bench acts on.
-function boardAhead(sc, state, run) {
-  const calls = state.settings.personCalls || {};
-  const mine = callWindows(sc).filter((w) => calls[w.who] !== false && w.to > run.nowMin);
+export function boardAhead(sc, state, run) {
+  // ⚠️⚠️ CALLS OFF IS NOT "NOT WORKING" (v583). ⚠️ The board filtered people out when their CALLS were
+  // switched off — ⚠️ **so a worker standing at the bench, with alerts turned off, was told by the board
+  // "there is nobody to be anywhere next".** ⭐ Calls govern the phone's alerts and nothing else; the board
+  // names everybody on the day.
+  const mine = callWindows(sc).filter((w) => w.to > run.nowMin);
   const shared = (sc.modules || []).some((m) => Number(m.person) > 0
     || (m.crew || []).some((p) => Number(p) > 0)
     || Object.values(m.slotPerson || {}).some((v) => Number(v) > 0));
-  if (!shared) return { people: [], jobs: mine.slice(0, 3) };
+  if (!shared) return { people: [], jobs: mine.slice(0, 3), moreJobs: Math.max(0, mine.length - 3) };
   const byWho = new Map();
   for (const w of mine) {
     if (!byWho.has(w.who)) byWho.set(w.who, []);
     byWho.get(w.who).push(w);
   }
   return {
-    people: [...byWho].slice(0, 6).map(([who, list]) => ({
+    // ⚠️ EVERY PERSON, NOT THE FIRST SIX (v583): with seven or eight hands the last two never appeared,
+    // and a board that leaves people out is a board they stop reading.
+    people: [...byWho].map(([who, list]) => ({
       who, doing: list[0], then: list[1] || null,
     })),
     jobs: [],
@@ -3057,6 +3062,12 @@ function boardTopBody(r, sc, state, run, on) {
     for (const w of ahead.jobs) {
       lines.push(el("div", { class: "bd-next" }, el("div", { class: "bd-job" },
         el("span", { class: "bd-what" }, what(w)))));
+    }
+    // ⚠️ AND THE THREE ARE NAMED AS THREE OF HOWEVER MANY (v583) — a list that quietly stops reads as the
+    // whole day.
+    if (ahead.moreJobs) {
+      lines.push(el("div", { class: "bd-note" },
+        `and ${ahead.moreJobs} more job${ahead.moreJobs === 1 ? "" : "s"} after ${ahead.jobs.length === 1 ? "it" : "these"}`));
     }
   }
 
@@ -5858,6 +5869,9 @@ function editModule(saved, sc, on, isNew = false, r = null, state = null) {
           `Delete the module "${live.name}"? The day will answer without it.`,
           () => {
             sc.modules = removeModule(sc.modules, live.id);
+            // ⚠️ AND ITS TRAINING WITH IT (v583) — a new module can reuse the id, and nobody should read as
+            // trained for a thing that no longer exists.
+            sc.skills = forgetModuleSkills(sc.skills, live.id);
             on.persist();
             on.refresh();
             toast("Module deleted");

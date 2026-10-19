@@ -396,11 +396,10 @@ export function packingLabelData(state, group, style = "full") {
       ? address.split(/\n+/).map((s) => s.trim()).filter(Boolean) : [];
     const rows = [];
     rows.push(["mail-sec", "FROM"]);
-    if (senderLines.length) {
-      for (const ln of senderLines) rows.push(["mail-line", ln]);
-    } else {
-      rows.push(["mail-line", "Set your bakery address in Settings → Mailing labels"]);
-    }
+    // ⚠️⚠️ AN INSTRUCTION TO HER WAS PRINTED ON THE PARCEL (v583). ⚠️ With no mailing address the FROM block
+    // read **"Set your bakery address in Settings → Mailing labels"** — ⚠️ **on the outside of a parcel a
+    // courier is carrying.** ⭐ The sheet says nothing it cannot say; the preview tells her what is missing.
+    for (const ln of senderLines) rows.push(["mail-line", ln]);
     rows.push(["mail-sec", "TO"]);
     if (customer) rows.push(["mail-name", customer]);
     const phone = String(first.whatsapp || "").trim();
@@ -4575,7 +4574,17 @@ function openLabelPrint(state, group) {
         }, label);
         return pill;
       }));
-      sheetWrap.replaceChildren(labelSheetEl(state, group, style));
+      // ⚠️ AND THE PREVIEW SAYS WHAT THE PARCEL CANNOT (v583): a Mailing label with no mailing address prints
+      // without a FROM block, so she is told here rather than discovering it on the box.
+      const missingFrom = style === "mailing"
+        && !String((state.settings && state.settings.mailingAddress) || "").trim();
+      const kids = [
+        labelSheetEl(state, group, style),
+        missingFrom ? el("p", { class: "warn", style: "margin:8px 0 0" },
+          "Your bakery's mailing address is not set, so this label prints without a FROM block. "
+          + "Add it in Settings → Mailing labels, or choose Full.") : null,
+      ].filter((x) => x != null);
+      sheetWrap.replaceChildren(...kids);
     };
     paint();
     return el("div", { class: "label-print-body" },
