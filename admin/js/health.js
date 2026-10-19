@@ -119,7 +119,13 @@ export function localChecks(state) {
     out.push(bad.length
       ? fail("agree", "Every line of one order agrees about the order", bad,
         "One order's lines disagree about something that belongs to the whole order — the money, the status, the day or the address. That is the shape of every fault this app has had on this screen.",
-        "Open each of these orders and press Save. That writes one answer onto every line.")
+        // ⚠️⚠️ THE WAY OUT NAMES THE PRESS THAT ACTUALLY WRITES EACH FACT (v602). ⚠️ "Press Save" was wrong
+        // for the money: `paidReceived` is written by the Paid press, and after the self-repair the payment
+        // usually settles by itself when the order opens. ⭐ A way out that sends her to the wrong press
+        // leaves the same red mark after a correct action, which is the worst kind of false alarm.
+        "Open each of these orders. The payment settles itself as the order opens — press Paid again if it "
+        + "is still offered. Press Save for a status, bake day or address that disagrees, and press Invoice "
+        + "to draw a missing receipt number. A promo code that only one line carries needs the helper.")
       : pass("agree", "Every line of one order agrees about the order"));
   }
 

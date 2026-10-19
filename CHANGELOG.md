@@ -1,8 +1,16 @@
-# Jienluv2bake — change history (v54 → v602)
+# Jienluv2bake — change history (v54 → v603)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v603, CHECK MY SYSTEM NAMES THE RIGHT PRESS (NO DATABASE STEP).**
+
+**Your words:** __"you should do whatever you should"__, after the mending of v602.
+
+1. ⚠️ **THE WAY OUT OF A "LINES DISAGREE" CHECK NAMED THE WRONG PRESS.** It said "press Save", which writes the day and the address but **not the payment** — **a way out that leaves the same red mark after a correct action.** It now names what repairs each fact: the payment settles itself as the order opens (or press Paid again if it is still offered), Save for a status, bake day or address, Invoice for a missing receipt number, and the helper for a promo code only one line carries.
+
+**No database step and no function deploy.** 3,839 tests green.
 
 **19 Oct 2026 — engine v602, A RECEIPT NUMBER CANNOT BE TAKEN BACK BY THE OTHER PHONE (NO DATABASE STEP).**
 
