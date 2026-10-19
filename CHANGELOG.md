@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v600)
+# Jienluv2bake — change history (v54 → v601)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v601, THE EDIT CARD SHOWS THE WHOLE SALE (NO DATABASE STEP).**
+
+**Your words:** __"fix it now"__, after the version check against munchies found the same shape there.
+
+1. ⚠️⚠️ **THE EDIT CARD HID HALF OF A TWO-DAY ORDER.** Save writes the address, the note, the bake day and the tracking number onto **every** line of the sale, while the card listed only the lines on the day it was opened from — **so the other day's lines were rewritten without ever being on screen.** That is exactly the "one order's lines disagree" state Check my system reports. The card now lists every line of the sale, and what she edits is what she sees.
+2. ⚠️ **A LINE TAKEN OFF FROM THE OTHER DAY IS REALLY TAKEN OFF** — it leaves the new draft and goes to the Removed list like any other removal.
+3. ⚠️ **AND THE CARD IS NOT COUNTED TWICE.** With every line on the draft, the other days' rows were also being added separately when the card worked out what the order is worth — a two-day sale read RM64 instead of RM32, and the "money is in" question never appeared. Now each line is counted once.
+
+**No database step and no function deploy.** 3,837 tests green.
 
 **19 Oct 2026 — engine v600, THE BRIDGE'S THREE FAULTS (NO DATABASE STEP).**
 
