@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v603)
+# Jienluv2bake — change history (v54 → v604)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v604, CHECK MY SYSTEM WATCHES REFUNDS TOO (NO DATABASE STEP).**
+
+**Your words:** __"check the progress in munchies"__ — munchies had just added this line, and the same wipe exists here.
+
+1. ⚠️⚠️ **A REFUND CAN BE WIPED BY A SYNC, AND NOTHING WAS WATCHING.** A record travels whole, so a newer copy of an order that never learned about a refund removes the mark — **and Money and Profit then read that money as still in your hand.** The receipt register survives, so the new check reads it: every refund in the register must be marked on its order. It names the order and the receipt number.
+2. ⚠️ **IT CANNOT CRY WOLF ON A REFUND YOU TOOK BACK**, because taking one back clears the mark in the register itself; and a receipt whose order is not on this phone is left to the check above it.
+3. ⚠️ **THE WAY OUT IS THE INVOICE PRESS**, which copies the refund and its amount back from the register onto the order, the same way it puts a receipt number back.
+
+**No database step and no function deploy.** 3,841 tests green.
 
 **19 Oct 2026 — engine v603, CHECK MY SYSTEM NAMES THE RIGHT PRESS (NO DATABASE STEP).**
 

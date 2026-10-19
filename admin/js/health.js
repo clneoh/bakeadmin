@@ -395,6 +395,7 @@ export function registerChecks(state, register, voided) {
     return [
       skipped("hasOrder", "Every receipt has an order behind it", "Your receipts could not be read from the cloud — sign in to shared data and run this again."),
       skipped("carried", "Every receipt's number is on the order it names", "Your receipts could not be read from the cloud — sign in to shared data and run this again."),
+      skipped("refunded", "Every refund in your register is marked on its order", "Your receipts could not be read from the cloud — sign in to shared data and run this again."),
     ];
   }
 
@@ -496,6 +497,31 @@ export function registerChecks(state, register, voided) {
             "A number was issued for these orders and the order is not carrying it, so your filing page can print \"none yet\" beside a receipt your register can name in full.",
             "Open the order's own receipt — or open the order and press Save, then Paid again. Either way the app asks for the number again and gets back the SAME one, never a new one.")
           : pass("carried", "Every receipt's number is on the order it names");
+      })(),
+      // ── 9b · every refund in the register is marked on its order (v604) ────
+      (() => {
+        // ⚠️⚠️ THE SAME WIPE THAT TAKES A RECEIPT NUMBER TAKES A REFUND, AND NOTHING WAS WATCHING FOR IT.
+        // ⭐ A record travels whole: a newer copy of an order that never learned about a refund removes the
+        // mark here — ⚠️ **and Money and Profit then read that money as still in her hand.** ⭐ The register
+        // is the record that survives, exactly as it is for the number above.
+        // ⚠️ IT CANNOT CRY WOLF ON AN UNDONE REFUND: `unrefund_receipt` clears `refunded_at` in the register
+        // itself, so a refund she took back never reaches this loop.
+        const wrong = [];
+        for (const r of register) {
+          if (!String((r && r.refunded_at) || "").trim()) continue;
+          const code = String((r && r.order_code) || "").trim().toUpperCase();
+          const g = groups.get(code);
+          // No order on this phone is the line above's business, not this one's.
+          if (!g) continue;
+          if (!g.orders.some((o) => o && o.refundedAt)) {
+            wrong.push(`#${code} · refund #${String(Math.floor(Number(r && r.number))).padStart(6, "0")}`);
+          }
+        }
+        return wrong.length
+          ? fail("refunded", "Every refund in your register is marked on its order", wrong,
+            "Your register recorded money going back to a customer, and the order is not carrying that mark — so Money and Profit can read the sale as if you still held it.",
+            "Open the order and press Invoice — the refund and its amount are copied back from your register onto the order. If you took this refund back, the register will already say so and this line clears by itself.")
+          : pass("refunded", "Every refund in your register is marked on its order");
       })(),
     ];
   }
