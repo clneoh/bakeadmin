@@ -9,11 +9,16 @@
 import { applyTo, loadLang, rememberLang, pick } from "./i18n.js";
 import { HOME } from "./home-lang.js";
 import { CONFIG } from "./store/config.js";
+import { bakeDaysText, withCutoff } from "./home-facts.js";
 
 const BASE = String(CONFIG.supabase.url).replace(/\/+$/, "");
 const ANON = CONFIG.supabase.anonKey;
 
 let lang = loadLang();
+// What the homepage PRINTS that is hers to set, once the published settings arrive (v581). ⚠️ Both were
+// typed into index.html while the shop read them from settings — changing one moved the shop and left the
+// homepage saying the old thing.
+let siteFacts = { cutoff: "", days: null };
 let devConfig = null; // { name, emails, wa } fetched once from the published storefront
 let devLoaded = false;
 
@@ -23,9 +28,25 @@ function byId(id) {
 
 function render() {
   applyTo(document, HOME, lang);
+  renderSiteFacts();
   const pills = document.querySelectorAll("#lang-switch .lang-pill");
   pills.forEach((b) => b.classList.toggle("is-on", b.dataset.lang === lang));
   renderDevLine();
+}
+
+// ⭐ THE TWO FACTS FROM HER SETTINGS, written into the translated lines AFTER they are applied — so every
+// language switch keeps them (v581). ⚠️ The line's own shape stays the translator's: only the time TOKEN and
+// the day words are replaced.
+function renderSiteFacts() {
+  if (siteFacts.cutoff) {
+    for (const el of document.querySelectorAll('[data-i18n-html="n1Line"]')) {
+      el.innerHTML = withCutoff(el.innerHTML, siteFacts.cutoff);
+    }
+  }
+  const days = bakeDaysText(siteFacts.days, lang);
+  if (days != null) {
+    for (const el of document.querySelectorAll('[data-i18n="s1d"]')) el.textContent = days;
+  }
 }
 
 function choose(next) {
@@ -80,6 +101,12 @@ async function loadDevConfig() {
     // published, the page is exactly as it was.
     const shopWa = typeof cfg.whatsapp === "string" ? cfg.whatsapp.trim() : "";
     if (shopWa) setFooterNumber(shopWa);
+    // ★★ AND THE CUT-OFF AND THE BAKE DAYS (v581). ⚠️ A malformed cut-off is ignored rather than printed;
+    // an EMPTY day list is an answer — she has none open — and `bakeDaysText` says so with a dash.
+    const cut = typeof cfg.cutoff === "string" ? cfg.cutoff.trim() : "";
+    if (/^\d{1,2}:\d{2}$/.test(cut)) siteFacts.cutoff = cut;
+    if (Array.isArray(cfg.deliveryDays)) siteFacts.days = cfg.deliveryDays;
+    renderSiteFacts();
   } catch { /* offline — the credit line simply stays hidden */ }
 }
 

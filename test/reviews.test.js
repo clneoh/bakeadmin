@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { REVIEW_LANGS, langName, stars, fmtDate, reviewOk, photoOk, loadApproved, submitReview, uploadPhoto, MAX_INPUT_BYTES } from "../reviews.js";
+import { REVIEW_LANGS, langName, stars, fmtDate, reviewOk, photoOk, loadApproved, submitReview, uploadPhoto, MAX_INPUT_BYTES, thanksKeyFor } from "../reviews.js";
 
 const realFetch = globalThis.fetch;
 
@@ -299,4 +299,15 @@ test("★ the homepage still reads approved pictures, and only her app may touch
   assert.ok(baker, "her app has no policy to read, copy or delete a picture — the card could not show it");
   assert.match(baker, /review-photos-pending/, "her app cannot reach the private bucket");
   assert.match(baker, /review-photos/, "her app cannot publish into the public bucket");
+});
+
+test("★★★ a review sent with NO picture is not thanked for a picture (v581)", () => {
+  // ⚠️⚠️ MEASURED FAULT: the thanks said **"your review and photo reached the baker"** whether or not a
+  // picture was sent — ⚠️ **so a customer who chose no picture read that one had, and there was nothing to
+  // moderate.** ⭐ The sentence follows what was actually sent.
+  assert.equal(thanksKeyFor("sent"), "rvThanksMain", "a picture that arrived stopped being thanked for");
+  assert.equal(thanksKeyFor("failed"), "rvThanksNoPhoto",
+    "a picture that failed is not named as failed");
+  assert.equal(thanksKeyFor("none"), "rvThanksWords",
+    "★ a review with no picture is thanked for a photo that was never sent");
 });

@@ -103,6 +103,7 @@ const en = {
   rvStarsOf: "{n} out of 5 stars",
   rvNextAria: "Next review",
   rvThanksMain: "Thank you — your review and photo reached the baker. Every review is read personally and appears on this page once it is approved, usually within a day or two.",
+  rvThanksWords: "Thank you — your review reached the baker. Every review is read personally and appears on this page once it is approved, usually within a day or two.",
   rvThanksNoPhoto: "Your words reached the baker — but the picture did not upload, so your review was sent without it. Every review is read personally and appears here once it is approved.",
   rvThanksHonest: "Honest reviews help other customers choose well — thank you for sharing it.",
 
@@ -205,6 +206,7 @@ const zh = {
   rvStarsOf: "5 星中的 {n} 星",
   rvNextAria: "下一条评价",
   rvThanksMain: "谢谢！你的评价和照片已经送到烘焙师手上。每一则评价都会被亲自阅读，审核通过后就会出现在这一页，通常一两天内就能看到。",
+  rvThanksWords: "谢谢！你的评价已经送到烘焙师手上。每一则评价都会被亲自阅读，审核通过后就会出现在这一页，通常一两天内就能看到。",
   rvThanksNoPhoto: "你的文字已经送到烘焙师手上 — 但照片没有上传成功，所以这则评价没有照片。每一则评价都会被亲自阅读，审核通过后就会出现在这一页。",
   rvThanksHonest: "真诚的评价能帮助其他顾客做出更好的选择 — 谢谢你的坦诚分享。",
 
@@ -306,6 +308,7 @@ const ms = {
   rvStarsOf: "{n} daripada 5 bintang",
   rvNextAria: "Ulasan seterusnya",
   rvThanksMain: "Terima kasih — ulasan dan foto anda telah sampai kepada pembuat kek. Setiap ulasan dibaca sendiri oleh beliau dan akan dipaparkan di sini sebaik sahaja diluluskan, biasanya dalam satu atau dua hari.",
+  rvThanksWords: "Terima kasih — ulasan anda telah sampai kepada pembuat kek. Setiap ulasan dibaca sendiri oleh beliau dan akan dipaparkan di sini sebaik sahaja diluluskan, biasanya dalam satu atau dua hari.",
   rvThanksNoPhoto: "Kata-kata anda telah sampai kepada pembuat kek — tetapi foto tidak berjaya dimuat naik, jadi ulasan dihantar tanpa foto. Setiap ulasan dibaca sendiri dan akan dipaparkan di sini selepas diluluskan.",
   rvThanksHonest: "Ulasan yang jujur membantu pelanggan lain memilih dengan baik — terima kasih kerana berkongsi.",
 

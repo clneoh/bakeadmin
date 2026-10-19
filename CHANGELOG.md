@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v580)
+# Jienluv2bake — change history (v54 → v581)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v581, WHAT A CUSTOMER IS TOLD (no database step).**
+
+**Your words:** __"go ahead with what a customer is told"__ — group 4 of the complete audit.
+
+**1. ⚠️ A REVIEW SENT WITH NO PICTURE WAS THANKED FOR ITS PICTURE.** The thank-you said **"your review and photo reached the baker"** whether or not there was a photo — ⚠️ **so a customer who chose no picture read that one had, and there was nothing to approve.** ⭐ There is a third sentence now: **"Thank you — your review reached the baker."** A picture that arrived, and a picture that failed, each still have their own wording, in all three languages.
+
+**2. ⚠️⚠️ THE HOMEPAGE TYPED WHAT YOUR SETTINGS DECIDE.** It said **"Orders close at 6:00PM"** and **"Mon / Wed / Fri"** in its own words, while the shop read both from your published settings — ⚠️ **change your cut-off or your bake days in the app and the two pages contradicted each other on the same day.** ⭐ Both now come from the same publish. **Seen on the real homepage:** the line reads **"Orders close at 6pm"** (your stored 18:00, spoken the way the shop speaks it), and switching to 中文 keeps it: **"晚上 6pm 前下单"** with **"周一 / 周三 / 周五"**.
+
+**3. ⚠️ THE CLOSED-DAY REFUSAL SAID "18:00" WHILE THE PAGE SAID "6pm".** One fact in two forms on one screen. ⭐ It says **6pm** now.
+
+**4. ⚠️⚠️ DELETING YOUR LAST PRODUCT OR YOUR LAST BAKE DAY LEFT THE FALLBACK SHOP ON SALE.** ⚠️ **The published list was empty and the shop ignored it, so the local fallback (RM16 Focaccia, Mon / Wed / Fri) stayed up** — ⚠️ **the shop showing more than you have published.** ⭐ An empty published menu or day list is now taken as the answer it is. ⚠️ A list of rubbish is not.
+
+**5. ⚠️ THE WHATSAPP MESSAGE NAMED NO COLLECTION POINT.** A customer collecting from one of your Points produced **"Self collect"** and nothing to say which place — ⚠️ **and the message sent when the cloud cannot be reached lost it the same way.** ⭐ It now reads **"Self collect"** and **"📍 Desa Park Collective"** underneath.
+
+**6. ⭐ TWO LINES ON THE HOMEPAGE ARE STILL TYPED, AND I AM NOT PRETENDING OTHERWISE:** **"SUNGAI ARA, BAYAN LEPAS"** and **"LALAMOVE DELIVERY — PENANG ISLAND, MAINLAND & PRAI".** Your settings have no field for either, so there is nothing to follow. If you want them to follow your settings too, say so and I will add the two fields — that is a small feature, not a repair.
+
+**7. Nothing of yours was rewritten, and there is no database step. ⭐ 3,649 tests green; every rule above has a test that fails without it.**
+
+---
 
 **19 Oct 2026 — engine v580, STOCK AND SALES THE PAPER COULD NOT SEE (no database step).**
 

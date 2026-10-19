@@ -1076,6 +1076,22 @@ test("buildMessage appends the delivery method and courier address", () => {
   assert.ok(msg.includes("📍 12 Jalan Bunga, Penang"));
 });
 
+test("★★★ a collection order names the point it is collected from (v581)", () => {
+  // ⚠️⚠️ MEASURED: the message said "Self collect" and nothing else, although the order carries the
+  // Point's name — ⚠️ **so the baker could not tell which place from the message she was sent**, and the
+  // offline fallback message lost it the same way.
+  const cfg = { name: "Jienluv2bake", products: [] };
+  const base = { date: "Wed, 2 Sep", lines: [{ name: "Focaccia", qty: 1, price: 15 }],
+    total: 15, customer: "Aunty Bee", note: "", fulfillment: "collect" };
+  const withPoint = buildMessage(cfg, { ...base, pointName: "Desa Park Collective" });
+  assert.ok(withPoint.includes("Self collect"), "the method line went missing");
+  assert.ok(withPoint.includes("📍 Desa Park Collective"),
+    "★ the message does not say which place the customer collects from");
+  // And an order with no Point named is byte-for-byte the message it always was.
+  assert.equal(buildMessage(cfg, base), buildMessage(cfg, { ...base, pointName: "   " }),
+    "an empty Point name added a line");
+});
+
 // The TNG QR is sent to the customer in the WhatsApp confirmation and payment
 // reminder; it is deliberately not part of the shop's config, and the shop
 // draws no payment code anywhere. This fails if the key is ever added back.

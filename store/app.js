@@ -7,6 +7,7 @@ import { CONFIG } from "./config.js";
 import { poolCaps, poolGroups, clampPool, groupFor, poolPieces, closedReason, cancelDaysFor, strictestCancelDays, nextOrderable } from "./pool.js";
 import { rollingWeeks, weekIndex, windowBounds, WINDOW_WEEKS, occColour, occDays, occStrength, occForDate, occSingleDay } from "./calendar.js";
 import { normRules } from "../availability.js";
+import { cutoffText } from "../home-facts.js";
 import { isThumb, lineNoteOf, LINE_NOTE_MAX } from "../storefront-fields.js";
 import { isLang, loadLang, pick, rememberLang, nameFor, descFor, unitFor, policyFor, applyTo } from "../i18n.js";
 import { STORE } from "../store-lang.js";
@@ -37,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "580";
+export const SHOP_BUILD = "581";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -635,20 +636,10 @@ export function todayStillOpen(cfg, now = new Date()) {
   return !bakesToday || isOpen(cfg, start, now);
 }
 
-// ★★ "6PM", NOT "18:00" (v405). ⚠️ A stranger reads a clock the way they speak. 18:00 is the form the
-// baker's admin stores and it is right THERE; on the customer's page it is a small puzzle, and the
-// whole finding of this version is that small puzzles are where a nervous customer goes wrong.
-// ⚠️ ONLY THE DISPLAY CHANGES — `cfg.cutoff` stays "18:00" everywhere it is compared.
-export function cutoffText(cutoff) {
-  const parts = String(cutoff || "").split(":");
-  const hh = Number(parts[0]);
-  const mm = Number(parts[1]);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return String(cutoff || "");
-  const h12 = hh % 12 === 0 ? 12 : hh % 12;
-  const ampm = hh < 12 ? "am" : "pm";
-  // ⚠️ ON THE HOUR LOSES THE ":00" — "6pm" is how a person says it, and "6:00pm" is how a form does.
-  return mm === 0 ? `${h12}${ampm}` : `${h12}:${String(mm).padStart(2, "0")}${ampm}`;
-}
+// ⭐ THE CLOCK FORMATTER MOVED TO `home-facts.js` (v581) and is re-exported here, so the homepage and the
+// shop read ONE copy. ⚠️ Two copies would have been two ways to say one time — the fault this screen has
+// already been taught twice.
+export { cutoffText };
 
 // ★★ THE NEXT DAY SHE CAN ACTUALLY HAVE BREAD (v405). ⚠️ `upcomingDates` already starts at TOMORROW and
 // lists only delivery days, and `isOpen` already knows the cut-off — so this is the two of them, in
@@ -744,6 +735,11 @@ export function resolveDates(generated, dayRows, today = dateKey(new Date())) {
     .map((r) => r && r.date)
     .filter((d) => d && d >= today)
     .sort();
+  // ⚠️ NO DATE ROWS IS NOT "NO BAKE DAYS" (v581). ⚠️ This table is written by a PUBLISH, and a publish
+  // that failed (or has not run since the phone changed) leaves it empty while her bake days are still
+  // hers — ⭐ **emptying the calendar on that would be a rule that blocks a sale.** ⭐ Deleting her bake
+  // days is said in the SETTINGS list instead (`deliveryDays: []`), and `mergeStorefront` now adopts that
+  // empty list, so `generated` is already empty in exactly the case that matters.
   if (!published.length) return generated;
   return published.map((d) => new Date(`${d}T00:00:00`));
 }
@@ -772,6 +768,13 @@ export function buildMessage(cfg, order) {
     const method = order.fulfillment === "courier" ? "Courier delivery" : "Self collect";
     msg += `\n📦 ${method}`;
     if (order.fulfillment === "courier" && order.address) msg += `\n📍 ${order.address}`;
+    // ⚠️⚠️ A COLLECTION ORDER THAT NAMES NO POINT IS AMBIGUOUS (v581). ⚠️ The order has carried
+    // `pointName` since the Points shipped, ⭐ but the message did not print it — ⚠️ **so a customer collect
+    // from a shop other than the kitchen produced "Self collect" and nothing to say WHICH place**, and the
+    // offline fallback (the path that sends this same message when the cloud cannot be read) lost it too.
+    if (order.fulfillment !== "courier" && String(order.pointName || "").trim()) {
+      msg += `\n📍 ${String(order.pointName).trim()}`;
+    }
   }
   if (order.customer) msg += `\n👤 ${order.customer}`;
   if (order.note) msg += `\n📝 ${order.note}`;
@@ -798,7 +801,11 @@ export function mergeStorefront(base, remote) {
   }
   if (Array.isArray(remote.deliveryDays)) {
     const days = remote.deliveryDays.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
-    if (days.length) out.deliveryDays = days;
+    // ⚠️⚠️ AN EMPTY LIST IS AN ANSWER (v581). ⚠️ She publishes this list EVERY time, so "no bake days" reaches
+    // the shop as `[]` — ⚠️ **and it used to be ignored, so deleting her last bake day left the local
+    // fallback (Mon/Wed/Fri) on sale.** ⭐ Adopted when it is genuinely empty, or when anything survived the
+    // check above — ⚠️ a list of rubbish is not an instruction, and still falls back as it always did.
+    if (days.length || remote.deliveryDays.length === 0) out.deliveryDays = days;
   }
   // The standard days the bakery markets around, for the bands and boxes on the
   // customer's calendar and the bubble that names one when it is tapped. The app
@@ -991,7 +998,10 @@ export function mergeStorefront(base, remote) {
         if (sortSet && Number.isFinite(sort)) out.sort = sort;
         return out;
       });
-    if (products.length) out.products = products;
+    // ⚠️⚠️ AND AN EMPTY MENU IS AN ANSWER TOO (v581): deleting her last product used to leave the fallback
+    // (RM16 Focaccia) on sale — ⭐ **the shop showing more than she has published.** ⭐ Adopted when it is
+    // genuinely empty or when anything survived the checks above; rubbish still falls back.
+    if (products.length || remote.products.length === 0) out.products = products;
   }
   // The category headings, in the baker's order, each naming the products shown
   // under it — depth-first, `depth` being the indent. Re-validated here on the
@@ -3799,7 +3809,9 @@ function clearFieldMarks() {
     // words as well as the keys.
     if (!isOpen(CONFIG, new Date(`${selected}T00:00:00`))) {
       sayStepFirst("confirmClosedTitle", "confirmClosedBody", "step1",
-        sub(t("confirmClosedBody"), CONFIG.cutoff));
+        // ⚠️ THE SAME CLOCK AS EVERY OTHER SENTENCE (v581): the raw "18:00" beside a page that says "6pm"
+        // is one fact in two forms on one screen — the mismatch this screen keeps being taught.
+        sub(t("confirmClosedBody"), cutoffText(CONFIG.cutoff)));
       return;
     }
     // Last check at the moment of placing: a refresh between taps can sell an

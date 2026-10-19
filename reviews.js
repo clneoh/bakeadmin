@@ -469,6 +469,14 @@ function buildCarousel(rows) {
   };
 }
 
+// Which thank-you the customer reads, from what was actually sent (v581). ⚠️ A review that carried no
+// picture must not be thanked for one — `rvThanksMain` is only for a picture that ARRIVED.
+export function thanksKeyFor(photoState) {
+  if (photoState === "sent") return "rvThanksMain";
+  if (photoState === "failed") return "rvThanksNoPhoto";
+  return "rvThanksWords";
+}
+
 function initReviews() {
   const form = byId("review-form");
   const grid = byId("review-grid");
@@ -564,9 +572,13 @@ function initReviews() {
   // ⚠️⚠️ A PICTURE THAT DID NOT UPLOAD MUST NOT BE THANKED FOR (v553). ⭐ The review went out with
   // `photo: ""` and the thanks said **"your review and photo reached the baker"** — so the customer believed
   // a picture had arrived that never did, and the moderation card had none. ⭐ The words tell the truth now.
-  function showThanks(critical, photoFailed = false) {
+  // ⚠️⚠️ AND A REVIEW SENT WITH NO PICTURE AT ALL IS NOT THANKED FOR ONE (v581). ⭐ v553 taught this
+  // sentence the difference between "a picture failed" and "a picture arrived" — but ⚠️ **a customer who
+  // chose no picture at all was still told "your review and photo reached the baker".** ⭐ The words now
+  // follow what she actually sent: the picture, the failure, or the review alone.
+  function showThanks(critical, photoState = "none") {
     if (!thanks) return;
-    const parts = [tHome(photoFailed ? "rvThanksNoPhoto" : "rvThanksMain")];
+    const parts = [tHome(thanksKeyFor(photoState))];
     if (critical) parts.push(tHome("rvThanksHonest"));
     thanks.textContent = parts.join(" ");
     thanks.hidden = false;
@@ -615,7 +627,7 @@ function initReviews() {
     langBtns.forEach((x) => x.classList.toggle("is-on", x.dataset.lang === "en"));
     if (preview) preview.replaceChildren();
     clearPicked();
-    showThanks(critical, photoFailed);
+    showThanks(critical, photo ? "sent" : (chosenFile ? "failed" : "none"));
   });
 
   paintStars();

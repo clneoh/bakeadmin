@@ -3,6 +3,7 @@
 // store.test.js so store/app.js can render at import time.
 
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 
 function createEl(tag) {
@@ -87,7 +88,7 @@ globalThis.fetch = async (url) => {
 };
 
 const { mergeStorefront, placeOrder, labelOpenToCount, labelOpenCounter, postLabelOpen,
-  cutoffText, nextOpenDay } = await import("../store/app.js");
+  cutoffText, nextOpenDay, upcomingDates } = await import("../store/app.js");
 const { CONFIG } = await import("../store/config.js");
 
 const settle = async () => {
@@ -233,6 +234,23 @@ test("mergeStorefront replaces arrays wholesale and never touches supabase", () 
   ], "a written description survives adoption; a blank one is dropped");
   assert.deepEqual(out.supabase, { url: "u" }, "the Supabase connection is never overridden");
   assert.equal(base.supabase.url, "u", "base is not mutated");
+});
+
+test("★★★ an EMPTY published menu or bake-day list is adopted, not ignored (v581)", () => {
+  // ⚠️⚠️ MEASURED: deleting her last product or her last bake day left the local fallback on sale —
+  // ⚠️ **the shop showing more than she has published.** ⭐ The publisher sends these lists every time, so
+  // an empty one is an answer. ⚠️ A list of rubbish is not.
+  const base = { name: "A", deliveryDays: [1, 3, 5],
+    products: [{ name: "X", price: 1, unit: "u" }] };
+  const out = mergeStorefront(base, { deliveryDays: [], products: [] });
+  assert.deepEqual(out.deliveryDays, [], "★ her last bake day deleted, and the fallback days stayed on sale");
+  assert.deepEqual(out.products, [], "★ her last product deleted, and the fallback menu stayed on sale");
+  // ⭐ And the calendar built from that empty day list has no days in it — which is what takes the
+  // fallback weekdays off the page, without the shop having to distrust its own availability table.
+  assert.equal(upcomingDates(out).length, 0, "★ her last bake day deleted, and the shop still offers days");
+  const messy = mergeStorefront(base, { products: [null], deliveryDays: [9] });
+  assert.deepEqual(messy.products, base.products, "a list of rubbish emptied her shop");
+  assert.deepEqual(messy.deliveryDays, base.deliveryDays, "a list of rubbish emptied her calendar");
 });
 
 test("mergeStorefront ignores null and malformed values", () => {
@@ -602,4 +620,15 @@ test("★★ the next day a customer can ACTUALLY have bread is the answer, not 
   assert.equal(onMonday.getDate(), 14,
     "⚠️ on the delivery day itself the answer is still that day — its 6pm deadline was the night before");
   assert.equal(onMonday.getDay(), 3, "and Wednesday is the next day she bakes");
+});
+
+test("★★ the closed-day refusal speaks the page's own clock, not the stored 18:00 (v581)", () => {
+  // ⚠️⚠️ MEASURED: the refusal said "close at 18:00" while every other sentence on the page says "6pm" —
+  // ⭐ one fact in two forms on one screen. ⚠️ Source-level, and named as such: the sentence is built
+  // inside the Place-order handler, which this suite cannot press.
+  const SRC = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
+  assert.doesNotMatch(SRC, /sub\(t\("confirmClosedBody"\), CONFIG\.cutoff\)/,
+    "★ the refusal prints the stored 18:00 beside a page that says 6pm");
+  assert.match(SRC, /sub\(t\("confirmClosedBody"\), cutoffText\(CONFIG\.cutoff\)\)/,
+    "★ the refusal no longer names the cut-off at all");
 });
