@@ -205,6 +205,20 @@ test("backupFileName is date + kind with the brand prefix", () => {
   assert.equal(backups.backupFileName("2026-09-08", "manual"), "jienluv2bake-backup-2026-09-08-manual.json");
 });
 
+test("★★★ an import refuses what it cannot read, and a NEWER format above all (v591)", () => {
+  // ⚠️⚠️ THE FORMAT GUARD COULD BE CHANGED TO `> 999` AND EVERY TEST STAYED GREEN. ⚠️ **A backup written by a
+  // future version would then be imported over her book.** ⭐ Each refusal, driven through the real parser.
+  assert.throws(() => parseImport("{oops"), /valid JSON/, "⚠️ invalid JSON was accepted");
+  assert.throws(() => parseImport(JSON.stringify({ app: "something-else", formatVersion: 1, data: {} })),
+    /Not a Jienluv2bake backup/, "⚠️ another app's file was accepted");
+  assert.throws(() => parseImport(JSON.stringify({ app: "bakeadmin", formatVersion: 2, data: {} })),
+    /newer version/, "★ a NEWER format was imported over her book");
+  assert.throws(() => parseImport(JSON.stringify({ app: "bakeadmin", formatVersion: 1 })),
+    /no data inside/, "⚠️ a file with no data was accepted");
+  // And the file this app writes today still reads.
+  assert.ok(parseImport(JSON.stringify({ app: "bakeadmin", formatVersion: 1, data: {} })));
+});
+
 test("exportEnvelope wraps a copy so a downloaded file re-imports via parseImport", () => {
   const data = backups.snapshotState(cloudState());
   const row = { kind: "daily", created_at: "2026-09-08T12:00:00.000Z", engine: "65", data: JSON.stringify(data) };

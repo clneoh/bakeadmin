@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "590";
+export const SHOP_BUILD = "591";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -4916,7 +4916,13 @@ function askSwitch({ title, body, yes, no }, onGo) {
   bEl.textContent = body;
   keep.textContent = no;
   go.textContent = yes;
+  // ⚠️⚠️ THE QUESTION HOLDS THE KEYBOARD AND HANDS IT BACK (v591). ⚠️ The card claims `aria-modal` but Tab
+  // walked into the shop behind it and focus never returned to the control that asked — ⚠️ **a keyboard
+  // customer was left at the top of the page after answering.** ⭐ The safe answer takes focus first, Tab
+  // cycles the two answers, and the opener gets the keyboard back.
+  const opener = (typeof document !== "undefined" && document.activeElement) || null;
   scrim.hidden = false;
+  try { keep.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
 
   const close = () => {
     scrim.hidden = true;
@@ -4924,11 +4930,22 @@ function askSwitch({ title, body, yes, no }, onGo) {
     document.removeEventListener("keydown", onKey);
     keep.removeEventListener("click", onKeep);
     go.removeEventListener("click", onGoPress);
+    try { if (opener && opener.focus && opener.isConnected !== false) opener.focus({ preventScroll: true }); } catch { /* gone */ }
   };
   // ⚠️ "AWAY" IS THE DARK AREA ITSELF — a press on the CARD must not close it, or a customer
   // aiming at a button would dismiss the question with a near miss.
   function onScrim(e) { if (e.target === scrim) close(); }
-  function onKey(e) { if (e.key === "Escape") close(); }
+  function onKey(e) {
+    if (e.key === "Escape") { e.preventDefault(); close(); return; }
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    const list = [keep, go];
+    const i = list.indexOf(document.activeElement);
+    const at = e.shiftKey
+      ? (i <= 0 ? list.length - 1 : i - 1)
+      : (i === list.length - 1 || i < 0 ? 0 : i + 1);
+    try { list[at].focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
+  }
   function onKeep() { close(); }
   function onGoPress() { close(); onGo(); }
 

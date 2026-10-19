@@ -24,6 +24,17 @@ const tag = (name, attrs = {}, children = []) => {
       const i = this.parentNode.children.indexOf(this);
       return i > 0 ? this.parentNode.children[i - 1] : null;
     },
+    get previousElementSibling() {
+      if (!this.parentNode) return null;
+      const i = this.parentNode.children.indexOf(this);
+      return i > 0 && this.parentNode.children[i - 1].nodeType === 1 ? this.parentNode.children[i - 1] : null;
+    },
+    get nextElementSibling() {
+      if (!this.parentNode) return null;
+      const i = this.parentNode.children.indexOf(this);
+      const next = this.parentNode.children[i + 1];
+      return next && next.nodeType === 1 ? next : null;
+    },
     listeners: {},
     addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); },
     append(...cs) { for (const c of cs) { if (c && c.nodeType) { c.parentNode = this; this.children.push(c); } } },
@@ -100,6 +111,23 @@ test("★★★ words are collapsed, and an empty label names nothing", () => {
   nameFields(root);
   assert.equal(a.getAttribute("aria-label"), "Cost per unit (RM)");
   assert.equal(b.getAttribute("aria-label"), null, "★ a blank label named the box nothing at all");
+});
+
+test("★★★ a SWITCH whose words sit BESIDE it is named by them (v591)", () => {
+  // ⚠️⚠️ MEASURED: the markup is `<label class=switch><input><span><span></label>` with the description in
+  // the NEXT sibling — ⚠️ **so the label's own text was empty and the box got NO name at all: a screen
+  // reader said just "checkbox", and voice control could not name it.** ⭐ The words beside the switch are
+  // its name.
+  const box = tag("input", { type: "checkbox" });
+  const label = tag("label", { class: "switch" }, [
+    box,
+    tag("span", { class: "switch-track" }, [tag("span", { class: "switch-knob" })]),
+  ]);
+  const words = tag("span", { class: "avail-listed-text" }, [text("Keep it on the shop when it can't be ordered")]);
+  const root = tag("div", {}, [tag("div", { class: "avail-listed" }, [label, words])]);
+  nameFields(root);
+  assert.equal(box.getAttribute("aria-label"), "Keep it on the shop when it can't be ordered",
+    "★ a switch with its words next to it was left with no name — **a screen reader says just checkbox**");
 });
 
 test("★★★ an input with no label anywhere is left alone rather than given a wrong name", () => {

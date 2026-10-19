@@ -45,10 +45,13 @@ function createEl(tag) {
   return node;
 }
 
+// ⚠️ A REGISTRY, NOT `null` (v591): the void press opens a real pop-up, and a shim that answers null to
+// every id makes `showPopup` return a no-op — so the press could only ever be grepped, never driven.
+const layers = {};
 globalThis.document = {
   createElement: createEl,
   createTextNode: (s) => ({ nodeType: 3, text: String(s) }),
-  getElementById: () => null,
+  getElementById: (id) => (layers[id] ||= createEl("div")),
   querySelector: () => null,
   querySelectorAll: () => [],
   body: createEl("body"),
@@ -305,6 +308,40 @@ test("★★ a voided row still SHOWS, still wears its number, and offers the wa
     "an explained receipt is still being recited as unaccounted for");
   // and the other receipt is untouched
   assert.match(said, /Uncle Tan/, "the void mark disturbed a receipt that is perfectly fine");
+});
+
+test("★★★ marking a receipt void writes a record that can TRAVEL (v591)", async () => {
+  // ⚠️⚠️ THE PRESS WAS NEVER MADE BY ANY TEST. ⚠️ The v518 fault — a void record written WITHOUT an `id` —
+  // could be put back and every test stayed green, because nothing pressed "Mark it void". ⚠️ **A record that
+  // cannot be keyed is silently dropped by sync, so the other phone shows the same alarming row for ever.**
+  const st = state();
+  st.voidedReceipts = [];
+  // The save the press makes schedules a sync, and a sync reads the book's lists — empty here, but PRESENT.
+  Object.assign(st, { deliveryDates: [], products: [], ingredients: [], purchaseOrders: [], uoms: [], customers: [] });
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    const body = u.includes("receipt_numbers") ? [row(5, "DEAD01")] : [];
+    return { ok: true, json: async () => body };
+  };
+  const root = createEl("div");
+  renderReceiptRegister(root, st);
+  await settle();
+
+  const mark = all(root).find((n) => n.tagName === "BUTTON" && /mark as void/i.test(txt(n)));
+  assert.ok(mark, "the unaccounted receipt did not offer its mark, so this proves nothing");
+  mark._listeners.click[0]();
+
+  const popup = layers["popup-layer"];
+  assert.ok(popup && popup.children.length, "the void question never opened");
+  const go = all(popup).find((n) => n.tagName === "BUTTON" && /mark it void/i.test(txt(n)));
+  assert.ok(go, "the question drew no mark press");
+  go._listeners.click[0]();
+  for (let i = 0; i < 4; i++) await settle();
+
+  assert.equal(st.voidedReceipts.length, 1, "the mark was not recorded");
+  assert.ok(String(st.voidedReceipts[0].id || "").trim(),
+    "★ the void record has NO id — **sync drops it and the other phone shows this receipt as a hole for ever**");
+  assert.equal(Math.floor(Number(st.voidedReceipts[0].no)), 5, "and it names the receipt it explains");
 });
 
 test("the screen offers no press that could change a number", async () => {

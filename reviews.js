@@ -610,6 +610,11 @@ function initReviews() {
     thanks.textContent = parts.join(" ");
     thanks.hidden = false;
     if (form) form.hidden = true;
+    // ⚠️⚠️ AND IT IS HEARD AND FOCUSED (v591). ⚠️ The form's Send button was the focused element and the form
+    // is now hidden, so focus fell to `<body>` and a screen reader said NOTHING — ⚠️ **a customer did not know
+    // their review had been sent.** ⭐ The thanks is a live region (`role=status` in index.html) and takes
+    // focus, so the message is both announced and where the next Tab continues from.
+    try { thanks.setAttribute("tabindex", "-1"); thanks.focus({ preventScroll: true }); } catch { /* no focus */ }
     if (grid) grid.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 

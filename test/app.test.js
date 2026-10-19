@@ -8,12 +8,34 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const realLocalStorage = globalThis.localStorage;
+
+const allNodes = (node, out = []) => {
+  for (const c of (node && node.children) || []) { out.push(c); allNodes(c, out); }
+  return out;
+};
+
+// ⚠️⚠️ COMMENTS STRIPPED BEFORE ANY SOURCE CHECK (v591). ⚠️ The day-rollover guard matched the EXACT text
+// `document.addEventListener("visibilitychange", … checkDay())` — ⚠️ **so commenting the real registration
+// out while leaving the same words in the comment kept every test green**, and a phone put down overnight
+// would again keep yesterday's date. ⭐ Same reader as order-removal-guard.test.js.
+function liveSource(src) {
+  const out = [];
+  let inBlock = false;
+  for (const line of String(src || "").split("\n")) {
+    const t = line.trim();
+    if (inBlock) { if (t.includes("*/")) inBlock = false; out.push(""); continue; }
+    if (t.startsWith("/*")) { if (!t.includes("*/")) inBlock = true; out.push(""); continue; }
+    if (t.startsWith("//") || t.startsWith("*")) { out.push(""); continue; }
+    out.push(line.replace(/\/\*.*?\*\//g, "").replace(/\s\/\/\s.*$/, ""));
+  }
+  return out.join("\n");
+}
 const HASH_1234 = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
 
 function createEl(tag) {
-  return {
+  const node = {
     tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
-    className: "", style: {}, textContent: "", value: "", checked: false, disabled: false,
+    className: "", style: {}, value: "", checked: false, disabled: false,
     hidden: false, scrollTop: 0, _listeners: {},
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     // ★★★ AND IT PARENTS WHAT IT IS GIVEN (v520). ⚠️⚠️ IT DID NOT, so `parentElement` was **always null**
@@ -44,6 +66,14 @@ function createEl(tag) {
     querySelectorAll() { return []; },
     focus() {},
   };
+  // ⚠️ A REAL NODE'S TEXT INCLUDES ITS CHILDREN (v591). ⚠️ `textContent` was a plain property while `el()`
+  // appends the label as a CHILD — ⚠️ **so a button's own words read as undefined**, and no test could find
+  // "Use without cloud sync" to press it. ⭐ Fold the children, as the other view shims do.
+  Object.defineProperty(node, "textContent", {
+    get() { return this.children.map((c) => (c && c.nodeType === 3 ? c.text : (c && c.textContent) || "")).join(""); },
+    set(v) { this.children = v === "" ? [] : [{ nodeType: 3, text: String(v) }]; },
+  });
+  return node;
 }
 
 // ui.el() puts text in nodeType-3 children (never innerHTML), so walking the
@@ -223,6 +253,34 @@ test("cloud on without a session: the sign-in gate owns the screen", async () =>
   } finally { restore(); }
 });
 
+test("★★★ 'Use without cloud sync' really enters the app (v591)", async () => {
+  // ⚠️⚠️ THE BUTTON WAS NEVER PRESSED BY ANY TEST. ⚠️ Deleting `render()` from its handler left the sign-in
+  // card up while claiming to be inside the app — ⚠️ **and the suite stayed green.** ⭐ It is one of the two
+  // ways in, and the only one a phone without the cloud uses.
+  freshDOM();
+  installStorage({
+    "bakeadmin.v1": stateJSON({
+      settings: {
+        supabase: { url: "https://x.supabase.co", anonKey: "anon" },
+        cloud: { enabled: true },
+      },
+    }),
+  });
+  try {
+    await import("../admin/js/app.js?case=offlinebtn");
+    const view = document.getElementById("view");
+    assert.equal(document.getElementById("view-title-text").textContent, "Sign in", "precondition: the gate is up");
+    const press = allNodes(view).find((n) => n.tagName === "BUTTON"
+      && String(n.textContent).includes("Use without cloud sync"));
+    assert.ok(press, "the sign-in card drew no 'Use without cloud sync' press");
+    press._listeners.click.forEach((f) => f());
+    assert.equal(document.getElementById("tabbar").hidden, false, "the app's tab bar never appeared");
+    assert.ok(view.children.length > 0, "★ the sign-in card is still the screen — **the press entered nothing**");
+    assert.notEqual(document.getElementById("view-title-text").textContent, "Sign in",
+      "★ the title still says Sign in after entering without the cloud");
+  } finally { restore(); }
+});
+
 test("cloud on with a valid session: straight into the app", async () => {
   freshDOM();
   installStorage({
@@ -296,6 +354,41 @@ test("app password lock: the lock layer owns the screen until the PIN is correct
     assert.ok(view.children.length > 0, "dashboard rendered after unlock");
     assert.equal(document.getElementById("view-title-text").textContent, "Jienluv2bake");
   } finally { restore(); }
+});
+
+test("★★★ three wrong PINs really pause the screen (v591)", async () => {
+  // ⚠️⚠️ THE PAUSE WAS ONLY TESTED AS A PURE FUNCTION. ⚠️ Changing `if (wait > 0)` to `if (false)` left the
+  // whole suite green — ⚠️ **the delay on an app that ships with a published default PIN could be removed
+  // in silence.** ⭐ This presses the real button three times and reads the real box.
+  freshDOM();
+  installStorage({
+    "bakeadmin.v1": stateJSON({
+      settings: {
+        defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
+        supabase: { enabled: false, url: "", anonKey: "", email: "", password: "" },
+        cloud: { enabled: false },
+        lock: { enabled: true, pinHash: HASH_1234 },
+      },
+    }),
+  });
+  // ⚠️ The pause is a real 1-second timer; capture it rather than hold the suite open.
+  const realST = globalThis.setTimeout;
+  let waited = null;
+  globalThis.setTimeout = (fn, ms) => { waited = { fn, ms }; return 0; };
+  try {
+    await import("../admin/js/app.js?case=lockpause");
+    const layer = document.getElementById("lock-layer");
+    for (let i = 0; i < 3; i += 1) {
+      layer._pin.value = "9999";
+      await layer._btn._listeners.click[0]();
+    }
+    assert.ok(waited && waited.ms > 0,
+      "★ three wrong PINs did not pause the screen — **a published default PIN can be guessed as fast as a thumb taps**");
+    assert.equal(layer._pin.disabled, true, "★ the PIN box stayed live during the pause");
+    assert.equal(layer._btn.disabled, true, "★ the Unlock press stayed live during the pause");
+    assert.match(String(layer._err.textContent), /try again in \d+s/,
+      "the pause is silent — she is not told to wait");
+  } finally { globalThis.setTimeout = realST; restore(); }
 });
 
 test("★★★ a missing #lock-layer locks the app instead of opening it (v589)", async () => {
@@ -579,7 +672,7 @@ test("★★★ the day is re-checked whenever the page is come back to — and 
   // ⭐ The app drew its date when the SCREEN was drawn and never looked at the clock again, so an app
   // left open overnight kept yesterday's date. ⭐ MEASURED on the real app: the clock said Sat 17 Oct,
   // the hero still said Fri 16 Oct, and picking the phone up changed nothing.
-  const SRC = readFileSync(new URL("../admin/js/app.js", import.meta.url), "utf8");
+  const SRC = liveSource(readFileSync(new URL("../admin/js/app.js", import.meta.url), "utf8"));
 
   assert.match(SRC, /function dayMoved\(\)/,
     "the day-rollover check is gone — **the app's date goes stale again for anyone who leaves it open "

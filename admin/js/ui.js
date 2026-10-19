@@ -106,12 +106,56 @@ export function nameFields(root) {
     }
     const label = labelFor(box);
     if (!label) continue;
-    const words = String(label.textContent || "").replace(/\s+/g, " ").trim();
+    let words = String(label.textContent || "").replace(/\s+/g, " ").trim();
+    if (!words) {
+      // ⚠️⚠️ A SWITCH'S WORDS SIT BESIDE IT (v591). ⚠️ The markup is `<label class=switch><input><span>
+      // <span></label>` with the description in the NEXT sibling — so the label's own text is empty and the
+      // box was given NO name at all: **a screen reader said just "checkbox", and voice control could not
+      // name it.** ⭐ The words next to the switch are its name.
+      const side = label.nextElementSibling || label.previousElementSibling;
+      words = side ? String(side.textContent || "").replace(/\s+/g, " ").trim() : "";
+    }
     if (!words) continue;
     box.setAttribute("aria-label", words);
     named += 1;
   }
   return named;
+}
+
+// ⚠️⚠️ A DIALOG HOLDS THE KEYBOARD AND HANDS IT BACK (v591). ⚠️ Both dialog styles claimed `aria-modal`
+// but did NOT trap Tab or restore focus: **Tab walked out of the card into the page behind it**, Escape then
+// stopped working (its listener is on the card/layer), and closing left focus on `<body>` — a keyboard user
+// restarted at the top. ⭐ These two helpers give every dialog the same two behaviours.
+function focusablesIn(root) {
+  if (!root || typeof root.querySelectorAll !== "function") return [];
+  try {
+    return [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter((n) => n && !n.disabled && !n.hidden);
+  } catch { return []; }
+}
+
+function trapTab(e, root) {
+  if (!e || e.key !== "Tab") return false;
+  const list = focusablesIn(root);
+  const active = (typeof document !== "undefined" && document.activeElement) || null;
+  if (!list.length) {
+    e.preventDefault();
+    try { root.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
+    return true;
+  }
+  const first = list[0];
+  const last = list[list.length - 1];
+  if (e.shiftKey && (active === first || active === root || !list.includes(active))) {
+    e.preventDefault();
+    try { last.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
+    return true;
+  }
+  if (!e.shiftKey && (active === last || !list.includes(active))) {
+    e.preventDefault();
+    try { first.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
+    return true;
+  }
+  return false;
 }
 
 export function button(text, onClick, cls = "") {
@@ -247,16 +291,22 @@ export function confirmDialog(message, onYes, { danger = false, yesLabel = "Conf
     el("div", { class: "confirm-actions" },
       button(noLabel, () => { close(); if (onNo) onNo(); }, "ghost"),
       button(yesLabel, () => { close(); onYes(); }, danger ? "danger" : "primary")));
+  // ⚠️ THE CONTROL THAT OPENED THE QUESTION GETS THE KEYBOARD BACK WHEN IT CLOSES (v591).
+  const opener = (typeof document !== "undefined" && document.activeElement) || null;
   layer.replaceChildren(card);
   layer.hidden = false;
   // ⚠️ The same two gaps a pop-up had (v566): no Escape, and focus left where it was.
-  const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); close(); } };
+  const onKey = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); close(); return; }
+    trapTab(e, card);
+  };
   card.addEventListener("keydown", onKey);
   try { card.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
   function close() {
     card.removeEventListener("keydown", onKey);
     layer.hidden = true;
     layer.replaceChildren();
+    try { if (opener && opener.focus && opener.isConnected !== false) opener.focus({ preventScroll: true }); } catch { /* gone */ }
   }
 }
 
@@ -539,6 +589,8 @@ let popupSeq = 0;
 export function showPopup(title, makeBody, { wide = false, onTitle = null, className = "" } = {}) {
   const layer = document.getElementById("popup-layer");
   if (!layer) return () => {};
+  // ⚠️ AND THE CONTROL THAT OPENED THE CARD GETS THE KEYBOARD BACK (v591).
+  const opener = (typeof document !== "undefined" && document.activeElement) || null;
   let closeFn = null;
   const close = () => {
     // ⚠️ The Escape listener lives on the LAYER, not the page: the card is focused, so a key press
@@ -547,6 +599,7 @@ export function showPopup(title, makeBody, { wide = false, onTitle = null, class
     if (f) f();
     layer.hidden = true;
     layer.replaceChildren();
+    try { if (opener && opener.focus && opener.isConnected !== false) opener.focus({ preventScroll: true }); } catch { /* gone */ }
   };
   const body = el("div", { class: "popup-body" });
   // Repainting a pop-up replaces the body wholesale, which is fine for a short
@@ -596,7 +649,11 @@ export function showPopup(title, makeBody, { wide = false, onTitle = null, class
   layer.hidden = false;
   // ⚠️ Escape, on the layer itself, and only while this card is the one on screen.
   const onKey = (e) => {
-    if (e.key === "Escape" && !layer.hidden && layer.firstChild === card) { e.preventDefault(); close(); }
+    // ⚠️ `firstChild` in a browser, `children[0]` in a shim — one answer, read the same way.
+    const top = layer.firstChild || (layer.children && layer.children[0]) || null;
+    if (layer.hidden || (top && top !== card)) return;
+    if (e.key === "Escape") { e.preventDefault(); close(); return; }
+    trapTab(e, card);
   };
   layer.addEventListener("keydown", onKey);
   closeFn = () => layer.removeEventListener("keydown", onKey);

@@ -1,8 +1,26 @@
-# Jienluv2bake — change history (v54 → v590)
+# Jienluv2bake — change history (v54 → v591)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v591, THE THIRD SWEEP, PART 3: WHAT A SCREEN READER GETS, AND THE TESTS THAT COULD NOT FAIL (NO DATABASE STEP).**
+
+**Your words:** __"go ahead with v591"__. The accessibility findings, and the six guards the sweep proved were green while the thing they watched was broken.
+
+1. ⚠️⚠️ **A DIALOG HELD THE SCREEN BUT NOT THE KEYBOARD.** Both the question card and every pop-up claimed `aria-modal`, but **Tab walked out of the card into the page behind it** — Escape then did nothing, and closing left focus on nothing, so a keyboard user restarted at the top of the page. ⭐ Every dialog now keeps Tab inside itself and **hands focus back to the control that opened it**; the shop's "change to delivery?" question does the same, and its safe answer takes focus first.
+2. ⚠️⚠️ **THE SWITCHES HAD NO NAME.** "Keep it on the shop when it can't be ordered", "Can travel as a parcel", "Ask the customer for a note" and "Not something I buy" are drawn as a switch with the words beside it — **a screen reader said just "checkbox"**, and voice control could not name them. ⭐ A switch is now named by the words beside it, for every switch in the app.
+3. ⚠️⚠️ **THE SHOP'S ANSWERS WERE SILENT.** "Order placed", the tracking result, a promo code's answer and the menu note all appeared with nothing spoken. ⭐ Each is a live region now.
+4. ⚠️ **THE REVIEW THANK-YOU WAS SILENT TOO**, and the Send button it replaces had been the focused control — a customer did not know their review had been sent. ⭐ It is announced and takes focus.
+
+**The tests that could not fail, now driven**
+5. ⚠️ **The register's "Mark it void" and "Put it back" were never pressed** — the v518 fault (a void record with no `id`, which sync silently drops) could be put back with every test green. ⭐ The press is driven and the record is read.
+6. ⚠️ **The import's format guard could be changed to `> 999`** with the suite green — a backup from a future version would be imported over your book. ⭐ Every refusal is driven: not JSON, not a backup, a newer format, no data.
+7. ⚠️ **The day-rollover guard matched a COMMENTED-OUT line.** ⭐ Comments are stripped before the check now.
+8. ⚠️ **"Use without cloud sync" was never pressed**, so its `render()` could be deleted silently. ⭐ It is pressed, and the app is seen to open.
+9. ⚠️ **The PIN's pause was only tested as a pure function** — the delay could be disabled in silence. ⭐ Three real wrong PINs are pressed and the box is seen to lock.
+
+**No database step. No edge function redeploy.** Nothing of yours is rewritten. 3,745 tests green.
 
 **19 Oct 2026 — engine v590, THE THIRD SWEEP, PART 2: STOCK, PAPER AND THE DAY'S ANSWER (NO DATABASE STEP).**
 
