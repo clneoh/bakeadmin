@@ -1287,6 +1287,12 @@ function dateContent(state, date, root, selectDate) {
   // tapped); here the day is already the one on screen, so the name just sits
   // next to it. Nothing is drawn on an unmarked day.
   const occ = occForDate(state.occasions, date.date);
+  // ⭐⭐ A SECOND DOOR TO THE SAME SALE CARD (v605). Her words: __"we are allow to bake now, why not
+  // allow it to sell as well?"__ ⚠️ **Selling already exists here — it is the ＋ New order card below —
+  // so this adds no second writer.** ⭐ It opens THAT card, on THIS day, on the self-collect default, and
+  // puts the cursor in the customer box. The shop and the backoffice still make one kind of sale.
+  let sellNow = null;
+  const canSell = productOptions(state, date.id).length > 0;
   const header = el("div", { class: "card" },
     el("div", { class: "card-row" },
       el("div", {},
@@ -1319,9 +1325,13 @@ function dateContent(state, date, root, selectDate) {
       ? el("div", { class: "btn-row", style: "margin-top:8px" },
         button("Baked — how many?", () =>
           openBakedPopup(state, date.date, () => renderAll(root, state, new URLSearchParams({ date: date.id }))), "ghost"))
+      : null,
+    canSell
+      ? el("div", { class: "btn-row", style: "margin-top:8px" },
+        button("Sell one now", () => { if (sellNow) sellNow(); }, "soft"))
       : null);
 
-  const form = orderForm(state, date.id, root, selectDate);
+  const form = orderForm(state, date.id, root, selectDate, (open) => { sellNow = open; });
   const list = orderList(state, date.id, root);
 
   return el("div", {}, header, form, list);
@@ -2013,7 +2023,7 @@ function courierWhenFields(box) {
     said);
 }
 
-function orderForm(state, dateId, root, selectDate) {
+function orderForm(state, dateId, root, selectDate, onReady) {
   const date = byId(state.deliveryDates, dateId);
   const products = productOptions(state, dateId);
   if (!products.length) {
@@ -2448,17 +2458,32 @@ function orderForm(state, dateId, root, selectDate) {
   const head = el("button", { class: "fold-head", type: "button" },
     el("span", {}, "＋ New order"),
     caret);
-  head.addEventListener("click", () => {
-    if (controller.open) { shutCard(); return; }
+  // ⚠️ ONE OPENER, NAMED (v605) — the second door below calls THIS, not `head.click()`, so the behaviour
+  // cannot drift between a finger and a shortcut, and a test shim without DOM click semantics can drive it.
+  const openCard = () => {
     newFormOpen = true;
     controller.open = true;
     controller.close = shutCard;
     body.hidden = false;
     caret.textContent = "▾";
     openOrderCards.add(controller);
+  };
+  head.addEventListener("click", () => {
+    if (controller.open) { shutCard(); return; }
+    openCard();
   });
   const card = el("div", { class: "card" }, head, body);
   controller.card = card;
+  // ⭐ WHAT "SELL ONE NOW" PRESSES (v605): open this card, keep the self-collect default, and put the
+  // cursor where a sale starts. ⚠️ It does NOT reset a draft she is already working on — if the card is
+  // open, the press only moves the keyboard.
+  if (typeof onReady === "function") {
+    onReady(() => {
+      if (!controller.open) openCard();
+      try { customer.focus({ preventScroll: true }); } catch { try { customer.focus(); } catch { /* a shim */ } }
+      try { if (card.scrollIntoView) card.scrollIntoView({ block: "nearest" }); } catch { /* a shim */ }
+    });
+  }
   // A rebuild while she was working in the card (a sync pull, a status change,
   // the day calendar inside it being tapped): come back open, and register the
   // new element with the outside-tap rule.

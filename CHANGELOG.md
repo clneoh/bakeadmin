@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v604)
+# Jienluv2bake — change history (v54 → v605)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v605, SELL ONE NOW FROM THE BAKE DAY (NO DATABASE STEP).**
+
+**Your words:** __"we are allow to bake now, why not allow it to sell as well?"__
+
+1. ⭐ **A "Sell one now" press sits on the day card, under "Baked — how many?"** It opens the **same** New order card that is already on that day — on the self-collect default, with the cursor in the customer box. ⭐ **No second way to make a sale:** the shop, the backoffice and the receipt all still go through one writer, so they cannot disagree.
+2. ⚠️ **"Baked" remains a production record, not a sale** — it moves ingredients and never puts bread on the shop. That is why selling needed its own door.
+3. ⚠️ **The press does not reset a draft you are already working on.** If the card is open, it only moves the keyboard.
+
+**No database step and no function deploy.** 3,842 tests green.
 
 **19 Oct 2026 — engine v604, CHECK MY SYSTEM WATCHES REFUNDS TOO (NO DATABASE STEP).**
 

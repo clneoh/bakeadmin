@@ -55,7 +55,18 @@ function createEl(tag) {
     },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener() {},
-    setAttribute(k, v) { this.attrs[k] = String(v); },
+    // ⚠️⚠️ A REAL DOM SETS THE PROPERTY FOR A BOOLEAN ATTRIBUTE (v605). ⚠️ `el({ hidden: true })` calls
+    // `setAttribute("hidden", true)`, and this shim stored it in `attrs` only — ⚠️ **so `body.hidden` read
+    // false and a card that was never opened looked open.** ⭐ A shim that cannot express what the view does
+    // hides the fault it is meant to catch, so the property is set here.
+    setAttribute(k, v) {
+      this.attrs[k] = String(v);
+      if (k === "hidden" || k === "disabled" || k === "checked" || k === "selected") this[k] = true;
+    },
+    removeAttribute(k) {
+      delete this.attrs[k];
+      if (k === "hidden" || k === "disabled" || k === "checked" || k === "selected") this[k] = false;
+    },
     getAttribute(k) { return this.attrs[k]; },
     querySelector: () => null,
     querySelectorAll: () => [],
@@ -600,4 +611,34 @@ test("★★★ the edit pop-up shows the WHOLE sale, so every line it changes i
   press(popup, "Save changes");
   assert.equal(st.orders.find((o) => o.id === "ord_bbbbbbbbbbbb").qty, 3,
     "★ the other day's line could not be changed — it was not really on the draft");
+});
+
+test("★★★ 'Sell one now' opens the SAME New order card on this day (v605)", () => {
+  // ⭐ Her words: __"we are allow to bake now, why not allow it to sell as well?"__ ⚠️ Selling already
+  // existed on this day — the ＋ New order card below — so the press must OPEN THAT CARD, not make a second
+  // writer. ⭐ The test reads the card by its own head and body, because the courier half is a fold too.
+  const st = state({ orders: [] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_A.id }));
+  const cardOf = () => all(root).find((n) => n.tagName === "DIV"
+    && String(n.className || "").split(/\s+/).includes("card")
+    && (n.children || []).some((c) => c.tagName === "BUTTON"
+      && String(c.className || "").split(/\s+/).includes("fold-head")
+      && String(c.textContent).includes("New order")));
+  const bodyOf = () => (cardOf().children || []).find((c) => String(c.className || "").split(/\s+/).includes("fold-body"));
+  const headOf = () => (cardOf().children || []).find((c) => String(c.className || "").split(/\s+/).includes("fold-head"));
+  assert.ok(cardOf(), "the New order card is not on the day");
+  // ⚠️ The card is module-open across renders (a rebuild keeps it open while she works). Shut it through
+  // its own head so this test starts from the state it means to measure.
+  if (!bodyOf().hidden) headOf()._listeners.click.forEach((f) => f());
+  assert.equal(bodyOf().hidden, true, "precondition: the card starts shut");
+  const sameCard = cardOf();
+  const sameBody = bodyOf();
+
+  press(root, "Sell one now");
+  assert.equal(cardOf(), sameCard, "★ the press built a SECOND sale card — two writers for one kind of sale");
+  assert.equal(bodyOf(), sameBody, "★ the press built a second body");
+  assert.equal(bodyOf().hidden, false, "★ the sell press left the order card shut — the button does nothing");
+  assert.equal(all(root).some((n) => n.tagName === "SELECT" && n.value === "collect"), true,
+    "★ the sale card did not open on the self-collect default");
 });
