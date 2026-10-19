@@ -1606,3 +1606,51 @@ test("★★ 'All' reaches money that is older than any window the buttons offer
   assert.equal(all.total, 44, "⚠️ a row outside every preset window is unreachable — 'All' does not see it");
   assert.equal(all.rows.length, 1);
 });
+
+test("★★★ deleting one half of a TRANSFER takes the other half with it (v587)", () => {
+  // ⚠️⚠️ MEASURED: deleting the "TNG out" row of a RM200 transfer left the "Cash in" row standing — ⚠️ **Cash and
+  // Net overstated by RM200, with nothing said.** ⭐ A courier charge already clears both its halves; a transfer
+  // and a payback never did.
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG"];
+  st.expenses = [{ id: "e_t", date: today, amount: 200, category: "My own withdrawal", method: "TNG",
+    transfer: true, source: "Cash" }];
+  st.deposits = [{ id: "d_t", date: today, amount: 200, method: "Cash", source: "TNG", transfer: true }];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+
+  const expenseRow = allOf(root).find((n) => String(n.className).includes("info-row")
+    && n.children[0] && n.children[0].textContent.includes("My own withdrawal"));
+  assert.ok(expenseRow, "the transfer's expense half is on the screen");
+  crossIn(expenseRow)._listeners.click[0]();
+  assert.match(allOf(screen["confirm-layer"])[0].children[0].textContent, /other half/i,
+    "★ she is not told the other half will go too");
+  tapDelete(screen);
+
+  assert.equal(st.expenses.length, 0, "the row she deleted is still there");
+  assert.equal(st.deposits.length, 0,
+    "★ the other half survived — **Cash and Net now overstate by the whole transfer**");
+});
+
+test("★★★ a refund on an order with no way of paying is SHOWN, not silent (v587)", () => {
+  // ⚠️⚠️ MEASURED: it fell into an "unmarked" bucket no block, journal or Net reads — ⚠️ **Money was silent about
+  // a refund Profit reported.** ⭐ It cannot go into an account it was never paid from; it can be said.
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG"];
+  st.deliveryDates = [{ id: "d18", date: today }];
+  // A pre-accounts order: delivered and refunded, with no way of paying recorded. Both days are TODAY so the
+  // screen's default one-day stretch holds them.
+  st.orders = [row({ id: "old1", deliveryDateId: "d18", deliveryDate: today,
+    status: "delivered", paidReceived: true, unitPrice: 30, paidAt: `${today}T08:00:00.000Z`,
+    refundedAt: `${today}T09:00:00.000Z`, refundAmountRM: 30 })];
+  delete st.orders[0].paidMethod;
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  const said = allOf(root).map((n) => String(n.textContent || "")).join(" | ");
+  assert.match(said, /Refunded, no account recorded/,
+    "★ a refund that belongs to no account is not on the screen at all — **Profit reports it and Money does not**");
+});

@@ -218,7 +218,10 @@ Deno.serve(async (req) => {
     const out = await placeOrder(cfg, req.value);
     if (!out.ok) {
       console.error("[courier] booking refused:", out.reason);
-      return json({ ok: false, reason: out.reason });
+      // ⚠️⚠️ AND AN UNKNOWN OUTCOME IS SAID AS ONE (v587). ⚠️ With no flag, the app read a timed-out booking as
+      // an ordinary refusal, left the Book press live and offered the one instruction that books a second,
+      // charged trip. ⭐ `unknown` is what removes that press.
+      return json({ ok: false, ...(out.unknown ? { unknown: true } : {}), reason: out.reason });
     }
     return json({ ok: true, order: out.data });
   }

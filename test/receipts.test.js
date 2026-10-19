@@ -498,7 +498,10 @@ test("★★★ refund_receipt has an UPPER bound, and the bill it is measured a
   const refund = sql.slice(sql.indexOf("create function public.refund_receipt"));
   assert.match(refund, /p_amount\s*>\s*coalesce\(\s*\(select r\.bill_rm/,
     "★ the refund is not bounded by the stored bill — **a refund of any size can be written**");
-  assert.match(refund, /100000/, "a receipt drawn before the bill existed has no fallback ceiling");
+  // ⚠️ AND THE FALLBACK IS THE SAME CEILING THE COLUMN MAY NOT EXCEED (v587) — a caller cannot raise it.
+  assert.match(refund, /\), 20000\)/, "a receipt drawn before the bill existed has no fallback ceiling");
+  assert.match(sql, /check \(bill_rm is null or \(bill_rm > 0 and bill_rm <= 20000\)\)/,
+    "★ the stored bill itself is unbounded — **a caller claiming RM999,999 raises the refund ceiling**");
 
   // ⚠️ AND THE ORDER OF THE DROPS — the lesson of her own 42P13, and of a second run of this file.
   for (const sig of ["claim_receipt_number(text)", "claim_receipt_number(text, numeric)"]) {

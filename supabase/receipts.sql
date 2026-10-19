@@ -47,6 +47,17 @@ alter table receipt_numbers add column if not exists refunded_amount numeric;
 -- money was just recorded), so the refund has a real ceiling. ⚠️ A row drawn before this carries NULL and
 -- falls back to the flat ceiling below — old receipts cannot gain a bill they never had.
 alter table receipt_numbers add column if not exists bill_rm numeric;
+-- ⚠️⚠️ AND THE BILL ITSELF IS BOUNDED (v587). ⚠️ It is written from what the CALLER says the order was worth,
+-- and it is the ceiling a refund is measured against — ⚠️ **so a caller claiming a bill of RM 999,999 made the
+-- RM 999,999 refund this file exists to refuse pass.** ⭐ A check constraint is the one door every path must
+-- walk through, and RM 20,000 is far above anything this bakery sells.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'receipt_numbers_bill_rm_sane') then
+    alter table receipt_numbers add constraint receipt_numbers_bill_rm_sane
+      check (bill_rm is null or (bill_rm > 0 and bill_rm <= 20000));
+  end if;
+end $$;
 
 -- ⚠️ THE SEQUENCE IS THE COUNTER, AND IT IS THE DATABASE'S. `nextval` is atomic, so
 -- two phones claiming at the same instant cannot draw the same number, and no
@@ -104,7 +115,8 @@ begin
     -- The insert is now the only writer for this code, so it always lands. `on conflict`
     -- stays as the belt-and-braces guard it always was — it should now never fire.
     insert into receipt_numbers (order_code, number, bill_rm)
-      values (v_code, nextval('receipt_number_seq'), case when p_bill is not null and p_bill > 0 then p_bill end)
+      values (v_code, nextval('receipt_number_seq'),
+        case when p_bill is not null and p_bill > 0 and p_bill <= 20000 then p_bill end)
       on conflict (order_code) do nothing
       returning receipt_numbers.number into v_num;
 
@@ -116,7 +128,7 @@ begin
 
   -- ⭐ A LATER CLAIM MAY FILL A BILL AN EARLIER ONE DID NOT KNOW. ⚠️ It is never overwritten: the first
   -- recorded bill is the sale's, and a later one would be a figure the sale has since moved away from.
-  if p_bill is not null and p_bill > 0 then
+  if p_bill is not null and p_bill > 0 and p_bill <= 20000 then
     update receipt_numbers set bill_rm = p_bill where order_code = v_code and bill_rm is null;
   end if;
 
@@ -174,10 +186,10 @@ begin
   -- ★★★ AND AN UPPER BOUND (v585). ⚠️⚠️ The app clamps to the customer's bill; this function did not — ⚠️ **any
   -- signed-in client could write a refund of RM 999,999, and the register would print it as the size of
   -- the refund.** ⭐ The ceiling is the bill stored when the number was drawn; a receipt drawn before that
-  -- column existed has none, so it falls back to a flat RM 100,000 — a figure no focaccia order reaches,
-  -- which still turns 999,999 into "no".
+  -- column existed, or claimed without one, falls back to the SAME RM 20,000 the column itself may not exceed
+  -- (v587) — ⚠️ so the ceiling cannot be RAISED by a caller, and 999,999 is still "no".
   if p_amount is not null
-     and p_amount > coalesce((select r.bill_rm from receipt_numbers r where r.order_code = v_code), 100000) then
+     and p_amount > coalesce((select r.bill_rm from receipt_numbers r where r.order_code = v_code), 20000) then
     return null;
   end if;
   update receipt_numbers

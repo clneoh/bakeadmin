@@ -11,7 +11,7 @@ import {
   costOf,
   effectiveUnitCost,
   recipeLineCosts,
-  isPoolablePack,
+  isPoolablePack, unitsOfOrder, totalUnitsOnDate, capacityStatus,
   poolRemaining,
   productRemaining,
   validateRecipeNoCycle,
@@ -285,6 +285,23 @@ test("★★★ an EMPTY recipe says so instead of adding nothing to the list (v
   assert.equal(bom.items.length, 0);
   assert.ok(bom.warnings.some((w) => /Empty loaf has an empty recipe/.test(w)),
     "★ an empty-recipe product silently contributed nothing, with no line saying why");
+});
+
+test("★★★ a 4-pack counts FOUR toward the day's capacity (v587)", () => {
+  // ⚠️⚠️ MEASURED: the day counted a pack as ONE row-unit, ⚠️ **so with a limit of 12 and two 4-packs ordered
+  // the card read "2/12 … can still take 10" while the shop had 4 left.** ⭐ The picker was aligned at v580;
+  // this is the same piece counted for the day's own figure.
+  const st = fixtureState();
+  st.deliveryDates = [{ id: "del_a", date: "2026-09-02" }];
+  st.orders = [
+    { id: "o1", deliveryDateId: "del_a", productId: "prd_p", qty: 2 },   // two 4-packs = 8 pieces
+    { id: "o2", deliveryDateId: "del_a", productId: "prd_f", qty: 1 },   // one single
+  ];
+  assert.equal(unitsOfOrder(st, st.orders[0]), 8, "★ a pack is being counted as one piece");
+  assert.equal(totalUnitsOnDate(st, "del_a"), 9);
+  const cap = capacityStatus(st, "del_a");
+  assert.equal(cap.total, 9, "★ the day's booked figure disagrees with the pool the shop enforces");
+  assert.equal(cap.remaining, 3);
 });
 
 test("isPoolablePack: only a single-line, own-cap-less, active-limited base counts", () => {

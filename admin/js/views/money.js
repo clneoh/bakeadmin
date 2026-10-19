@@ -502,15 +502,35 @@ function openListsManager(state, redraw) {
 function pocketRow(state, e, what, listKey, redraw, cur) {
   const how = methodLabel(e.method) || "no method";
   const courier = listKey === "expenses" && e.courierFor ? e.courierFor : "";
+  // ⚠️⚠️ A TRANSFER OR A PAYBACK IS TWO ROWS, AND ONE PRESS MUST TAKE BOTH (v587). ⚠️ Deleting the "TNG out"
+  // half of a RM200 transfer left the "Cash in" half standing — ⚠️ **Cash and Net overstated by RM200, with
+  // nothing said.** ⭐ A courier charge already clears both its halves; these two never did. ⭐ The pair is the
+  // row in the OTHER list with the same day, the same amount, and the same kind of move.
+  // ⚠️ AND THESE LIVE ABOVE THE ELEMENT TREE, NOT INSIDE ITS ARGUMENTS — a `const` among `el()`'s arguments is
+  // a SYNTAX ERROR, the fault this project has recorded once already.
+  const moveKind = e.transfer ? "transfer" : e.repay ? "repay" : "";
+  const partnerRow = () => {
+    if (!moveKind) return null;
+    const other = listKey === "expenses" ? "deposits" : "expenses";
+    const day = String(e.date || "").slice(0, 10);
+    return (state[other] || []).find((x) => x && String(x.date || "").slice(0, 10) === day
+      && Number(x.amount) === Number(e.amount) && x[moveKind] === true) || null;
+  };
   return el("div", { class: "info-row" },
     el("span", {}, `${dayMonth(String(e.date))} · ${what}${e.note ? ` · ${e.note}` : ""}`),
     el("span", { class: "info-val" }, fmtRM(Number(e.amount) || 0, cur),
       el("span", { class: "muted" }, `  ${how}`),
       button("✕", () => confirmDialog(
         `Delete this ${listKey === "deposits" ? "money-in record" : "expense"}? ${fmtRM(Number(e.amount) || 0, cur)} — ${what}, ${how}.`
-          + (courier ? ` The courier charge comes off order #${courier} with it.` : ""),
+          + (courier ? ` The courier charge comes off order #${courier} with it.` : "")
+          + (partnerRow() ? ` Its other half (the ${listKey === "expenses" ? "money-in" : "expense"} row of the same ${moveKind === "transfer" ? "transfer" : "payback"}) goes with it — one move, both rows.` : ""),
         () => {
           state[listKey] = (state[listKey] || []).filter((x) => x.id !== e.id);
+          const partner = partnerRow();
+          if (partner) {
+            const other = listKey === "expenses" ? "deposits" : "expenses";
+            state[other] = (state[other] || []).filter((x) => x.id !== partner.id);
+          }
           // A charge she paid lives in two places at once, so it has to leave both at
           // once. The customer's total moves with it, which is why the card is offered
           // the new version here exactly as the order's own box does.
@@ -1066,6 +1086,10 @@ export function renderMoney(root, state) {
     // reason this screen has one builder.
     // Money still to collect stays out, for the reason it always did: it is owed, not held.
     const net = accounts.reduce((s, a) => s + a.holds, 0);
+    // ⚠️⚠️ A REFUND WITH NO WAY OF PAYING RECORDED BELONGS TO NO ACCOUNT (v587). ⚠️ It fell into an "unmarked"
+    // bucket that no block, journal or Net reads — ⚠️ **so Money was silent about a refund Profit reported.**
+    // ⭐ It cannot go into an account it was never paid from; it can be SAID.
+    const looseRefunds = Number(refunds.unmarked) || 0;
 
     root.replaceChildren(
       el("h2", { class: "section" }, "Money"),
@@ -1147,6 +1171,10 @@ export function renderMoney(root, state) {
             ? row("Paid, no method", m.unmarked + mine.unmarked)
             : null,
           out.unmarked ? row("Spent, no method recorded", -out.unmarked) : null,
+          // ⚠️⚠️ AND A REFUND GIVEN ON AN ORDER WITH NO WAY OF PAYING RECORDED (v587) — ⚠️ it belongs to no
+          // account, so without this line Money is silent about a refund Profit reports. ⭐ Shown as money OUT,
+          // which is what it is; it is not in the Net, because no account can honestly hold it.
+          looseRefunds ? row("Refunded, no account recorded", -looseRefunds) : null,
           mineTotal
             ? el("p", { class: "card-sub", style: "margin:8px 0 0" },
                 `· of the money in, ${fmtRM(mineTotal, cur)} was your own`)

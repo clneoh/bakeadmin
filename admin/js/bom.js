@@ -783,11 +783,22 @@ export function capacityStatus(state, deliveryDateId) {
   };
 }
 
+// How many DAY-UNITS one order row takes: a value pack is its pieces, everything else is its quantity.
+// ⚠️⚠️ A PACK WAS COUNTED AS ONE (v587). ⚠️ The shop sells the pack out of the base's pool — a 4-pack takes
+// FOUR — while this counted the row's quantity alone: ⚠️ **a day with two 4-packs read "2/12 … can still take
+// 10" while the shop had 4 left.** ⭐ v580 aligned the order picker; this is the same piece, counted for the
+// day's own capacity.
+export function unitsOfOrder(state, o) {
+  const qty = Number(o && o.qty) || 0;
+  const pack = isPoolablePack(state, byId(state.products, o && o.productId));
+  return qty * (pack ? pack.baseQty : 1);
+}
+
 // Total planned units across ALL delivery dates (for the dashboard strip).
 export function totalUnitsOnDate(state, deliveryDateId) {
   return state.orders
     .filter((o) => o.deliveryDateId === deliveryDateId)
-    .reduce((s, o) => s + o.qty, 0);
+    .reduce((s, o) => s + unitsOfOrder(state, o), 0);
 }
 
 // Units of a single product already booked for a date, and how many of its

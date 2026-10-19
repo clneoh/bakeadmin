@@ -642,6 +642,11 @@ function initReviews() {
       setError(tHome("rvErrSend"));
       return;
     }
+    // ⚠️⚠️ WHAT TO THANK THEM FOR IS DECIDED BEFORE ANYTHING IS CLEARED (v587). ⚠️ `clearPicked()` below wipes
+    // `chosenFile`, and the thanks were worked out AFTER it — ⚠️ **so "the picture did not upload" could never be
+    // said: a customer whose photo failed was thanked as if they had sent none.** ⭐ The test checked the
+    // wording in isolation and missed the call site; this reads the file before it is emptied.
+    const thanksState = photo ? "sent" : (chosenFile ? "failed" : "none");
     form.reset();
     if (nameInput) nameInput.value = "";
     if (message) message.value = "";
@@ -651,7 +656,7 @@ function initReviews() {
     langBtns.forEach((x) => x.classList.toggle("is-on", x.dataset.lang === "en"));
     if (preview) preview.replaceChildren();
     clearPicked();
-    showThanks(critical, photo ? "sent" : (chosenFile ? "failed" : "none"));
+    showThanks(critical, thanksState);
   });
 
   paintStars();

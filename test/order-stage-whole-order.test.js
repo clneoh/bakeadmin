@@ -199,3 +199,60 @@ test("★ the status she did NOT touch, on the day she was not looking at, is le
     [`${DAY_A.id}:confirmed`, `${DAY_B.id}:confirmed`, `${DAY_A.id}:new`],
     "★ the fix moved an order that was never touched");
 });
+
+// ── v587: the MONEY facts travel with the order too ──────────────────────────
+
+const { isCollected } = await import("../admin/js/money.js");
+
+function press(root, text) {
+  const b = all(root).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === text);
+  assert.ok(b, `no press reading "${text}" — this test proves nothing`);
+  b._listeners.click.forEach((f) => f());
+  return b;
+}
+
+test("★★★ paying from ONE day's row pays the WHOLE order (v587)", () => {
+  // ⚠️⚠️ MEASURED: `markPaid` wrote only to `group.orders`, the day's slice — ⚠️ **so an order whose lines
+  // sat on two bake days still read as OWED after it was paid from the second day's row**, because every book
+  // reads the order through its first row.
+  const st = state({ orders: [
+    row({ id: "ord_aaaaaaaaaaaa", status: "paid", paidReceived: false }),
+    row({ id: "ord_bbbbbbbbbbbb", deliveryDateId: DAY_B.id, deliveryDate: DAY_B.date, status: "paid",
+      paidReceived: false }),
+  ] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_B.id }));
+  press(root, "Pay");
+  const layer = doc.getElementById("popup-layer");
+  const cash = all(layer).find((n) => n._listeners && n._listeners.click
+    && String(n.textContent).trim().startsWith("Cash"));
+  assert.ok(cash, "the pay picker did not draw her accounts");
+  cash._listeners.click.forEach((f) => f());
+
+  assert.deepEqual(st.orders.map((o) => o.paidReceived), [true, true],
+    "★ only the day she was looking at was marked paid — **the order still reads owed in every book**");
+  assert.equal(isCollected({ orders: st.orders }), true, "and the order itself still reads unpaid");
+});
+
+test("★★★ a refund from ONE day's row refunds the WHOLE order (v587)", () => {
+  // ⚠️⚠️ MEASURED: the refund was stamped on the slice only, while `refundOf` reads the first row — ⚠️ **so
+  // the refund never left any account and Profit kept the sale, although the register was marked.**
+  const st = state({ orders: [
+    row({ id: "ord_aaaaaaaaaaaa", status: "paid", paidReceived: true, paidMethod: "Cash" }),
+    row({ id: "ord_bbbbbbbbbbbb", deliveryDateId: DAY_B.id, deliveryDate: DAY_B.date, status: "paid",
+      paidReceived: true, paidMethod: "Cash" }),
+  ] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_B.id }));
+  press(root, "Refund");
+  const layer = doc.getElementById("popup-layer");
+  const box = all(layer).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "number"
+    && n.attrs.step === "0.01");
+  assert.ok(box, "the refund card has no amount box");
+  box.value = "5";
+  press(layer, "Refund");
+
+  assert.deepEqual(st.orders.map((o) => o.refundAmountRM), [5, 5],
+    "★ only the day's slice carries the refund — **the books keep the sale and no account loses the money**");
+  assert.equal(st.orders.every((o) => o.refundedAt), true, "and the order is only half refunded");
+});

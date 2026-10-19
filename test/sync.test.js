@@ -736,6 +736,85 @@ test("flush: keeps pending when the push fails, and no-ops when empty", async ()
   } finally { restore(); }
 });
 
+test("★★★ an OLDER tombstone cannot delete a newer, already-synced record (v587)", async () => {
+  // ⚠️⚠️ MEASURED: the tombstone branch spared only a PENDING edit, while the live-row branch also refuses a
+  // stale cloud row (`cloudAt <= localAt`) — ⚠️ **so a delete stamped 09:00 that arrived late removed a record
+  // this phone had edited and synced at 10:00, and nothing put it back.**
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.orders = [{ id: "o1", qty: 2 }];
+    seedToken(store);
+    seedJournal(store, { meta: { "orders:o1": "2026-02-02T00:00:00.000Z" } });
+    const restoreFetch = installFetch(async () => ({
+      ok: true, json: async () => [cloudRow("orders", "o1", {}, "2026-02-01T00:00:00.000Z", true)],
+    }));
+    try {
+      await sync.pull(st);
+      assert.equal(st.orders.length, 1,
+        "★ a late, older tombstone deleted a newer record — **her edit is gone and the cloud never gets it back**");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("★★★ a setting she deliberately put BACK to the shipped value is not undone (v587)", async () => {
+  // ⚠️⚠️ MEASURED: the five "birth" settings were judged by CONTENT, so a phone that set her bake days back to
+  // Mon/Wed/Fri had "no opinion" — ⚠️ **and the next pull restored the cloud's old days over her choice.** ⭐ Once
+  // a phone has read the cloud, what it holds is a choice, shipped values included.
+  const pullWith = async (seen) => {
+    const { store, restore } = installStorage();
+    try {
+      const st = cloudOn(baseState());            // her hand-set values: the SHIPPED [1,3,5] / 18:00
+      seedToken(store);
+      if (seen) store.set("bakeadmin.sync.seen", "2026-01-01T00:00:00.000Z");
+      seedJournal(store, { meta: { "settings:default": "2026-02-02T00:00:00.000Z" } });
+      const restoreFetch = installFetch(async () => ({
+        ok: true,
+        json: async () => [cloudRow("settings", "default",
+          { deliveryDays: [2, 4, 6], cutoff: "17:30", defaultCapacity: 20, currency: "RM" },
+          "2026-02-01T00:00:00.000Z")],
+      }));
+      try { await sync.pull(st); return st; } finally { restoreFetch(); }
+    } finally { restore(); }
+  };
+  const chosen = await pullWith(true);
+  assert.deepEqual(chosen.settings.deliveryDays, [1, 3, 5],
+    "★ a deliberate reset to the shipped bake days was overwritten by the cloud");
+  assert.equal(chosen.settings.cutoff, "18:00", "and the cut-off with it");
+  // ⚠️ AND THE NEW-PHONE CASE IS UNCHANGED: a phone that has never read the cloud still adopts it (v576).
+  const fresh = await pullWith(false);
+  assert.deepEqual(fresh.settings.deliveryDays, [2, 4, 6],
+    "a brand-new phone stopped adopting her settings — the v576 fault is back");
+});
+
+test("★★★ the weekly ticks UNION even when this phone wins the row (v587)", async () => {
+  // ⚠️⚠️ MEASURED: the union ran only when the CLOUD won, and when this phone won the push REPLACED the cloud's
+  // row with its own ticks — ⚠️ **so the other phone's ticks vanished and Home's to-do disagreed between phones.**
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.settings.weekCheck = { week: "2026-W42", done: { mine: true } };
+    seedToken(store);
+    seedJournal(store, {
+      pending: { "settings:default": { kind: "settings", id: "default", _deleted: false,
+        updated_at: "2026-02-02T00:00:00.000Z", data: { weekCheck: { week: "2026-W42", done: { mine: true } } } } },
+      meta: { "settings:default": "2026-02-02T00:00:00.000Z" },
+    });
+    const restoreFetch = installFetch(async () => ({
+      ok: true, json: async () => [cloudRow("settings", "default",
+        { weekCheck: { week: "2026-W42", done: { theirs: true } } }, "2026-02-01T00:00:00.000Z")],
+    }));
+    try {
+      await sync.pull(st);
+      assert.deepEqual(st.settings.weekCheck.done, { mine: true, theirs: true },
+        "★ the other phone's tick was lost — **Home's to-do now disagrees between her phones**");
+      const b = JSON.parse(store.get("bakeadmin.sync"));
+      assert.deepEqual(b.pending["settings:default"].data.weekCheck.done, { mine: true, theirs: true },
+        "★ the push about to go out would erase the other phone's tick from the cloud");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
 // ── pull ──────────────────────────────────────────────────────────────────
 
 test("pull: merges cloud rows, persists lastPullAt, reports changed", async () => {

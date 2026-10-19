@@ -719,3 +719,35 @@ test("snapshotViewData survives sparse or empty data", () => {
   assert.deepEqual(v.productRows, []);
   assert.deepEqual(v.ingredientRows, []);
 });
+
+test("★★★ a sync finishing is not called offline (v587)", () => {
+  // ⚠️⚠️ MEASURED: the 30-second beat can be mid-pull when she presses Restore, and `refresh` answers
+  // **"Sync already running"** — ⚠️ **which the restore reported as "You need to be online", the one
+  // instruction that cannot help on a phone that is plainly online.**
+  assert.match(backups.freshenRefusal({ ok: false, reason: "Sync already running" }, "restore a backup"),
+    /A sync is finishing .* press restore a backup again/i);
+  assert.match(backups.freshenRefusal({ ok: false, reason: "Shared data is off" }, "restore a backup"),
+    /You need to be online to restore a backup/);
+});
+
+test("★★★ the backup list is not cut off at sixty (v587)", async () => {
+  // ⚠️⚠️ MEASURED: manual copies are never pruned, so past sixty the OLDEST one existed in the cloud with no
+  // Restore, Download or Delete anywhere in the app. ⭐ The list pages until the cloud has no more.
+  const ls = installStorage();
+  seedToken(ls.store);
+  const seen = [];
+  const restoreFetch = installFetch(async (url) => {
+    seen.push(String(url));
+    const offset = Number((String(url).match(/[?&]offset=(\d+)/) || [])[1] || 0);
+    const n = offset === 0 ? 100 : 5;
+    return { ok: true, json: async () => Array.from({ length: n }, (_, i) => ({
+      id: `b${offset + i}`, kind: "manual", label: `copy ${offset + i}`,
+      created_at: new Date(Date.now() - (offset + i) * 1000).toISOString(), summary: {},
+    })) };
+  });
+  try {
+    const r = await backups.listBackups(cloudState());
+    assert.equal(r.rows.length, 105, `★ the list stopped at ${r.rows.length} of 105 copies`);
+    assert.equal(seen.length, 2, "it asked twice — once for each page");
+  } finally { restoreFetch(); ls.restore(); }
+});

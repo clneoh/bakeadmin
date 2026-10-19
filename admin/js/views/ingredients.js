@@ -10,7 +10,7 @@ import { el, button, select, emptyState, confirmDialog, showPopup, toast, wireRo
 import { indexForDrop, moveInTail, tailOrder } from "../productCategories.js";
 import { byId, fmtRM, newId, round2, save, sameNameIngredient } from "../state.js";
 import { fmtStockAmount, priceEntryLabels, belowReserve, chosenSupplier, trimNum } from "../purchasing.js";
-import { logPriceMoves, priceLogOf } from "../prices.js";
+import { PRICE_LOG_CAP, logPriceMoves, priceLogOf } from "../prices.js";
 import { STOCK_LOG_CAP, setStock, stockLogOf, stockRowUndo, undoStockRow } from "../stock.js";
 import { dayMonth, longDate } from "../dates.js";
 import { bakeryName, journalBodyEl, journalButtons, journalSheet } from "../journal.js";
@@ -169,11 +169,27 @@ function buildIngredientEditor(state, ingredient) {
     // **"30 kg for RM10"** — ⚠️ **a number nobody typed, at a price per kilo she never paid, which the
     // purchase order then actually used.** ⭐ The number and the unit it was typed against are kept
     // together: the row asks to be entered again (or dropped with ✕) instead of being reinterpreted.
+    // ⚠️⚠️ AND A RETURN TO THE PACK'S OWN UNIT CLEARS THE WARNING (v587). ⚠️ The stale marker was never
+    // cleared, ⚠️ **so switching the cooking unit back to the one the pack was typed in still refused the save
+    // with "the cooking unit is now pcs" — a sentence that had stopped being true.** ⭐ The stored number comes
+    // back with it, because it was never wrong.
+    if (draft.staleUnit && draft.staleUomId) {
+      const original = byId(list, draft.staleUomId);
+      if (original && original.family === family) {
+        draft.qty = draft.staleQty;
+        draft.price = draft.stalePrice;
+        delete draft.staleUnit;
+        delete draft.staleQty;
+        delete draft.stalePrice;
+        delete draft.staleUomId;
+      }
+    }
     const storedU = draft.uomId ? byId(list, draft.uomId) : null;
     if (storedU && storedU.family !== family && !draft.staleUnit) {
       draft.staleQty = String(draft.qty ?? "");
       draft.stalePrice = String(draft.price ?? "");
       draft.staleUnit = storedU.name;
+      draft.staleUomId = draft.uomId;
       draft.qty = "";
       draft.price = "";
     }
@@ -606,6 +622,11 @@ export function stockCardSheet(state, ing, refresh = null) {
       ? "Stock: every time the amount on your shelf moved, and what moved it — baking takes the recipe off, un-baking puts it back, Bought adds what you bought, and a stocktake or Day one sets the real amount. Price: every time this ingredient's cost moved — what it moved to, and what it was before. Buying the same thing again at the same price is not a change, so it is not listed. The amount on the shelf and the price your recipes use are the two figures at the top."
         + (stockLogOf(ing).length >= STOCK_LOG_CAP
           ? " This card keeps its newest 50 stock movements: older ones have been dropped, so these rows may not add up to the amount at the top — the shelf figure is right, the history below it is short."
+          : "")
+        // ⚠️ AND THE PRICE HISTORY HAS THE SAME CAP (v587) — v583 named only the stock one, so a truncated
+        // PRICE section said nothing at all.
+        + (priceLogOf(ing).length >= PRICE_LOG_CAP
+          ? " The Price section keeps its newest 50 price changes, for the same reason."
           : "")
       : "",
     where: "Ingredients",

@@ -130,6 +130,10 @@ export function renderDeliveryRun(root, state, params) {
   let priced = null;    // { trip, quotes, failed, codes, stops }
   let compare = {};     // vehicle key -> { state, amounts, reason, done, total }
   let busy = false;
+  // ⚠️⚠️ A BOOKING WHOSE REPLY WAS LOST (v587) — the same fact the single-trip card keeps as `bookUnknown`.
+  // ⚠️ Without it a timed-out run read as an ordinary refusal, ⚠️ **the Book press came straight back, and the
+  // one press that books a second, charged trip was on screen.**
+  let bookUnknown = false;
   const clocks = [];
   // ★★ WHOSE ORDER IS UNFOLDED (v342). Her ask: *"clicking a button inside the red ribbon, drop down its
   // full detail, as what is shown in edit order, get a delivery price."* It holds the STOP's row key, so
@@ -1136,7 +1140,7 @@ export function renderDeliveryRun(root, state, params) {
       // so the adapter's expiry sentence would only say it a third time. See paintPrices.
       whyRows.set(q, dead ? "" : whyBook);
       const why = liveJobProblem(tickedOrders()) || (stale() ? "moved" : "");
-      bookBtn.disabled = dead || !!whyBook || !!why || busy;
+      bookBtn.disabled = dead || !!whyBook || !!why || busy || bookUnknown;
       bookBtn.textContent = dead ? "Expired" : "Book this run";
       cmpBtn.disabled = dead || !!whyBook || !!why || busy;
     };
@@ -1339,7 +1343,10 @@ export function renderDeliveryRun(root, state, params) {
     if (!root.isConnected) return;
     if (!out.ok) {
       busy = false;
-      statusLine.textContent = out.reason;
+      if (out.unknown) bookUnknown = true;
+      statusLine.textContent = out.unknown
+        ? `${out.reason} ⚠️ Look in your courier app before asking for this run again — a second booking may be charged twice.`
+        : out.reason;
       paintPrices();
       return;
     }

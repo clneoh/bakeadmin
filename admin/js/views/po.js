@@ -594,8 +594,16 @@ export function saveManual(state, bom, items, total, root, writtenOn) {
   location.hash = `#/history?po=${state.purchaseOrders[0].id}`;
 }
 
-function generate(state, recs, bom, items, total) {
+export function generate(state, recs, bom, items, total) {
   if (!bom.orders.length) return toast("No orders — nothing to generate");
+  // ⚠️⚠️ AN EMPTY LIST MUST NOT MARK THE DAY AS SHOPPED (v587). ⚠️ A product whose recipe is EMPTY counts as an
+  // order but explodes to no lines — ⚠️ **so this saved a PO with nothing on it, and the day then read
+  // "✓ saved" and was never suggested again.** ⭐ v582 guarded the hand-written list; this is the same rule on
+  // the generated one.
+  if (!items.length) {
+    return toast("Nothing to buy on this list — its recipe has no ingredients you buy, so nothing was saved "
+      + "and the day is still waiting");
+  }
   const po = {
     id: newId("po"),
     deliveryDateId: recs[0].id, // backward-compatible single-day pointer

@@ -346,6 +346,36 @@ test("★★★ a cleared cost is UNSET, and a negative one is refused (v583)", 
     "★ a cleared cost was saved as 0, which costs every recipe using it at nothing");
 });
 
+test("★★★ switching the cooking unit BACK restores the pack instead of refusing it (v587)", () => {
+  // ⚠️⚠️ MEASURED: the stale marker was never cleared, ⚠️ **so returning to the unit the pack was typed in
+  // still refused the save with a sentence that had stopped being true.**
+  const state = freshState();
+  state.uoms.push({ id: "u_pcs", name: "pcs", family: "count", toBase: 1 });
+  state.suppliers = [{ id: "s1", name: "Mydin", active: true }];
+  state.ingredients.push({ id: "ing_salt", name: "Sea salt", unit: "pcs", uomId: "u_pcs", costPerUnit: 0.3,
+    supplierPrices: [{ supplierId: "s1", qty: 30, uomId: "u_pcs", price: 10 }] });
+  const root = render(state);
+  const card = walk(root).find((n) => String(n.className).includes("card") && textOf(n).includes("Sea salt"));
+  fire(walk(card).find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Edit"));
+  const layer = registry["popup-layer"];
+  const cooking = () => walk(layer).find((n) => n.tagName === "SELECT");
+  const unitId = (name) => walk(cooking()).find((n) => n.tagName === "OPTION"
+    && textOf(n).trim() === name).value;
+  const qty = () => walk(layer).find((n) => n.tagName === "INPUT" && n.attrs.placeholder === "Pack size");
+
+  cooking().value = unitId("kg");
+  change(cooking());
+  assert.equal(qty().value, "", "the stale pack was not emptied against the new unit");
+  cooking().value = unitId("pcs");
+  change(cooking());
+  assert.equal(qty().value, "30",
+    "★ the pack did not come back when the cooking unit did — **the record is refused with a false sentence**");
+  fire(walk(layer).find((n) => n.tagName === "BUTTON" && textOf(n).trim() === "Update ingredient"));
+  assert.deepEqual(state.ingredients[0].supplierPrices,
+    [{ supplierId: "s1", qty: 30, uomId: "u_pcs", price: 10 }],
+    "★ the pack was refused or rewritten on the way back");
+});
+
 // ── v285: the ingredient's own price journal ────────────────────────────────
 // *"ingredient price journaled … So an ingredient need a journals."*
 
@@ -604,6 +634,20 @@ test("⚠️ an ingredient she has HIDDEN carries no grip — it is not part of 
     "⚠️ the hidden ingredient was drawn as one of the list's own rows");
   assert.equal(walk(root).filter((n) => String(n.className).includes("ing-handle")).length, 1,
     "⚠️ the hidden ingredient was given a grip");
+});
+
+test("★★★ and when its PRICE history is truncated too (v587)", () => {
+  // ⚠️ v583 named only the stock cap, so a truncated Price section said nothing at all.
+  const state = freshState();
+  const ing = { id: "ing_f", name: "Strong flour", unit: "g", uomId: "u_g", onHand: 0,
+    stockLog: [{ at: "2026-09-01", delta: 0, why: "in", what: "Bought" }],
+    priceLog: Array.from({ length: 50 }, (_, i) => ({
+      at: "2026-09-" + String((i % 28) + 1).padStart(2, "0"), supplierId: "s1", supplierName: "Mydin",
+      qty: 1000, uomId: "u_g", uomName: "g", price: 10 + i, was: 9 + i,
+    })) };
+  const sheet = stockCardSheet(state, ing);
+  assert.match(sheet.note, /Price section keeps its newest 50 price changes/,
+    "★ a truncated price history says nothing about it");
 });
 
 test("★★★ the stock card says when its history is the newest 50 only (v583)", () => {

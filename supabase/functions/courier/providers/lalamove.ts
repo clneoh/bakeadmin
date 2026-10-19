@@ -189,6 +189,9 @@ export async function llmRequest(
   } catch (err) {
     const timedOut = /abort|timed? ?out/i.test(String((err as Error)?.name || (err as Error)?.message || ""));
     return { ok: false, status: 0, data: null,
+      // ⭐ THE FLAG, NOT ONLY THE WORDS (v587): the screens lock their Book press on `unknown`, and a sentence
+      // alone does not lock anything.
+      ...(timedOut ? { unknown: true } : {}),
       reason: timedOut
         ? "Lalamove did not answer within 20 seconds — the trip is UNKNOWN, not refused"
         : `Could not reach Lalamove — ${(err as Error)?.message || "the request failed"}` };

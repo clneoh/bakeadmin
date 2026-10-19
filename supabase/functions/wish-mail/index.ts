@@ -92,7 +92,14 @@ Deno.serve(async (req) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ from, to: recipients, subject, text: body }),
-  });
+    // ⚠️⚠️ A HUNG VENDOR MUST NOT HOLD THE INVOCATION (v587) — the same guard `shop-feedback` got at v585.
+    // ⚠️ Without it a Resend that never answers keeps this running after the caller has given up.
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  if (!res) {
+    console.error("[wish-mail] Resend did not answer within ten seconds");
+    return json({ error: "The mail service did not answer" }, 504);
+  }
   if (!res.ok) {
     // ⚠️ THE VENDOR'S OWN REPLY STAYS IN OUR LOG (v561). ⭐ It can name the address, the domain or a
     // quota figure, and none of that belongs in a reply to a caller — `shop-feedback` already returns the

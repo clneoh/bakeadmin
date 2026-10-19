@@ -46,6 +46,8 @@
 // puts on its vehicles. No courier's name, service keys or error codes appear below.
 
 import { button, confirmDialog, el, guarded, keepStill, toast } from "../ui.js";
+import { save } from "../state.js";
+import { maybeSync } from "../supabase.js";
 import { todayISO } from "../dates.js";
 import {
   courierDayOf, pickupTimeOf,
@@ -149,7 +151,10 @@ export function courierQuoteSection({
   // ⚠️⚠️ A BOOKING WHOSE REPLY WAS LOST IS NOT KNOWN TO HAVE FAILED (v566). ⭐ The function has no timeout of
   // its own, so the browser giving up can leave a trip already booked and already charged. ⭐ While this is
   // set, every Book press is refused with the sentence that says so — the way back is to look in Lalamove.
-  let bookUnknown = false;
+  // ⚠️⚠️ AND IT IS READ OFF THE ORDER, NOT ONLY FROM THIS SCREEN'S MEMORY (v587). ⚠️ A repaint or reopening the
+  // card rebuilt this section with the flag false — ⚠️ **so every Book press came back under a trip that may
+  // already exist.** ⭐ The fact is stamped onto the order, where a rebuild cannot lose it.
+  let bookUnknown = Boolean(first && first.courierUnknownAt);
 
   const bodyWrap = el("div", { style: "margin-top:10px" });
   bodyWrap.hidden = true;
@@ -1055,7 +1060,12 @@ export function courierQuoteSection({
       if (!out.ok) {
         // ⚠️⚠️ AN UNKNOWN BOOKING DISABLES EVERY BOOK PRESS (v566). ⭐ Leaving "Book this trip" under a
         // sentence that says the trip may already exist is how she books and pays twice.
-        if (out.unknown) bookUnknown = true;
+        if (out.unknown) {
+          bookUnknown = true;
+          if (first) first.courierUnknownAt = new Date().toISOString();
+          save(state);
+          maybeSync(state);
+        }
         statusLine.textContent = out.reason;
         paintQuotes();
         paintJob();
@@ -1234,6 +1244,18 @@ export function courierQuoteSection({
     priceStatusLine = statusLine;
     const askBtn = button(`Get a price from ${courier.label}`, () => ask(), "primary");
     const askRow = el("div", { class: "btn-row", style: "margin-top:12px" }, askBtn);
+    // ⭐ THE WAY BACK, AND ONLY SHE CAN TAKE IT: the app cannot look in her courier account, so this press is
+    // her word that she did and the trip is not there. ⚠️ It is drawn ONLY while a booking is unknown.
+    const unknownRow = el("div", { class: "btn-row", style: "margin-top:8px", hidden: !bookUnknown },
+      button("I checked — it is not in my courier app", () => {
+        bookUnknown = false;
+        if (first) delete first.courierUnknownAt;
+        save(state);
+        maybeSync(state);
+        unknownRow.hidden = true;
+        paintQuotes();
+        paintJob();
+      }, "ghost small"));
 
     function useFee(q) {
       if (!onUseFee || quoteExpired(q)) return;
@@ -1549,6 +1571,7 @@ export function courierQuoteSection({
       endsRow,
       whenNote,
       askRow,
+      unknownRow,
       statusLine,
       quoteBox,
       canBook ? el("p", { class: "card-sub", style: "margin:14px 0 0" },

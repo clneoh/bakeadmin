@@ -4130,8 +4130,14 @@ async function openInvoice(state, group) {
     }
   }
 
+  // ⚠️⚠️ ONE SALE, ONE INVOICE — EVEN WHEN ITS LINES SIT ON TWO BAKE DAYS (v587). ⚠️ The sheet was built from
+  // `group.orders`, the day's slice, ⚠️ **so one sale produced ONE INVOICE PER DAY, each wearing the same
+  // serial but carrying only that day's lines and total — and the paper opened from the other day printed a
+  // full sale with NO refund sentence, because the refund is stamped on the day it was given.** ⭐ The invoice
+  // is the whole order, which is what the consolidated page and every money book already read.
+  const whole = { ...group, orders: familyOfOrder(state, group.orders) };
   const cur = invoiceCurrency(state);
-  const sheet = invoiceSheet(state, group, {
+  const sheet = invoiceSheet(state, whole, {
     bakery: bakeryName(state),
     from: String((state.settings && state.settings.mailingAddress) || ""),
     // The serial, and the order code beside it — the first proves the sequence, the second
@@ -4139,8 +4145,8 @@ async function openInvoice(state, group) {
     // rather than inventing one.
     // ⚠️ the SECOND argument is the ORDER CODE, not the invoice number — with the invoice now numbered by
     // the serial, passing `invoiceNo(group)` printed "Receipt #000007 · Order #000007" (v577, seen live).
-    receipt: receiptLineOfGroup(group.orders, orderCode(first)),
-    receiptStatus: receiptStatusOfGroup(group.orders, cur),
+    receipt: receiptLineOfGroup(whole.orders, orderCode(first)),
+    receiptStatus: receiptStatusOfGroup(whole.orders, cur),
   });
 
   showPopup(`Invoice #${invoiceNo(group)}`, (refresh, close) => el("div", {},
@@ -4158,7 +4164,7 @@ async function openInvoice(state, group) {
     // says. ⚠️ AND WHEN THERE IS NO NUMBER IT SAYS WHY — never a blank, and never a made-up
     // zero, which would be the app inventing a receipt the books do not have.
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
-      receiptLineOfGroup(group.orders, orderCode(first)) || receiptStatusOfGroup(group.orders, cur)),
+      receiptLineOfGroup(whole.orders, orderCode(first)) || receiptStatusOfGroup(whole.orders, cur)),
     journalBodyEl(sheet, cur),
     el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
 }
@@ -5341,7 +5347,11 @@ function openPayPicker(state, group, root, dateId) {
 // never published to them (`supabase.js`).
 function markPaid(state, group, root, dateId, method) {
   const at = new Date().toISOString();
-  for (const o of group.orders) {
+  // ⚠️⚠️ THE WHOLE ORDER, NOT THE DAY'S SLICE (v587). ⚠️ `group.orders` is only the rows on the bake day
+  // she is looking at, while every book reads the order through its FIRST row (`isCollected`,
+  // `money.js`) — ⚠️ **so paying a two-day order from the second day's row left it reading STILL OWED.**
+  // ⭐ `familyOfOrder` is the helper v432 added for exactly this, and the status change already uses it.
+  for (const o of familyOfOrder(state, group.orders)) {
     o.paidReceived = true;
     // ⚠️ ANY LABEL FROM HER OWN LIST, not one of two words. `methodLabel` (accounts.js) reads every
     // spelling back the same way, and the money books key every figure on this string — so a new
@@ -5467,7 +5477,10 @@ function refundOrder(state, group, first, { root, dateId, fromEdit = false, amou
               const v = Math.max(1, Math.min(line.qty, parseInt(qtyBox.value, 10) || 1));
               ticks.set(line.id, v);
               sync();
-    // The figure the asking dialog named, already in the box — typed, so the ticks never overwrite it.
+    // ★★★ THE FIGURE THE QUESTION NAMED, ALREADY IN THE BOX (v587 — it was mis-placed at v577). ⚠️ It had been
+    // written inside the quantity box's KEYSTROKE handler, so it never ran when the card opened: ⚠️ **the card
+    // still opened at 0 and the next press still said "Type how much to give back".** ⭐ Here, once, after the
+    // box exists and the ticks have been painted. `typed` keeps the ticks from overwriting it.
     if (amount != null && boxEl) { typed = true; boxEl.value = String(round2(Number(amount) || 0)); }
             } })
         : null;
@@ -5526,7 +5539,11 @@ function refundOrder(state, group, first, { root, dateId, fromEdit = false, amou
           const at = new Date().toISOString();
           const items = [...ticks.entries()].map(([id, qty]) => ({ id, qty }));
           const why = note.value.trim();
-          for (const o of group.orders) {
+          // ⚠️⚠️ AND THE REFUND, ON EVERY ROW OF THE SALE (v587). ⚠️ On a slice it landed on one day's rows
+          // only, while `refundOf` reads the first row — ⚠️ **so the refund never left any account and Profit
+          // kept the sale, yet the register was still marked.** ⭐ The invoice's refund sentence reads the same
+          // rows, so one writer fixes both.
+          for (const o of familyOfOrder(state, group.orders)) {
             o.refundedAt = at;
             o.refundAmountRM = value;
             // ⚠️⚠️ AND WHETHER THIS REFUND IS ANSWERING AN EDIT (v549). ⭐ A refund recorded from the
@@ -5587,7 +5604,8 @@ function undoRefundOrder(state, group, first, { root, dateId } = {}) {
     // would leave an order that reads as paid and still carries the money it gave back — and
     // `refundOf` answers an amount before it looks at the mark, so the books would keep counting a
     // refund she has just undone.
-    for (const o of group.orders) {
+    // ⚠️ AND THE UNDO, ON EVERY ROW (v587) — or the other day keeps the refund the register has just cleared.
+    for (const o of familyOfOrder(state, group.orders)) {
       delete o.refundedAt;
       delete o.refundAmountRM;
       delete o.refundItems;

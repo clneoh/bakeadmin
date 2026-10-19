@@ -264,7 +264,7 @@ export async function putBackOrders(state, row, { dryRun = false } = {}) {
   // ⚠️ BRING THIS PHONE AND THE SYNC BASELINE UP TO DATE FIRST, so an order that has just come down from the
   // other phone is not "put back" as a SECOND COPY of itself.
   const freshen = await sync.refresh(state);
-  if (!freshen.ok) return { ok: false, reason: "You need to be online to put orders back" };
+  if (!freshen.ok) return { ok: false, reason: freshenRefusal(freshen, "put orders back") };
   const safe = await postSnapshot(state, "manual", `Before put-back · ${localWhen()}`, snapshotState(state));
   if (!safe.ok) return { ok: false, reason: `Couldn't save a "before" copy first: ${safe.reason}` };
 
@@ -402,10 +402,20 @@ function notReadyReason() {
   return "Shared data is off or you're not signed in";
 }
 
+// ⚠️⚠️ "A SYNC IS RUNNING" IS NOT "YOU ARE OFFLINE" (v587). ⚠️ The 30-second beat can be mid-pull when she
+// presses Restore, and the refusal — `Sync already running` — was reported as "you need to be online":
+// ⚠️ **the one instruction that cannot help, about a phone that is plainly online.** ⭐ The real reason, in her
+// words, and the answer is to press again in a moment.
+export function freshenRefusal(res, what) {
+  const why = String((res && res.reason) || "");
+  if (/already running/i.test(why)) return `A sync is finishing — press ${what} again in a moment`;
+  return `You need to be online to ${what}`;
+}
+
 async function getRows(state, select, limit) {
   const a = auth(state);
   if (!a) return { ok: false, reason: notReadyReason(), rows: [] };
-  const limitParam = limit ? `&limit=${limit}` : "";
+  const limitParam = limit ? `&limit=${limit}` : ""; // `limit` may carry more params (see listBackups)
   try {
     const res = await fetch(`${a.base}/rest/v1/${TABLE}?select=${select}&order=created_at.desc${limitParam}`, {
       headers: { apikey: a.anonKey, Authorization: `Bearer ${a.token}` },
@@ -429,8 +439,21 @@ export async function listMeta(state) {
 // weekly, so the weekly and monthly copies were never on the screen at all: restoring to a month ago was
 // impossible from the app even though the copy existed in the cloud.** ⭐ The list asks for enough to show
 // the whole ladder; the screen renders what it gets.
+// ⚠️⚠️ SIXTY WAS A HIDDEN CEILING (v587). ⚠️ Manual copies are never pruned, and each restore, import,
+// put-back and delete-all adds one — ⚠️ **so the oldest manual copy was in the cloud with no Restore, Download
+// or Delete anywhere in the app.** ⭐ The card now pages through the list until the cloud has no more, and the
+// page size is a batch, not a rule.
+const LIST_PAGE = 100;
 export async function listBackups(state) {
-  return getRows(state, "id,kind,label,engine,created_at,summary", 60);
+  const all = [];
+  for (let page = 0; page < 50; page += 1) {
+    const r = await getRows(state, "id,kind,label,engine,created_at,summary",
+      `${LIST_PAGE}&offset=${all.length}`);
+    if (!r.ok) return page === 0 ? r : { ok: true, rows: all };
+    all.push(...r.rows);
+    if (r.rows.length < LIST_PAGE) break;
+  }
+  return { ok: true, rows: all };
 }
 
 // The one full copy (with data) — fetched on tap for Download or Restore only.
@@ -562,7 +585,7 @@ export async function restoreSnapshot(state, row) {
   // removed and tombstoned instead of coming back on the next pull — that is
   // what makes a restore a real rewind on any phone, fresh or stale.
   const freshen = await sync.refresh(state);
-  if (!freshen.ok) return { ok: false, reason: "You need to be online to restore a backup" };
+  if (!freshen.ok) return { ok: false, reason: freshenRefusal(freshen, "restore a backup") };
 
   // Safety copy of the current (freshest) state, so a restore is never one-way.
   const current = snapshotState(state);

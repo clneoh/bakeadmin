@@ -103,7 +103,11 @@ async function ask(cfg: Config, action: string, params: Record<string, unknown>)
       return { ok: false, unknown: true, reason: "EasyParcel did not answer in time. Check your signal and try again." };
     }
     console.error("[parcel] fetch failed:", err && (err.message || err));
-    return { ok: false, reason: "Couldn't reach EasyParcel." };
+    // ⚠️⚠️ AND A CONNECTION THAT DROPS AFTER THE REQUEST LEFT IS UNKNOWN TOO (v587). ⚠️ Only the timeout
+    // carried the flag, so a reset mid-book was reported as a plain refusal — ⚠️ **the Book press stayed live
+    // under a parcel that may already be booked and charged.** ⭐ Whether a failed send reached them is not
+    // knowable here, and for a booking that is exactly the unknown case.
+    return { ok: false, unknown: true, reason: "Couldn't reach EasyParcel." };
   } finally {
     clearTimeout(timer);
   }
@@ -271,6 +275,14 @@ Deno.serve(async (req) => {
     const orderNo = String(args.orderNumber || "").trim();
     if (!orderNo) return json({ ok: false, reason: "There is no EasyParcel order number on that order yet." });
     const out = await ask(cfg, ACTION.orderStatus, { bulk: [{ order_no: orderNo }] });
+    // ⚠️⚠️ A CHECK THAT COULD NOT BE MADE MUST NOT REPORT SUCCESS (v587). ⚠️ `reasonIn` answers "" for a
+    // timed-out reply, so this branch fell through to `ok: true` with an empty status — ⚠️ **the one call whose
+    // job is to check a lost booking without rebooking said it had succeeded and carried no order.**
+    if (out.unknown) {
+      return json({ ok: false, unknown: true,
+        reason: "EasyParcel did not answer, so this app cannot tell whether the parcel was booked. Look in "
+          + "EasyParcel before booking again — a second Book may charge you twice." });
+    }
     const why = reasonIn(out, "EasyParcel could not look that order up.");
     if (why) return json({ ok: false, reason: why });
     return json({ ok: true, status: out });

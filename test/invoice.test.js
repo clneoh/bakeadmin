@@ -139,7 +139,7 @@ test("the receipt line beside the serial names the ORDER CODE, not the invoice n
   const SRC = readFileSync(new URL("../admin/js/views/orders.js", import.meta.url), "utf8");
   assert.doesNotMatch(SRC, /receiptLineOfGroup\(group\.orders, invoiceNo\(group\)\)/,
     "★ the serial is passed as the order code — the receipt line prints one number twice");
-  assert.match(SRC, /receiptLineOfGroup\(group\.orders, orderCode\(first\)\)/,
+  assert.match(SRC, /receiptLineOfGroup\(whole\.orders, orderCode\(first\)\)/,
     "★ the invoice's receipt line no longer names the order's own code beside the serial");
 });
 

@@ -19,7 +19,7 @@ import * as backups from "../backups.js";
 import * as sync from "../sync.js";
 import { save, saveFailure, duplicateIngredientPlan } from "../state.js";
 import { fmtStockAmount } from "../purchasing.js";
-import { reconcileCards } from "../stock.js";
+import { STOCK_LOG_CAP, reconcileCards } from "../stock.js";
 
 const MARK = { pass: "✓", fail: "✗", skipped: "—" };
 
@@ -115,7 +115,14 @@ export function renderHealth(root, state) {
         if (out.done.length) {
           save(state);
           maybeSync(state);
-          toast(`${out.done.length} card${out.done.length === 1 ? "" : "s"} put back in step`);
+          // ⚠️ AND A CARD IT SKIPPED IS NAMED (v587) — a "done" count beside a silent skip is half a sentence.
+          toast(`${out.done.length} card${out.done.length === 1 ? "" : "s"} put back in step`
+            + (out.skipped.length ? ` · ${out.skipped.length} at its ${STOCK_LOG_CAP}-row limit could not be: ${out.skipped.join(", ")}` : ""));
+        } else if (out.skipped.length) {
+          // ⚠️⚠️ "EVERY CARD ALREADY ADDS UP" WAS A LIE HERE (v587). ⚠️ A card at 49 rows is JUDGED by the
+          // check and SKIPPED by this press (one more row would take it to the cap, where nothing can judge
+          // it) — ⚠️ **so the line stayed red while the press told her every card was fine.**
+          toast(`Nothing could be put in step here: ${out.skipped.join(", ")} ${out.skipped.length === 1 ? "is" : "are"} at the ${STOCK_LOG_CAP}-row limit — the card's history is too long for a repair line to explain it`);
         } else {
           toast("Every card already adds up");
         }

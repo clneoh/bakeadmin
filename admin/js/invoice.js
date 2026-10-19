@@ -51,6 +51,7 @@ import { fmtRM } from "./state.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { orderCode, orderLineName, orderLinePrice, round2 } from "./state.js";
 import { longDate } from "./dates.js";
+import { refundDayOf } from "./money.js";
 
 // What one line of the order is called on paper. The quantity comes first because
 // that is how a customer reads a receipt back — "4 × Focaccia" — and the name is the
@@ -117,7 +118,10 @@ export function invoiceSheet(state, group, { from = "", bakery = "", printed = "
   // stamp is written to all of them and a slice may start anywhere (the v445 lesson).
   const refunded = rows.find((o) => o && o.refundedAt) || null;
   const moved = refunded ? round2(Number(refunded.refundAmountRM) || 0) : 0;
-  const refundDay = refunded && String(refunded.refundedAt).slice(0, 10);
+  // ⚠️⚠️ HER DAY, NOT UTC (v587). ⚠️ Slicing the timestamp printed the previous date for a refund given after
+  // midnight in Penang — ⚠️ **the invoice said 3 Oct while Profit and the Cash journal said 4 Oct.** ⭐ The one
+  // helper the books use reads it in her clock.
+  const refundDay = refunded ? refundDayOf({ orders: [refunded] }, state) : "";
   const when = refunded && /^\d{4}-\d{2}-\d{2}$/.test(refundDay) ? ` on ${longDate(refundDay)}` : "";
   const refundNote = refunded
     ? (moved > 0

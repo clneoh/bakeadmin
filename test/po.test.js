@@ -122,7 +122,7 @@ globalThis.window = {
   print() { printed.push(true); },
 };
 
-import { renderPO, manualPO, saveManual } from "../admin/js/views/po.js";
+import { renderPO, manualPO, saveManual, generate } from "../admin/js/views/po.js";
 import * as poTableModule from "../admin/js/views/poTable.js";
 import { readFileSync } from "node:fs";
 
@@ -780,4 +780,22 @@ test("★★ the Write-a-list card never prints the word null (v582, seen live)"
   const stray = walk(layer).filter((n) => n.nodeType === 3 && String(n.text ?? "").trim() === "null");
   assert.equal(stray.length, 0,
     "★ the card prints the word null where a child was missing");
+});
+
+test("★★★ an empty GENERATED list is refused, and the day is not marked shopped (v587)", () => {
+  // ⚠️⚠️ MEASURED: a product whose recipe is `[]` counts as an order but explodes to no lines — ⚠️ **so
+  // "Generate & Save" saved a PO with nothing on it and the day then read "✓ saved" for ever.** ⭐ v582
+  // guarded the hand-written list only.
+  const st = { ...freshState(), purchaseOrders: [] };
+  const day = st.deliveryDates[0];
+  const before = hashValue;
+  const bom = { orders: [{ productId: "prd_loaf" }], totalUnits: 1, productLines: [], warnings: [] };
+  generate(st, [day], bom, [], 0);
+  assert.equal(st.purchaseOrders.length, 0, "★ a list with nothing on it was saved");
+  assert.equal(hashValue, before, "and it navigated her to it");
+  assert.equal(day.fp, undefined, "★ the day was marked shopped by a list that buys nothing");
+
+  // The control: the same day with one line on it saves, as it always did.
+  generate(st, [day], bom, [{ ingredientId: "ing_flour", totalQty: 500, unit: "g", buyText: "500 g" }], 3);
+  assert.equal(st.purchaseOrders.length, 1, "a real list stopped saving");
 });

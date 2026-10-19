@@ -453,8 +453,13 @@ function planIsStock(plan) {
 function hasOpinion(k, src) {
   if (k === "production") return !planIsStock(src && src.production);
   // ⭐ The five a phone is born holding: present is not the same as chosen (v576).
+  // ⚠️⚠️ AND ONCE THE PHONE HAS PULLED, THEY ARE OPINIONS — EVEN THE SHIPPED VALUES (v587). ⚠️ Written purely
+  // by content, a phone that deliberately set her bake days BACK to the shipped ones had "no opinion", and the
+  // next pull put the cloud's old days back — ⚠️ **a setting she changed on purpose was undone.** ⭐ The flag is
+  // set only AFTER a successful merge, so a brand-new phone still has no opinion for its first pull (v576's
+  // fix is kept) and then owns whatever it holds.
   if (STOCK_SETTING_KEYS.includes(k)) {
-    return has(src, k) && !isStockSetting(k, src[k]);
+    return has(src, k) && (!isStockSetting(k, src[k]) || cloudSeen());
   }
   return has(src, k);
 }
@@ -822,6 +827,15 @@ function expandOldBakeRows(rows) {
   return out;
 }
 
+// ⭐ HAS THIS PHONE EVER READ THE CLOUD? (v587) — the one fact that turns "the shipped numbers" into "a choice".
+const SEEN_KEY = "bakeadmin.sync.seen";
+function cloudSeen() {
+  try { return !!localStorage.getItem(SEEN_KEY); } catch { return false; }
+}
+function markCloudSeen() {
+  try { if (!localStorage.getItem(SEEN_KEY)) localStorage.setItem(SEEN_KEY, new Date().toISOString()); } catch { /* full phone — the merge still worked */ }
+}
+
 function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
   rows = expandOldBakeRows(rows);
   let changed = false;
@@ -867,6 +881,16 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
           next = next || { ...state.settings };
           next[k] = payload[k];
           if (pending && pending.data && typeof pending.data === "object") pending.data[k] = payload[k];
+        }
+        // ⚠️⚠️ AND THE WEEK CHECK IS A UNION EVEN WHEN THIS PHONE WINS THE ROW (v587). ⚠️ The cloud's ticks were
+        // only merged when the CLOUD won, and when this phone won the push REPLACED the row with its own ticks —
+        // ⚠️ **so the other phone's ticks vanished from the cloud and Home's to-do disagreed between phones.**
+        // ⭐ A tick is an acknowledgement: one phone's must never erase the other's.
+        if (payload.weekCheck && typeof payload.weekCheck === "object") {
+          const union = mergeWeekCheck((state.settings && state.settings.weekCheck) || {}, payload.weekCheck);
+          next = next || { ...state.settings };
+          next.weekCheck = union;
+          if (pending && pending.data && typeof pending.data === "object") pending.data.weekCheck = union;
         }
         if (next) {
           state.settings = next;
@@ -925,7 +949,11 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
     if (row._deleted) {
       // A pending local edit newer than this delete keeps the record alive —
       // it stays pending and resurrects the row on the next flush.
-      if (localNewerOrSame) continue;
+      // ⚠️⚠️ AND SO DOES A RECORD THIS PHONE HAS ALREADY SYNCED MORE RECENTLY (v587). ⚠️ The live-row branch
+      // below already refuses a stale cloud row (`cloudAt <= localAt`), and this one did not — ⚠️ **so an OLD
+      // tombstone that arrived late deleted a NEWER edit this phone had already pushed, and nothing put the
+      // record back.** ⭐ A delete is a fact with a timestamp like any other; an older one loses.
+      if (localNewerOrSame || cloudAt <= localAt) continue;
       // ⚠️⚠️ AN ORDER DELETED ON THE OTHER PHONE GOES ON THIS PHONE'S SHELF (v444). **This is the path
       // that made her loss permanent** — a tombstone is a removal nobody here made, it takes the whole
       // order away in one line, and until v444 there was nothing left on either phone or in any copy to
@@ -1332,6 +1360,9 @@ export async function refresh(state) {
     // save, so a plain "Sync now" / boot refresh would push nothing for those.
     markDirty(state);
     const pullRes = await pull(state);
+    // ⚠️ AFTER THE PULL, NEVER BEFORE (v587): the merge above must judge a brand-new phone as having no
+    // opinion, or its factory values would be pushed over hers — the fault v576 closed.
+    if (pullRes.ok) markCloudSeen();
     // Only push after a successful pull: a failed pull means we might be
     // offline or have a stale local view — pushing would risk clobbering.
     const flushRes = pullRes.ok ? await flush(state) : { ok: true, pushed: 0 };

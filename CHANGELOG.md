@@ -1,8 +1,44 @@
-# Jienluv2bake — change history (v54 → v586)
+# Jienluv2bake — change history (v54 → v587)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v587, WHAT THE SECOND SWEEP FOUND: MONEY AND RECORDS (⚠️ RUN receipts.sql AGAIN; REDEPLOY courier, parcel AND wish-mail).**
+
+**Your words:** __"what did the sweeps find"__ — the eight sweeps after the first repair. 39 findings, every one checked against the code. This version fixes everything that could **lose money or records**; the misleading, printing and test items follow in v588.
+
+**Money and records**
+1. ⚠️⚠️ **PAYING OR REFUNDING A TWO-BAKE-DAY ORDER ONLY WROTE HALF OF IT.** The order's lines can sit on two bake days; the Pay press, the Refund press and Undo all wrote to **the day you were looking at**, while every book reads the order through its first row. ⚠️ **Paid from the second day, it still read OWED; refunded there, the money never left any account while the register was marked.** ⭐ Each now writes the whole order, and **the invoice is the whole sale** — one sale, one invoice, whichever day it is opened from.
+2. ⚠️ **My own v577 prefill never ran** — it was written inside the quantity box's keystroke handler instead of where the card opens, so the refund box still started at 0.
+3. ⚠️ **Deleting one half of a Transfer or a Payback left the other half** — Cash and Net overstated by the whole amount. ⭐ Deleting either now takes both, and the question says so.
+4. ⚠️ **A refund on an old order with no way of paying recorded was invisible on Money** (Profit showed it). ⭐ It now has its own line, **"Refunded, no account recorded"** — it cannot be put in an account it never came from, but it is no longer silent.
+5. ⚠️ **The invoice's refund date was a day early near midnight** — it read the UTC date, not yours.
+
+**Two phones**
+6. ⚠️⚠️ **AN OLD "DELETED" ARRIVING LATE COULD DELETE A NEWER EDIT.** The delete branch only spared a *pending* change; the normal branch also spares anything newer. ⭐ A tombstone older than what this phone already synced is now ignored.
+7. ⚠️⚠️ **A SETTING YOU PUT BACK TO THE SHIPPED VALUE WAS UNDONE.** The five "birth" settings were judged by content, so setting your bake days back to Mon/Wed/Fri counted as "no opinion" and the cloud's old days came back. ⭐ Once a phone has read the cloud, what it holds is your choice — shipped values included. A brand-new phone still adopts yours, exactly as v576 fixed.
+8. ⚠️ **ONE PHONE'S WEEKLY TICK COULD ERASE THE OTHER'S.** The ticks only merged when the cloud won the row; when this phone won, its push replaced the row outright. ⭐ They always union now.
+9. ⚠️ **"A sync is finishing" was reported as "you need to be online"** when you pressed Restore. ⭐ It says what it is.
+10. ⚠️ **The backup list stopped at the newest 60** — past that, the oldest manual copies existed in the cloud with **no Restore, Download or Delete anywhere**. ⭐ The card pages through all of them.
+
+**The couriers and the backend (⚠️ redeploy courier, parcel and wish-mail)**
+11. ⚠️⚠️ **FOUR WAYS TO BOOK — AND PAY — TWICE, three of them from my own v585 timeouts.** A timed-out booking now answers the app with **UNKNOWN**, and: the order's courier card locks every Book press and **stamps the fact on the order** (so reopening it cannot bring the press back — with one press, *"I checked — it is not in my courier app"*, to release it); the **Delivery run** locks its Book press too; **EasyParcel** marks a dropped connection as unknown as well as a timeout; and its **order-status check** can no longer report success when it could not answer.
+12. ⚠️ **The wish-list mail still had no timeout** — ten seconds now, like the feedback mail.
+13. ⚠️ **The refund ceiling could be raised by a caller**: the database stored whatever bill it was told and measured the refund against it. ⭐ The stored bill is now itself bounded at RM20,000, and a receipt with no bill uses the same ceiling.
+
+**Stock and the planner**
+14. ⚠️ **"Generate & Save" could save an empty list and mark the day shopped** — the hand-written list was guarded at v582, this one was not.
+15. ⚠️ **A 4-pack counted as ONE toward the day** while the shop counted four — "2/12 … can still take 10" beside a shop with 4 left. ⭐ A pack counts its pieces.
+16. ⚠️ **A stock card at 49 movements was failed by the check and skipped by its own repair**, which then said "Every card already adds up". ⭐ It names the cards it cannot fix and why.
+17. ⚠️ **My v580 stale-pack warning never cleared** when you switched the cooking unit back — it refused with a sentence that had stopped being true. ⭐ Going back restores the pack.
+18. ⚠️ The **price** history's 50-row cap was still silent; it says so now.
+
+**19. Nothing of yours was rewritten. ⭐ 3,710 tests green (was 3,692); every fix has a test, and each was broken on purpose and watched to fail.**
+
+**AFTER PUSHING:** run **`supabase/receipts.sql`** again, then deploy **`courier`**, **`parcel`** and **`wish-mail`**.
+
+---
 
 **19 Oct 2026 — engine v586, THE FILE THAT COULD NOT APPLY THE LOCK (⚠️ RUN receipts.sql AGAIN).**
 
