@@ -83,7 +83,7 @@ let view = null; // the caller's own { offset }, paged in place — as the scree
 const picked = [];
 // `active` is a parameter so a test that moves the day on screen cannot leak it
 // into the next one — the day is read at paint time, so it has to be set here.
-function build(active = "d7") {
+function build(active = "d7", extra = {}) {
   activeId = active;
   picked.length = 0;
   view = { offset: null }; // unsettled: the calendar opens it on the day on screen
@@ -94,6 +94,7 @@ function build(active = "d7") {
     view,
     onPick: (id) => picked.push(id),
     noteMisses: true, // what the Orders screen itself passes
+    ...extra,
   });
 }
 
@@ -185,7 +186,7 @@ test("a day the bakery does not deliver answers the tap: the date, and where to 
   fire(dayCell(cal, 20)); // Sunday 20 Sep — not one of the bakery's delivery days
   assert.ok(noteIn(), "the calendar answers a tap it cannot act on");
   assert.equal(noteIn().children[0].text,
-    "Sun, 20 Sep is not a bake day — nothing can be ordered on it. Add it in More → Bake days, or ");
+    "Sun, 20 Sep is not a bake day — the shop does not offer it. Add it in More → Bake days, or ");
   assert.deepEqual(picked, [], "nothing is opened — there is no day there to open");
 
   // A day that IS delivered is what she meant, so the answer to the other tap goes
@@ -206,7 +207,7 @@ test("a marked day off the delivery week names itself AND says why no order goes
   assert.equal(tip.hidden, false, "the day still says its name");
   assert.equal(tip.children[0].text, "Malaysia Day");
   assert.equal(cal.el.children.find((c) => c.className === "cal-miss").children[0].text,
-    "Wed, 16 Sep is not a bake day — nothing can be ordered on it. Add it in More → Bake days, or ",
+    "Wed, 16 Sep is not a bake day — the shop does not offer it. Add it in More → Bake days, or ",
     "and the calendar says what the name alone left her guessing at");
   STATE.occasions = [];
 });
@@ -648,4 +649,18 @@ test("★★★ the calendar's arrows sit BESIDE the date range, and the green c
   const lang = read("store-lang.js");
   assert.equal((lang.match(/calKey:/g) || []).length, 3,
     "the legend's words are missing from one of the three languages");
+});
+
+test("★★★ a non-bake day offers a HAND SALE, and it names the day (v606)", () => {
+  // ⭐ Her words: __"i want to sell any day just like bake."__ ⚠️ "nothing can be ordered on it" was true of
+  // the SHOP and false of her counter — a loaf sold from yesterday's bake still needs an order.
+  const sold = [];
+  const cal = build("d7", { onSellDay: (iso) => sold.push(iso) });
+  fire(dayCell(cal, 20)); // Sunday 20 Sep — not a delivery day
+  const note = cal.el.children.find((c) => c.className === "cal-miss");
+  const sell = note.children.find((c) => c.tagName === "BUTTON"
+    && String((c.children[0] && c.children[0].text) || "") === "sell now");
+  assert.ok(sell, "★ the day the shop does not offer has no way to record a hand sale");
+  fire(sell);
+  assert.deepEqual(sold, ["2026-09-20"], "★ the press did not name the day it was made on");
 });

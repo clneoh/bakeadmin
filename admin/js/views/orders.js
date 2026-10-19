@@ -89,6 +89,8 @@ let ordersDayById = new Map();
 // rebuilt whenever anything around it changes — including when a day is tapped in
 // its own calendar — and folding under her finger at that moment would be mad.
 let newFormOpen = false;
+// ⚠️ WHICH DAY "SELL NOW" ASKED FOR (v606) — the screen renders, then opens that day's sale card once.
+let pendingSellDay = "";
 // THE WHOLE DRAFT of the ＋ New order card, held out here for the same reason as the fold
 // above: the card is rebuilt whenever anything around it changes, and that includes
 // tapping a day in the card's OWN calendar (onPick is selectDate, which redraws the
@@ -604,7 +606,7 @@ export function matchingGroups(state, query) {
 // of (15 Sep 2026: she tapped a marked 16 Sep, read "Malaysia Day", and had no way
 // of knowing why no order could go on it). The state is this calendar's own, in
 // its closure: nothing outside the grid answers for it.
-export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses = false }) {
+export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses = false, onSellDay = null }) {
   const list = (days || []).filter((d) => d && d.id && d.date);
   const today = todayISO();
   let missedIso = null; // the day she asked about and the bakery does not deliver
@@ -628,9 +630,15 @@ export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses
     // opened has no day card below, so this line is the only place she can reach it from.** ⭐ It opens the
     // SAME popup, and on a day with no delivery date **it offers only the production half** — there is no
     // capacity to adjust on a day nobody can order from.
+    // ⚠️⚠️ AND A HAND SALE IS A THIRD DOOR (v606). Her words: __"i want to sell any day just like bake."__
+    // ⭐ "nothing can be ordered on it" was true of the SHOP and false of her counter — ⚠️ **a loaf sold
+    // from yesterday's bake still needs an order.** ⭐ The day it creates is a SALE-ONLY day: in her
+    // backoffice and her books, never on the shop's calendar.
     return el("p", { class: "cal-miss" },
-      `${shortDate(missedIso)} is not a bake day — nothing can be ordered on it. Add it in More → Bake days, or `,
+      `${shortDate(missedIso)} is not a bake day — the shop does not offer it. Add it in More → Bake days, or `,
       button("say what you baked", () => openBakedPopup(state, missedIso, paint), "ghost small"),
+      onSellDay ? ", or " : "",
+      onSellDay ? button("sell now", () => onSellDay(missedIso), "ghost small") : null,
       ".");
   }
 
@@ -846,6 +854,12 @@ function renderAll(root, state, params) {
     view: ordersCalView,
     onPick: (id, iso) => selectDate(id, iso),
     noteMisses: true,
+    // ⭐ "sell now" on a day the shop does not offer (v606) — it makes the day, then lands on it.
+    onSellDay: (iso) => {
+      const rec = saleDayFor(state, iso);
+      pendingSellDay = rec.id;
+      renderAll(root, state, new URLSearchParams({ date: rec.id }));
+    },
   });
   const content = el("div", {});
 
@@ -1298,12 +1312,15 @@ function dateContent(state, date, root, selectDate) {
       el("div", {},
         el("p", { class: "card-title" }, dateLabel),
         el("p", { class: "card-sub" },
-          st.past ? "Past delivery"
-            : st.closed ? `Orders closed at ${state.settings.cutoff} yesterday`
-              : `Open · cut-off in ${st.countdown}`),
+          // ⚠️ A SALE-ONLY DAY SAYS WHAT IT IS (v606) — it is not a delivery day, and its cut-off is nobody's.
+          date.recordOnly ? "Sale day · not offered on the shop"
+            : st.past ? "Past delivery"
+              : st.closed ? `Orders closed at ${state.settings.cutoff} yesterday`
+                : `Open · cut-off in ${st.countdown}`),
         occ ? el("span", { class: `occ-tag occ-${occColour(occ)}`, style: "margin-top:6px" },
           occ.label) : null),
-      el("span", { class: "qty-chip" }, `${cap.total}/${cap.capacity}`)),
+      el("span", { class: "qty-chip" },
+        date.recordOnly ? `${cap.total} unit${cap.total === 1 ? "" : "s"}` : `${cap.total}/${cap.capacity}`)),
     fillMeter(cap.total, cap.capacity),
     moneyLine(state, date.id),
     cap.exceeded ? el("div", { class: "danger-banner" },
@@ -1315,7 +1332,7 @@ function dateContent(state, date, root, selectDate) {
     // that day* and *what came out of the oven* — and each keeps its own name, its own pop-up and its own
     // press. ⚠️ **The availability half is EXACTLY as it was before v514: same button, same label, same
     // condition, same pop-up.**
-    !st.past && rules.rows.length ? el("div", { class: "btn-row", style: "margin-top:10px" },
+    !date.recordOnly && !st.past && rules.rows.length ? el("div", { class: "btn-row", style: "margin-top:10px" },
       button(adjusted ? `Set day's availability · ${adjusted} adjusted` : "Set day's availability", () =>
         openDayAdjustPopup(state, date, () => renderAll(root, state, new URLSearchParams({ date: date.id }))), "soft")) : null,
     // ★★★ AND THE BAKING HAS ITS OWN DOOR (v515) — ⚠️ offered on ANY day the card is showing, past
@@ -1332,6 +1349,11 @@ function dateContent(state, date, root, selectDate) {
       : null);
 
   const form = orderForm(state, date.id, root, selectDate, (open) => { sellNow = open; });
+  // ⭐ THE PRESS THAT MADE THE DAY OPENS ITS SALE CARD ONCE (v606) — not a second press on the new screen.
+  if (pendingSellDay && pendingSellDay === date.id) {
+    pendingSellDay = "";
+    if (sellNow) sellNow();
+  }
   const list = orderList(state, date.id, root);
 
   return el("div", {}, header, form, list);
@@ -2493,6 +2515,21 @@ function orderForm(state, dateId, root, selectDate, onReady) {
     openOrderCards.add(controller);
   }
   return card;
+}
+
+// ⭐⭐ THE DAY A HAND SALE SITS ON (v606). An existing day on that date is used as it is — a real bake day
+// keeps its capacity and its shop listing. Otherwise a SALE-ONLY day is made: it lives in her backoffice and
+// her books, and `nextDeliveryDates` never publishes it. ⭐ One record per date, never a second.
+function saleDayFor(state, iso) {
+  const day = String(iso || "").slice(0, 10);
+  const found = (state.deliveryDates || []).find((d) => d && d.date === day);
+  if (found) return found;
+  const rec = { id: newId("del"), date: day, notes: "", recordOnly: true };
+  if (!Array.isArray(state.deliveryDates)) state.deliveryDates = [];
+  state.deliveryDates.push(rec);
+  save(state);
+  maybeSync(state);
+  return rec;
 }
 
 // Every delivery day, soonest first — the one list behind the screen's calendar

@@ -951,3 +951,16 @@ test("★★★ every load makes a half-written order whole (v600)", () => {
   assert.equal(b.paidReceived, true, "★ a load left one line saying the money is not in");
   assert.equal(b.paidMethod, "Cash", "★ a load left the sibling with no account");
 });
+
+test("★★★ a real bake day outranks a sale-only row on the same date (v606)", () => {
+  // ⚠️⚠️ Consolidation keeps the FIRST record per date — ⚠️ **so a sale-only row created before the real day
+  // would swallow it, and the shop would never offer a day she meant to open.** ⭐ Any real row on that date
+  // clears the flag.
+  const out = normalize({ version: 1, deliveryDates: [
+    { id: "a", date: "2026-10-21", recordOnly: true },
+    { id: "b", date: "2026-10-21" },
+  ] });
+  assert.equal(out.deliveryDates.length, 1, "the two rows for one date were not consolidated");
+  assert.equal(out.deliveryDates[0].recordOnly, undefined,
+    "★ a sale-only row kept the day off the shop after a real bake day was added");
+});

@@ -1133,6 +1133,10 @@ function consolidateDeliveryDates(deliveryDates, orders, removedOrders) {
     if (!d || typeof d.date !== "string" || !d.date) continue;
     const survivor = byDate.get(d.date);
     if (survivor) {
+      // ⚠️⚠️ A REAL BAKE DAY UPGRADES A SALE-ONLY ROW (v606). ⚠️ Consolidation keeps the FIRST record per
+      // date — ⚠️ **so a sale-only row created first would swallow a real bake day added later, and the
+      // shop would never offer a day she meant to open.** ⭐ Any real row on that date clears the flag.
+      if (survivor.recordOnly && !d.recordOnly) delete survivor.recordOnly;
       if (d.id) removed.set(d.id, survivor.id);
     } else {
       byDate.set(d.date, d);

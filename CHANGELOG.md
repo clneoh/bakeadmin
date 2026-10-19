@@ -1,8 +1,19 @@
-# Jienluv2bake — change history (v54 → v605)
+# Jienluv2bake — change history (v54 → v606)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v606, A HAND SALE ON ANY DAY (NO DATABASE STEP).**
+
+**Your words:** __"i want to sell any day just like bake."__
+
+1. ⭐ **A day the shop does not offer now answers a tap with "sell now", beside "say what you baked".** It records the sale on the day it happened and opens the New order card on that day, ready for a customer.
+2. ⚠️⚠️ **THE DAY IT MAKES IS A SALE-ONLY DAY.** It lives in your backoffice, your orders and your books — and **the shop never offers it**, so a hand sale cannot put a day you are not baking on the customer's calendar. If you later add that date as a real bake day, the real day wins and the sale-only flag is cleared.
+3. ⚠️ On a sale-only day the card says **"Sale day · not offered on the shop"**, shows the unit count instead of a shop capacity, and does not offer "Set day's availability" — there is nothing for the shop to sell.
+4. ⭐ **Selling still goes through the one order writer** — the same card, the same receipt, the same books.
+
+**No database step and no function deploy.** 3,845 tests green.
 
 **19 Oct 2026 — engine v605, SELL ONE NOW FROM THE BAKE DAY (NO DATABASE STEP).**
 
