@@ -33,6 +33,13 @@ import { STOCK_LOG_CAP } from "./stock.js";
 // The order-level facts every row of ONE order must agree on. ⚠️ DELIBERATELY NOT THE PER-LINE ONES —
 // `qty`, `unitPrice`, `unitCost` and `lineNote` are each row's own business, and a check that flagged
 // them would cry wolf on every ordinary multi-item order.
+// ⚠️⚠️ AN EMPTY VALUE AND A MISSING ONE ARE THE SAME FACT (v600). ⚠️ `promo: ""` on one line and no `promo`
+// on the other both mean NO CODE, but `JSON.stringify` called them a disagreement for ever — ⚠️ **a check she
+// could never clear, which is how a warning stops being read.** ⭐ `false` and `0` stay distinct: a line that
+// says NOT PAID must still disagree with an empty one.
+const sameLineFact = (a, b) => JSON.stringify(a === undefined || a === null || a === "" ? "" : a)
+  === JSON.stringify(b === undefined || b === null || b === "" ? "" : b);
+
 const ORDER_LEVEL = [
   "status", "paidReceived", "paidMethod", "customerName", "whatsapp", "fulfillment", "address",
   "pointId", "note", "trackingNo", "courierDay", "deliveryWindow", "pickupTime", "orderDate",
@@ -103,7 +110,7 @@ export function localChecks(state) {
     for (const g of groups) {
       const first = g.orders[0];
       for (const field of ORDER_LEVEL) {
-        if (g.orders.some((o) => JSON.stringify(o[field]) !== JSON.stringify(first[field]))) {
+        if (g.orders.some((o) => !sameLineFact(o[field], first[field]))) {
           bad.push(`#${orderCode(first)} · ${field}`);
           break;
         }

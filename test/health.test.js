@@ -992,3 +992,26 @@ test("★★★ a change still in the queue is not reported as missing from the 
   assert.equal(resultOf(runHealthChecks(st, { ...emptyExtras(), cloud: gone, local: ["orders:ord_old"], queued: new Set(["orders:ord_zapped"]) }), "cloudOnly").status,
     "pass", "★ a deletion still in the queue was reported as a record in the cloud that is not on this phone");
 });
+
+// ── v600: an empty value and a missing one are one fact ──────────────────
+
+test("★★★ the line-agreement check stops calling a missing value and an empty one different (v600)", () => {
+  // ⚠️⚠️ MEASURED: `promo: ""` on one line and no `promo` on the other both mean NO CODE, but
+  // `JSON.stringify` reported a disagreement for ever — ⚠️ **a check she could never clear, which teaches her
+  // to ignore the line.** ⭐ `false` and `0` must stay distinct: a line saying NOT PAID still disagrees.
+  const mk = (a, b) => ({
+    settings: { currency: "RM" }, products: [], deliveryDates: [], removedOrders: [],
+    orders: [
+      { id: "a", groupId: "g", qty: 1, unitPrice: 1, ...a },
+      { id: "b", groupId: "g", qty: 1, unitPrice: 1, ...b },
+    ],
+  });
+  const agree = (st) => localChecks(st).find((c) => c.id === "agree");
+  assert.equal(agree(mk({ promo: "" }, {})).status, "pass",
+    "★ an empty code and a missing code are still reported as a disagreement");
+  assert.equal(agree(mk({ promo: null }, {})).status, "pass", "null and missing are one fact too");
+  assert.equal(agree(mk({ promo: "SAVE5" }, {})).status, "fail",
+    "★ a real difference was hidden — the check no longer reports anything");
+  assert.equal(agree(mk({ paidReceived: false }, {})).status, "fail",
+    "★ false was treated as empty — a line saying NOT PAID no longer disagrees");
+});

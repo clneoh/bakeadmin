@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v599)
+# Jienluv2bake — change history (v54 → v600)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v600, THE BRIDGE'S THREE FAULTS (NO DATABASE STEP).**
+
+**Your words:** __"fix all three now"__, after the munchies session reported them and I re-measured each one in our own code.
+
+1. ⚠️⚠️ **A REMOVED ORDER COULD COME BACK ON EVERY PULL.** The merge dropped a Removed row for an order that was back on the live list, but the thirty-second read did not — **so the order sat on both lists, Check my system named it every time, and two records wore one id.** The read now applies the same rule, and queues the removal so the shared data stops handing it back.
+2. ⚠️ **CHECK MY SYSTEM CALLED AN EMPTY VALUE AND A MISSING ONE DIFFERENT.** A line with no code and a line with an empty code are the same fact, but the check reported a disagreement for ever — a warning she could never clear. Now they agree; a real difference (and a line saying NOT PAID) still reports.
+3. ⚠️⚠️ **A HALF-WRITTEN PAYMENT OR PROMO COULD NOT BE FIXED BY HAND.** One line said the money was in while its sibling said nothing, and the Pay press only appears when the FIRST line is unpaid — so there was no press that could repair it. Every seam now makes the lines agree: **the money follows the first row** (state, account and day), **a stamp is filled where a line has none and never overwritten where it has its own**, and **nothing is ever copied up onto the first row**, because that row prices the sale. A genuine disagreement still shows on the check.
+
+**No database step and no function deploy for these three.** 3,836 tests green.
 
 **19 Oct 2026 — engine v599, THE VERIFICATION SWEEP: THE LAST FIXES, THEN FREEZE (⚠️ RE-RUN shared_pool_slots.sql; REDEPLOY parcel).**
 

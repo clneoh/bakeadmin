@@ -3020,3 +3020,31 @@ test("★★★ a damaged book takes the cloud's settings, not its factory ones 
     } finally { restoreFetch(); }
   } finally { restore(); }
 });
+
+// ── v600: the thirty-second pull applies the Removed-shelf rule ───────────
+
+test("★★★ a pull drops a stale Removed row AND queues the removal (v600)", async () => {
+  // ⚠️⚠️ MEASURED: `mergeRows` dropped a Removed row for an order that is back on the live list, but `pull()`
+  // went straight to `mergeCloudRows` — ⚠️ **so every thirty-second read handed the stale row back: the order
+  // sat on both lists, Check my system named it on every run, and two records wore one id.** ⭐ The assertion
+  // is the TOMBSTONE, not only the tidied screen: without it the cloud returns the row on the next pull.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.orders = [{ id: "o1", qty: 2 }];
+    st.removedOrders = [{ id: "o1", qty: 1, removedAt: "2026-10-01T00:00:00.000Z" }];
+    seedToken(store);
+    seedJournal(store, {
+      snapshot: { "orders:o1": '{"id":"o1","qty":2}', "removedOrders:o1": '{"id":"o1","qty":1}' },
+    });
+    const restoreFetch = installFetch(async () => ({ ok: true, json: async () => [] }));
+    try {
+      await sync.pull(st);
+      assert.deepEqual(st.removedOrders, [],
+        "★ the stale Removed row survived the pull — **it sits on both lists again**");
+      const out = sync.markDirty(st, "2026-10-20T00:00:00.000Z");
+      assert.equal(out.pending["removedOrders:o1"] && out.pending["removedOrders:o1"]._deleted, true,
+        "★ the stale row was removed from the screen but NOT queued for removal — **the cloud hands it back**");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});

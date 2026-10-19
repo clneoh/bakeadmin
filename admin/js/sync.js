@@ -17,7 +17,7 @@
 // Pure helpers run under Node for tests; fetch/localStorage are guarded.
 
 import { login as loginSupabase, cachedToken } from "./supabase.js";
-import { removeOrders, dropStaleShelfRows, save, STOCK_PRODUCTION, bakeId, defaultState, applyRedactions, REDACTED_FIELDS } from "./state.js";
+import { removeOrders, dropStaleShelfRows, equaliseOrderLines, save, STOCK_PRODUCTION, bakeId, defaultState, applyRedactions, REDACTED_FIELDS } from "./state.js";
 import { mergeWeekCheck } from "./weekly.js";
 // The one answer to "is this a place" — see placeForSync below for why the courier
 // module's own rule is asked rather than a copy of it written here.
@@ -1072,15 +1072,17 @@ export function mergeRows(state, rows) {
   // the person was forgotten while the order row still carries their name on this phone — the merge turns a
   // redacted row's fields into "absent", and the redaction record is what removes them.
   const redacted = applyRedactions(state);
+  // ⚠️ A HALF-WRITTEN ORDER IS MADE WHOLE HERE TOO (v600) — one rule, every seam.
+  const equalised = equaliseOrderLines(state);
   // ★ AND A PULL THAT PUT RECORDS BACK HAS REPAIRED THE BOOK (v548). ⚠️ The "this phone could not read its
   // saved copy" note exists for the case where a damaged save came up empty and the cloud could NOT put it
   // back — ⭐ so the moment a pull actually restores something, the note clears. **It appears exactly when
   // the cloud did not save her, which is the only case that matters.**
   const healed = (changed || dropped > 0) && !!state.unreadableSave;
   if (healed) state.unreadableSave = null;
-  if (dropped || healed || redacted) save(state);
+  if (dropped || healed || redacted || equalised > 0) save(state);
   writeSync(b);
-  return { state, changed: changed || dropped > 0 || redacted > 0 };
+  return { state, changed: changed || dropped > 0 || redacted > 0 || equalised > 0 };
 }
 
 // ── pull ──────────────────────────────────────────────────────────────────
@@ -1213,6 +1215,13 @@ export async function pull(state) {
   // other callers; a PULL goes straight to `mergeCloudRows`, so the same rule is applied at the one seam
   // every read passes through.
   const redacted = applyRedactions(state);
+  // ⚠️⚠️ AND THE THIRTY-SECOND PULL APPLIES THE REMOVED-SHELF RULE TOO (v600). ⚠️ `mergeRows` did, `pull` did
+  // not — ⚠️ **so the shared data handed a stale Removed row back on every read: the order sat on the live list
+  // AND the Removed list, Check my system named it every time, and two records wore one id.** ⭐ Dropping it here
+  // queues the removal UP, which is what stops the cloud returning it again.
+  const dropped = dropStaleShelfRows(state);
+  // ⚠️ AND A HALF-WRITTEN ORDER IS MADE WHOLE ON THE PULL TOO (v600) — see `equaliseOrderLines`.
+  const equalised = equaliseOrderLines(state);
   b.lastPullAt = new Date().toISOString();
   // ⚠️⚠️ THE CURSOR ADVANCES ONLY ON A COMPLETE READ. ⭐ **A half-read book must not be remembered as "seen"**
   // — the next read would start after records this one never received.
@@ -1238,8 +1247,8 @@ export async function pull(state) {
   // On the first pull (or when rows changed), save so the save-hook queues any
   // records that only exist on this phone — that's the one-time migration that
   // uploads existing local data on first sign-in.
-  if (changed || first || redacted || wasUnreadable) save(state);
-  return { ok: true, changed: changed || first || redacted > 0 || wasUnreadable };
+  if (changed || first || redacted || dropped > 0 || equalised > 0 || wasUnreadable) save(state);
+  return { ok: true, changed: changed || first || redacted > 0 || dropped > 0 || equalised > 0 || wasUnreadable };
 }
 
 // ⭐ THE SIZE OF HER SHARED DATA, AS THE LAST READ FOUND IT — or null when this phone has never read it.

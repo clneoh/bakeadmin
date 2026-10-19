@@ -760,9 +760,58 @@ function normalize(s) {
   // load, keeping the LAST occurrence: ⚠️ **the one the sync would have published is the one kept**, so
   // what she counts and what reaches her other phone are the same record.
   for (const k of ID_LISTS) out[k] = dedupeById(out[k]);
+  // ⚠️⚠️ AND A HALF-WRITTEN ORDER IS MADE WHOLE BEFORE ANY READER SEES IT (v600). ⚠️ One line said
+  // `paidReceived: true` while its sibling said `null`, and another carried `promo` while its sibling carried
+  // none — ⚠️ **the Pay press is only offered while the FIRST line is unpaid and nothing re-applies a promo, so
+  // neither could be cleared by hand.** ⭐ The repair runs at every seam a book enters by: load, merge and pull.
+  equaliseOrderLines(out);
   // ⚠️ AND A REDACTION IS APPLIED AFTER EVERY LOAD (v592) — see `applyRedactions`.
   applyRedactions(out);
   return out;
+}
+
+// ⭐⭐ MAKE EVERY LINE OF ONE ORDER AGREE, WITHOUT EVER COPYING UP (v600).
+// ⚠️ Every money reader goes through the FIRST row (`isCollected`, `promoOn`, `money.js`), so a sibling that
+// disagrees is a half-written copy, not a second opinion. Two rules, and the direction matters:
+//   1. MONEY FOLLOWS THE FIRST ROW. When it says the money is in, every line gets the same state, account and
+//      day. A first row that does NOT say paid is left alone — and nothing is ever written UP onto it, because
+//      that row is what prices the sale.
+//   2. A STAMP IS FILLED, NEVER OVERWRITTEN. `promo` and `receiptNo` exist once per order; a line with its own
+//      value keeps it, so a genuine disagreement still shows on Check my system.
+// Returns how many rows it changed, so a caller knows whether the repair is worth saving.
+export function equaliseOrderLines(state) {
+  const orders = Array.isArray(state && state.orders) ? state.orders : [];
+  const groups = new Map();
+  for (const o of orders) {
+    if (!o || !o.id) continue;
+    const key = String(o.groupId || o.id);
+    const rows = groups.get(key);
+    if (rows) rows.push(o); else groups.set(key, [o]);
+  }
+  let changed = 0;
+  for (const rows of groups.values()) {
+    if (rows.length < 2) continue;
+    const first = rows[0];
+    const others = rows.slice(1);
+    if (first.paidReceived === true) {
+      for (const o of others) {
+        let touched = false;
+        if (o.paidReceived !== true) { o.paidReceived = true; touched = true; }
+        if (first.paidMethod != null && o.paidMethod !== first.paidMethod) { o.paidMethod = first.paidMethod; touched = true; }
+        if (first.paidAt && o.paidAt !== first.paidAt) { o.paidAt = first.paidAt; touched = true; }
+        if (touched) changed++;
+      }
+    }
+    for (const field of ["promo", "receiptNo"]) {
+      const source = rows.find((r) => r[field] !== undefined && r[field] !== null && r[field] !== "");
+      if (!source) continue;
+      for (const o of others) {
+        const mine = o[field];
+        if (mine === undefined || mine === null || mine === "") { o[field] = source[field]; changed++; }
+      }
+    }
+  }
+  return changed;
 }
 
 // The fields "Forget this customer" clears. One list, so the button and the re-application cannot drift.

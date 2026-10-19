@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalize, defaultState, removeOrders, loadState, save, updateOrderBadge, groupOrders, orderCode, ordersOnDate, waNumber, ensureSupabase, productUnitOptions, productUsesUnit, sameNameIngredient, duplicateIngredientPlan } from "../admin/js/state.js";
+import { normalize, defaultState, removeOrders, loadState, save, updateOrderBadge, groupOrders, orderCode, ordersOnDate, waNumber, ensureSupabase, productUnitOptions, productUsesUnit, sameNameIngredient, duplicateIngredientPlan, equaliseOrderLines } from "../admin/js/state.js";
 import { lockEnabled } from "../admin/js/pin.js";
 import { planOf } from "../admin/js/production.js";
 import { planBackwards } from "../admin/js/bakeday.js";
@@ -904,4 +904,50 @@ test("★★★ a bake day is asked about in ORDERS, not order lines (v583)", ()
   assert.equal(ordersOnDate(st, "d1"), 2, "★ a cart of two items is counted as two orders");
   assert.equal(ordersOnDate(st, "d2"), 1);
   assert.equal(ordersOnDate(st, "nope"), 0);
+});
+
+// ── v600: a half-written order is made whole ─────────────────────────────
+
+test("★★★ the money follows the FIRST line, and a stamp is filled but never overwritten (v600)", () => {
+  // ⚠️⚠️ MEASURED on a real order: one line read `paidReceived: true` while its sibling read `null`, and another
+  // carried `promo` while its sibling carried none. ⚠️ **The Pay press is only offered while the FIRST line is
+  // unpaid, and nothing re-applies a promo — so neither could be cleared by hand.**
+  const st = { orders: [
+    { id: "a", groupId: "g1", paidReceived: true, paidMethod: "Cash", paidAt: "2026-10-01T00:00:00.000Z",
+      promo: "SAVE5" },
+    { id: "b", groupId: "g1", paidReceived: null, promo: "", receiptNo: "000007" },
+  ] };
+  const n = equaliseOrderLines(st);
+  assert.equal(n > 0, true, "the repair reported no change");
+  assert.equal(st.orders[1].paidReceived, true, "★ the sibling line still says the money is not in");
+  assert.equal(st.orders[1].paidMethod, "Cash", "★ the account was not carried across");
+  assert.equal(st.orders[1].paidAt, "2026-10-01T00:00:00.000Z", "★ the paid day was not carried across");
+  assert.equal(st.orders[1].promo, "SAVE5", "★ the code was not filled onto the line that had none");
+  assert.equal(st.orders[1].receiptNo, "000007", "a stamp with its own value was overwritten");
+  assert.equal(st.orders[0].promo, "SAVE5", "the first row's own value moved");
+});
+
+test("★★★ the repair never copies UP onto the first row, and a real disagreement stays (v600)", () => {
+  // ⚠️ The first row is what prices the sale. A sibling saying paid must not make the sale paid.
+  const st = { orders: [
+    { id: "x", groupId: "g2", paidReceived: false },
+    { id: "y", groupId: "g2", paidReceived: true, paidMethod: "TNG", promo: "P1" },
+  ] };
+  equaliseOrderLines(st);
+  assert.equal(st.orders[0].paidReceived, false, "★ a sibling's payment was copied UP — the sale now reads paid");
+  assert.equal(st.orders[0].paidMethod, undefined, "★ the account was copied UP");
+  // ⚠️ AND A STAMP THAT ONLY A SIBLING CARRIES STAYS A DISAGREEMENT — filling it UP would change what the
+  // order reads as, and Check my system must still be able to show it.
+  assert.equal(st.orders[0].promo, undefined, "★ a sibling's code was copied UP onto the row that prices the sale");
+  assert.equal(st.orders[1].promo, "P1", "a genuine stamp disagreement was erased");
+});
+
+test("★★★ every load makes a half-written order whole (v600)", () => {
+  const out = normalize({ version: 1, orders: [
+    { id: "a", groupId: "g3", qty: 1, unitPrice: 16, paidReceived: true, paidMethod: "Cash" },
+    { id: "b", groupId: "g3", qty: 1, unitPrice: 16, paidReceived: null },
+  ] });
+  const b = out.orders.find((o) => o.id === "b");
+  assert.equal(b.paidReceived, true, "★ a load left one line saying the money is not in");
+  assert.equal(b.paidMethod, "Cash", "★ a load left the sibling with no account");
 });
