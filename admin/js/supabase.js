@@ -533,7 +533,10 @@ export function maybeSyncStorefront(state) {
 // fresh phone is up to date before its first Settings visit.
 export async function refreshStorefront(state) {
   const c = cfg(state);
-  if (!c.url || !c.anonKey) return false;
+  // ⚠️ LIVE AVAILABILITY OFF MEANS NO CALL AT ALL (v588). The URL and anon key ship in code, so this read still
+  // went out on a phone where the switch that owns it — Enable live availability — was off. ⭐ Nothing here
+  // needs a login, so `enabled` is the flag, not `ready()`.
+  if (!c.enabled || !c.url || !c.anonKey) return false;
   const base = String(c.url).replace(/\/+$/, "");
   try {
     const res = await fetch(

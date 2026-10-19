@@ -144,7 +144,10 @@ function restore() {
 // asked — ⚠️ **so a fetch added at module scope, or a sync that ran with sharing off, left the "no sync calls"
 // test green.** ⭐ The list is read by the boot tests below.
 let fetched = [];
-const SYNC_END = /rest\/v1\/(orders|settings|incoming_orders|backup_snapshots|product_availability|availability)/;
+// ⚠️⚠️ EVERY table the app has ever called (v588). The first list named six and left out `bakery` — the sync's
+// OWN table — so a boot that synced with sharing off passed the "no sync calls" test. `rpc/` is included for the
+// same reason: a receipt claim or tracking call is a sync call too.
+const SYNC_END = /rest\/v1\/(?:bakery|orders|settings|incoming_orders|backup_snapshots|product_availability|availability|order_tracking|reviews|storefront_config|promo_visits|promo_visit_days|receipt_numbers|rpc\/)/;
 globalThis.fetch = async (url) => {
   fetched.push(String(url));
   if (String(url).includes("/auth/v1/token")) {
@@ -162,7 +165,7 @@ test("cloud off: app boots straight to the dashboard, no gate, no sync calls", a
 
     const syncCalls = fetched.filter((u) => SYNC_END.test(u));
     assert.deepEqual(syncCalls, [],
-      "★ a phone with sharing OFF called a sync endpoint — **the no-sync-calls this test names was never counted**");
+      "★ a phone with sharing and live availability OFF called a sync endpoint — **the no-sync-calls this test names was never counted**");
     const view = document.getElementById("view");
     assert.ok(view.children.length > 0, "dashboard rendered into #view");
     assert.equal(document.getElementById("view-title-text").textContent, "Jienluv2bake");

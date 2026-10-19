@@ -9,7 +9,7 @@
 import { applyTo, loadLang, rememberLang, pick } from "./i18n.js";
 import { HOME } from "./home-lang.js";
 import { CONFIG } from "./store/config.js";
-import { bakeDaysText, withCutoff } from "./home-facts.js";
+import { bakeDaysText, publishedPrice, withCutoff } from "./home-facts.js";
 
 const BASE = String(CONFIG.supabase.url).replace(/\/+$/, "");
 const ANON = CONFIG.supabase.anonKey;
@@ -30,7 +30,13 @@ function render() {
   applyTo(document, HOME, lang);
   renderSiteFacts();
   const pills = document.querySelectorAll("#lang-switch .lang-pill");
-  pills.forEach((b) => b.classList.toggle("is-on", b.dataset.lang === lang));
+  // ⚠️⚠️ AND THE CHOSEN LANGUAGE IS SAID IN WORDS, NOT ONLY BY ITS BACKGROUND (v588). ⭐ The shop's own
+  // point cards and day buttons got `aria-pressed` at v583; the language pills did not.
+  pills.forEach((b) => {
+    const on = b.dataset.lang === lang;
+    b.classList.toggle("is-on", on);
+    if (b.setAttribute) b.setAttribute("aria-pressed", String(on));
+  });
   renderDevLine();
 }
 
@@ -103,6 +109,11 @@ async function loadDevConfig() {
     if (shopWa) setFooterNumber(shopWa);
     // ★★ AND THE CUT-OFF AND THE BAKE DAYS (v581). ⚠️ A malformed cut-off is ignored rather than printed;
     // an EMPTY day list is an answer — she has none open — and `bakeDaysText` says so with a dash.
+    // ⭐ AND THE PRICE ON THE CARD IS THE PRODUCT'S (v588) — the published list, by the word in its name.
+    const price = publishedPrice(cfg.products);
+    if (price) {
+      for (const el of document.querySelectorAll('[data-price="focaccia"]')) el.textContent = price;
+    }
     const cut = typeof cfg.cutoff === "string" ? cfg.cutoff.trim() : "";
     if (/^\d{1,2}:\d{2}$/.test(cut)) siteFacts.cutoff = cut;
     if (Array.isArray(cfg.deliveryDays)) siteFacts.days = cfg.deliveryDays;

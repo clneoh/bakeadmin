@@ -143,6 +143,12 @@ test("★★★ the homepage's Malay says TEMPAHAN, never TEMPOHAN (v583)", () =
 test("★★★ a review reaches the BAKERI, never a cake maker (v583)", () => {
   assert.doesNotMatch(ALL_HOME_MS, /pembuat kek/i,
     "★ \"pembuat kek\" (cake maker) is back in the Malay review thanks — her word is `bakeri`");
+  // ⚠️ AND THE WORD SHE CHOSE IS THERE (v588): a thanks that says neither "pembuat kek" nor "bakeri" passed the
+  // guard above while telling the reviewer their words reached nobody in particular.
+  assert.match(HOME.ms.rvThanksMain, /bakeri/,
+    "★ the Malay review thanks never says where the review went");
+  assert.match(HOME.ms.rvThanksWords, /bakeri/,
+    "★ the words-only Malay thanks never says where the review went");
 });
 
 test("★★★ a fully claimed code says nothing is left, not that everything was included (v583)", () => {

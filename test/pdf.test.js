@@ -238,6 +238,24 @@ test("a long journal becomes more than one page, and the head comes with it", ()
   for (const i of [0, 39, 79]) assert.ok(text.includes(`(row ${i}) Tj`), `row ${i} made it`);
 });
 
+test("★★★ the customer's address breaks at its own lines and inside the column (v588)", () => {
+  // ⚠️⚠️ MEASURED: `to` is a name plus an address whose line breaks are still in it, and the page drew it as
+  // ONE unwrapped string — ⚠️ **a three-line address ran past the column and its breaks printed as bytes.**
+  const s = journalSheet({
+    title: "Invoice", bakery: "Jien Luv 2 Bake",
+    to: "Aisyah binti Abdullah\nNo 12, Jalan Bukit Jambul Indah, Taman Sri Nibong, Sungai Nibong, 11900 Bayan Lepas, Pulau Pinang, Malaysia.",
+    lines: [], totals: [],
+  });
+  const drawn = [...latin1(journalPdf(s)).matchAll(/\(([^)]*)\) Tj/g)].map((m) => m[1]);
+  assert.ok(drawn.includes("Aisyah binti Abdullah"), "the name is a line of its own");
+  assert.ok(drawn.includes("Malaysia."),
+    "★ the tail of the address is not on the page as its own line — **the rest ran past the margin**");
+  assert.equal(drawn.some((x) => x.includes("Aisyah") && x.includes("Jalan")), false,
+    "★ the name and the address were drawn as one string");
+  assert.equal(drawn.some((x) => x.includes("\n")), false,
+    "★ an address's line break printed as a raw byte");
+});
+
 test("an empty journal is still a document she can send", () => {
   const s = journalSheet({ title: "Sales journal", lines: [], totals: [],
     empty: "Nothing was sold in September 2026." });

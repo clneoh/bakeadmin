@@ -233,7 +233,7 @@ if ("serviceWorker" in navigator) {
         <div class="product-info">
           <div class="eyebrow"><span data-i18n="p1Name">FOCACCIA</span></div>
           <div class="size" data-i18n="p1Size">12" × 9"</div>
-          <div class="price">RM16</div>
+          <div class="price" data-price="focaccia">RM16</div>
           <p data-i18n="p1Desc">Soft on the inside, golden on the outside. Perfect on its own or with your favorite fillings.</p>
         </div>
       </article>
@@ -360,9 +360,9 @@ if ("serviceWorker" in navigator) {
 
       <span class="flabel" id="rv-langs-label" data-i18n="langLabel">Review language</span>
       <div class="rv-langs" id="rv-langs" role="group" aria-labelledby="rv-langs-label">
-        <button type="button" class="rv-lang is-on" data-lang="en">English</button>
-        <button type="button" class="rv-lang" data-lang="zh">中文</button>
-        <button type="button" class="rv-lang" data-lang="ms">Bahasa Malaysia</button>
+        <button type="button" class="rv-lang is-on" data-lang="en" aria-pressed="true">English</button>
+        <button type="button" class="rv-lang" data-lang="zh" aria-pressed="false">中文</button>
+        <button type="button" class="rv-lang" data-lang="ms" aria-pressed="false">Bahasa Malaysia</button>
       </div>
 
       <label class="flabel" for="rv-photo-take" data-i18n="photoLabel">Add a photo (optional)</label>

@@ -55,3 +55,20 @@ export function bakeDaysText(days, lang = "en") {
   if (!picked.length) return "—";
   return picked.map((n) => words[n]).join(" / ");
 }
+
+// ⚠️⚠️ THE PRICE ON THE HOMEPAGE IS HER PRODUCT'S, NOT A TYPED NUMBER (v588). ⚠️ The card said **RM16** while
+// the shop printed the price she publishes — ⚠️ **change it in the app and the two pages disagreed, with the
+// homepage the one nobody re-publishes.** ⭐ The published name may gain a word ("Rosemary Focaccia"), so the
+// match is on the word, not the exact string; ⚠️ nothing found means the typed figure stays, exactly as before.
+export function priceText(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v <= 0) return "";
+  return Number.isInteger(v) ? `RM${v}` : `RM${v.toFixed(2)}`;
+}
+
+export function publishedPrice(products, word = "focaccia") {
+  const list = Array.isArray(products) ? products : [];
+  const hit = list.find((p) => p && typeof p.name === "string"
+    && p.name.toLowerCase().includes(String(word).toLowerCase()) && Number(p.price) > 0);
+  return hit ? priceText(hit.price) : "";
+}

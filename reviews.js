@@ -519,6 +519,7 @@ function initReviews() {
     buttons.forEach((b) => {
       const on = Number(b.dataset.val) <= rating;
       b.classList.toggle("is-on", on);
+      if (b.setAttribute) b.setAttribute("aria-pressed", String(on));
       b.setAttribute("aria-pressed", String(on));
     });
   }
@@ -535,7 +536,11 @@ function initReviews() {
   langBtns.forEach((b) => {
     b.addEventListener("click", () => {
       lang = b.dataset.lang;
-      langBtns.forEach((x) => x.classList.toggle("is-on", x === b));
+      langBtns.forEach((x) => {
+      const on = x === b;
+      x.classList.toggle("is-on", on);
+      if (x.setAttribute) x.setAttribute("aria-pressed", String(on));
+    });
     });
   });
 
@@ -653,7 +658,11 @@ function initReviews() {
     rating = 0;
     paintStars();
     lang = "en";
-    langBtns.forEach((x) => x.classList.toggle("is-on", x.dataset.lang === "en"));
+    langBtns.forEach((x) => {
+      const on = x.dataset.lang === "en";
+      x.classList.toggle("is-on", on);
+      if (x.setAttribute) x.setAttribute("aria-pressed", String(on));
+    });
     if (preview) preview.replaceChildren();
     clearPicked();
     showThanks(critical, thanksState);

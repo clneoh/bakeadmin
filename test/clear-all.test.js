@@ -13,8 +13,16 @@ import { readFileSync } from "node:fs";
 
 const SRC = readFileSync(new URL("../admin/js/views/settings.js", import.meta.url), "utf8");
 
+// ⚠️⚠️ COMMENTS STRIPPED BEFORE ANY MATCH (v588). A `// sync.clearJournal();` still matched the reader, so the
+// one line that keeps the reset from wiping the other phone could be commented out with every guard green.
+function live(src) {
+  return String(src || "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n").map((line) => line.replace(/(^|\s)\/\/.*$/, "")).join("\n");
+}
+
 test("★★★ the reset forgets the journal and signs out, so it cannot delete the cloud", () => {
-  const block = SRC.slice(SRC.indexOf("function clearAll()"), SRC.indexOf("function rowEl("));
+  const block = live(SRC.slice(SRC.indexOf("function clearAll()"), SRC.indexOf("function rowEl(")));
   assert.ok(block.length > 100, "the clearAll block moved — this reader must be pointed at it again");
   assert.match(block, /sync\.clearJournal\(\)/,
     "★ the reset does not forget the sync journal — **its snapshot tombstones every record and wipes the other phone**");
@@ -25,7 +33,7 @@ test("★★★ the reset forgets the journal and signs out, so it cannot delete
 });
 
 test("★★★ and it says what it touches", () => {
-  const block = SRC.slice(SRC.indexOf("function clearAll()"), SRC.indexOf("function rowEl("));
+  const block = live(SRC.slice(SRC.indexOf("function clearAll()"), SRC.indexOf("function rowEl(")));
   assert.match(block, /SHARED DATA still holds/,
     "★ the dialog does not say the shared data keeps the book — **she would believe she deleted everything**");
   assert.match(block, /app password goes back to the default/,

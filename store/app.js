@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "587";
+export const SHOP_BUILD = "588";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -4995,13 +4995,15 @@ function wireFulfillment() {
   // keep right**, which this very file learned at v412 about setting the way in the first place.
   wrap._resetFulfillment = () => {
     wrap._picked = false;
-    // ⚠️⚠️ AND THE WAY STAYS "collect" — I CHANGED THIS AND PUT IT BACK (v506). ⭐ Her words were about the
-    // CARD, not the way: __"you clear the self collect choosen point, way not collapse the card?"__ — and I
-    // read "the way" as the choice of way and made it neutral, **which broke fourteen tests and broke the
-    // ORDER PATH for anybody coming back to the shop.** ⭐ **A change with a blast radius that size, made on my
-    // own reading of one word, is the fault this whole day has been made of.** So the way is left exactly as
-    // the shop has always left it, and what she actually named is fixed below.
-    apply("collect");
+    // ⚠️⚠️ THE WAY GOES BACK TO "NOTHING CHOSEN" — THE SAME STATE A NEW VISITOR ARRIVES IN (v588). ⚠️ It was
+    // left at "collect", ⚠️ **so the next customer opened step 3 with the Self collect card edged, the "Tap to
+    // choose one" prompt gone, and no guard left to stop an order being placed with a way they never picked.**
+    // ⭐ Called the same way arrival is called (`apply("")`, further down this file) — ⭐ **the file's own
+    // comment already claimed the two were "now the same call"; they were not.**
+    // ⚠️ The v506 note above this line recorded that a neutral reset once broke fourteen tests. Those tests
+    // were asserting the old behaviour; they are rewritten WITH this change, deliberately, because the
+    // behaviour is the fault.
+    apply("");
     clearFor("point");     // ⭐ no collection centre (v505)
     wrap._open = null;     // ⭐ and BOTH CARDS FOLDED (v506) — her words: __"way not collapse the card?"__
     clearFor("address");   // ⭐ and no address (v506) — the same class: the reset cleared the value and left
@@ -5608,7 +5610,12 @@ export function setLang(next) {
 // a real browser reaches this block (Node tests have no documentElement).
 if (typeof document !== "undefined" && document.documentElement) {
   const pills = Array.from(document.querySelectorAll("#lang-switch .lang-pill"));
-  paintPillsHook = (l) => pills.forEach((b) => b.classList.toggle("is-on", b.dataset.lang === l));
+  // ⭐ AND THE CHOSEN LANGUAGE WITH IT (v588) — the same fact in words, not only in colour.
+  paintPillsHook = (l) => pills.forEach((b) => {
+    const on = b.dataset.lang === l;
+    b.classList.toggle("is-on", on);
+    if (b.setAttribute) b.setAttribute("aria-pressed", String(on));
+  });
   applyTo(document, STORE, loadLang());
   paintPillsHook(loadLang());
   pills.forEach((b) => b.addEventListener("click", () => {

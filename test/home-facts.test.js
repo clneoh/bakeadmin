@@ -9,7 +9,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CUTOFF_TOKEN, bakeDaysText, cutoffText, withCutoff } from "../home-facts.js";
+import { CUTOFF_TOKEN, bakeDaysText, cutoffText, publishedPrice, priceText, withCutoff } from "../home-facts.js";
 import { HOME } from "../home-lang.js";
 
 test("cutoffText speaks a clock the way a person does", () => {
@@ -53,4 +53,18 @@ test("★★ bakeDaysText names HER bake days, in the visitor's language", () =>
   // on the page. `null`/absent is a publish that said nothing, and the translated line stays.
   assert.equal(bakeDaysText([], "en"), "—", "★ days she has closed still read as Mon / Wed / Fri");
   assert.equal(bakeDaysText(null, "en"), null, "a payload with no day list replaced her translated line");
+});
+
+test("★★★ the homepage card shows the price she publishes, not a typed number (v588)", () => {
+  // ⚠️⚠️ MEASURED: the card said RM16 while the shop printed her published price — ⚠️ **one price, two sources,
+  // and the homepage is the one nobody re-publishes.**
+  assert.equal(priceText(16), "RM16");
+  assert.equal(priceText(15.5), "RM15.50");
+  assert.equal(publishedPrice([{ name: "Rosemary Focaccia", price: 18 }]), "RM18",
+    "★ the published product's price is not reaching the card — **the homepage still says RM16**");
+  assert.equal(publishedPrice([{ name: "Focaccia", price: 22 }, { name: "Sandwich", price: 12 }]), "RM22");
+  // ⚠️ Nothing to read means the typed figure stays — never a card that says RM with no number.
+  assert.equal(publishedPrice([]), "");
+  assert.equal(publishedPrice([{ name: "Focaccia", price: 0 }]), "");
+  assert.equal(publishedPrice(null), "");
 });

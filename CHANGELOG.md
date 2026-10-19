@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v587)
+# Jienluv2bake — change history (v54 → v588)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v588, WHAT THE SECOND SWEEP FOUND: WHAT THE PAGES SAY AND PRINT (NO DATABASE STEP).**
+
+**Your words:** __"what did the sweeps find"__ — part two of that answer. This version fixes what the website and the printed sheets said wrongly, and the five tests that could not fail.
+
+1. ⚠️ **THE HOMEPAGE SAID "RM16" NO MATTER WHAT YOU CHARGED.** The shop reads your published price; the homepage had the figure typed into it. ⚠️ **Change the price in the app and the two pages disagree on the same day.** ⭐ The card now reads your published product's price, and falls back to the typed figure only when nothing is published.
+2. ⚠️⚠️ **AFTER ONE ORDER, THE NEXT CUSTOMER ARRIVED WITH THE LAST ONE'S CHOICE ALREADY PICKED** — the shop remembered "Self collect" or "Courier" from the previous customer. ⭐ It now always starts with **no way chosen**, so every customer makes their own choice. *(Deliberate: the old behaviour was the fault, not the fix.)*
+3. ⚠️ **Printing a purchase order, a register or a label could carry the app's own strips** — "Not sharing", "New version ready", and the label preview's warning — onto the paper. ⭐ None of them print now.
+4. ⚠️ **A long customer address on the invoice PDF ran past the column** and its line breaks printed as raw bytes. ⭐ The address now breaks at its own lines and wraps inside the column.
+5. ⚠️ **Screen readers could not tell which language was chosen** on the homepage, the review form or the shop — the choice was colour only. ⭐ A chosen language now says so, in every place it appears, and **"How will you get your order?"** on the shop is now a named group, so the two cards are read as its answers.
+
+**Found by the sweep's own test review**
+6. ⚠️ **With "Enable live availability" switched OFF, the app still asked Supabase for the published shop details at every boot** — the URL and key ship in code, and that read never looked at the switch. ⭐ Off now means no call at all.
+7. ⚠️ **Five guards could not fail.** Home's past-date test knew only one way to write the cut; Clear-all still matched a commented-out line; the "no sync calls" test did not count the app's own sync table; the order-removal guard missed `state["orders"]`; the Malay wording test checked only that the wrong word was *absent*, never that **bakeri** was there. ⭐ All five now catch the fault they name, proved by putting each fault back.
+
+**No database step. Nothing of yours is rewritten** — no order, price, stock row or setting is touched by this version.
 
 **19 Oct 2026 — engine v587, WHAT THE SECOND SWEEP FOUND: MONEY AND RECORDS (⚠️ RUN receipts.sql AGAIN; REDEPLOY courier, parcel AND wish-mail).**
 
@@ -2113,7 +2129,7 @@ __Corrected at v509:__ **the offer and the "then does it by itself" half are bot
 
 **1. ⭐ YES — AND IT IS CALLED AN ACCOUNT.** ⭐ **One word for one thing.** The two names the app used to keep apart — the "purse and phone" against the "pockets" — are gone. Every place money sits is an account: your tin, your phone, the bank, LK's hand, a loan. ⚠️ **And because you chose that word, nothing else has to be renamed**: *"My own pocket"* stays exactly as it is, because "account" and "pocket" can no longer be confused.
 
-**2. ⭐⭐ AND THE MONEY SCREEN IS ONE SHAPE NOW — one block per account, every account the same.** What came in, what went out, **what it holds**. ⚠️ **It replaces four special rows — Cash in, TNG in, Cash out, TNG out — and the "Paid by" lines under them**, which was two shapes for one idea. That is what made you ask twice what the difference was. ⭐ **The idea is yours: *"way to pay and the way to receive are the same."***
+**2. ⭐⭐ AND THE MONEY SCREEN IS ONE SHAPE NOW — one block per account, every account the same.** What came in, what went out, **what it holds**. ⚠️ **It replaces four special rows — Cash in, TNG in, Cash out, TNG out — and the "Paid by" lines under them**, which was two shapes for one idea. That is what made you ask twice what the difference was. ⭐ **The idea is yours: "way to pay and the way to receive are the same."**
 
 **3. ⭐ AND EVERY MONEY LINE IS NOW EDITABLE IN THE OPEN, WITH AN Edit AND A Delete ON IT.** ⚠️ **You asked twice how to delete an account, and that was my fault:** the line itself was the button, with the word "edit" in grey at its end — ⭐ **a control that does not look like one is a control you do not have.** Every line carries the same two buttons every other list in this app already wears.
 

@@ -1479,7 +1479,7 @@ test("publishTracking is a silent no-op when tracking is unconfigured", async ()
 test("refreshStorefront adopts the latest published storefront into the phone's state", async () => {
   storageShim(new Map());
   const state = makeState();
-  state.settings.supabase = { url: "https://x.supabase.co", anonKey: "anon" };
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon" };
   state.settings.storefront = { name: "", whatsapp: "", tagline: "", instagram: "", facebook: "", tngQr: "", products: [] };
   const remote = {
     name: "Jienluv2bake Cakes", whatsapp: "60111223344", tagline: "Cakes & more",
@@ -1506,10 +1506,28 @@ test("refreshStorefront adopts the latest published storefront into the phone's 
   }
 });
 
+test("★★★ with live availability OFF the storefront read makes no call at all (v588)", async () => {
+  // ⚠️⚠️ MEASURED: the URL and anon key ship in code, and this read did not look at `enabled` — ⚠️ **a phone
+  // where Enable live availability was off still asked Supabase for the published row at every boot.**
+  // ⭐ Tested here because it is a function-level fact; app.test.js counts the same call at boot.
+  storageShim(new Map());
+  const state = makeState();
+  state.settings.supabase = { enabled: false, url: "https://x.supabase.co", anonKey: "anon" };
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return { ok: true, json: async () => [] }; };
+  try {
+    assert.equal(await refreshStorefront(state), false, "nothing adopted");
+    assert.equal(calls, 0, "★ a phone with live availability off called Supabase");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
 test("refreshStorefront keeps the local copy when the published row is missing or nameless", async () => {
   storageShim(new Map());
   const state = makeState();
-  state.settings.supabase = { url: "https://x.supabase.co", anonKey: "anon" };
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon" };
   state.settings.storefront = { name: "Local", whatsapp: "60111111111", tagline: "", instagram: "", facebook: "", tngQr: "", products: [] };
   let calls = 0;
   globalThis.fetch = async () => { calls++; return { ok: true, json: async () => [] }; };

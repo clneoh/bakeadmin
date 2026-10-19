@@ -427,9 +427,13 @@ test("★ Home's folded past-date group draws every day, not the first eight (v5
   // ⚠️⚠️ MEASURED: Home stopped at eight past dates and said nothing about the rest — ⚠️ **a list she opened
   // to find a day quietly ended at eight.** ⚠️ Source-level, and named as such: Home's own harness is not in
   // this file, and the rule is a slice that must not come back.
+  // ⚠️ ANY cut, not one spelling (v588): the first guard knew only `past.slice(0, 8)`, so `splice`, `slice(0, 10)`
+  // or a length test all passed it — and the list she opened would end where the code decided.
   const src = readFileSync(new URL("../admin/js/views/dashboard.js", import.meta.url), "utf8");
-  assert.doesNotMatch(src, /past\.slice\(0,\s*8\)/,
-    "★ Home still stops at eight past dates");
+  assert.doesNotMatch(src, /\bpast\s*\.\s*(?:slice|splice)\s*\(/,
+    "★ Home cuts the past dates again — **the list she opens ends where the code decided**");
+  assert.doesNotMatch(src, /\bpast\s*\.\s*length\s*[<>]/,
+    "★ Home limits the past dates by length again");
 });
 
 test("the past dates are one folded group, holding every one of them", () => {

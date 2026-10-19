@@ -351,7 +351,17 @@ function sheetPages(s, cur) {
     put(s.title, PDF_MARGIN, { font: "F2", size: 18 });
     y -= 24;
     if (s.subtitle) { put(s.subtitle, PDF_MARGIN, { size: 10, color: MUTED }); y -= 15; }
-    if (s.to) { put(s.to, PDF_MARGIN, { size: 10, color: MUTED }); y -= 15; }
+    // ⚠️⚠️ THE CUSTOMER LINE RAN OFF THE PAGE (v588 — the audit's §8·1, never fixed until now). ⚠️ `to` is
+    // the name plus an address whose line breaks are still in it; the PDF drew it as ONE unwrapped string, so
+    // ⚠️ **a three-line address ran past the column and its breaks printed as raw bytes.** ⭐ Each of its own
+    // lines is wrapped to the column, so the address breaks where it means to and never past the margin.
+    if (s.to) {
+      for (const raw of String(s.to).split("\n")) {
+        const chunks = wrapText(raw.trim(), PDF_RIGHT - PDF_MARGIN, { size: 10 });
+        if (!chunks.length) { y -= 15; continue; }
+        for (const chunk of chunks) { put(chunk, PDF_MARGIN, { size: 10, color: MUTED }); y -= 15; }
+      }
+    }
     // The serial beside the order code, on the PDF and the shared text as on the screen (v577).
     if (s.receipt) { put(s.receipt, PDF_MARGIN, { size: 9, color: MUTED }); y -= 13; }
     else if (s.receiptNote) { put(s.receiptNote, PDF_MARGIN, { size: 9, color: MUTED }); y -= 13; }

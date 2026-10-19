@@ -53,7 +53,15 @@ function liveSource(src) {
 // ⚠️⚠️ EVERY WAY A LIST IS EMPTIED, NOT ONE SPELLING (v584). ⚠️ This grep only knew `state.orders =` —
 // ⚠️ **so `.length = 0`, `.splice()`, `.pop()`, `.shift()` and `delete state.orders` all passed it** — precisely
 // the removal somebody adds later, which is the fault this guard exists for. ⭐ Pushing and mapping stay allowed.
-const DROPS_ORDERS = /state\.orders\s*=(?!=)|state\.orders\s*\.\s*(?:splice|pop|shift)\s*\(|delete\s+state\s*\.\s*orders\b|state\.orders\s*\.\s*length\s*=/;
+// ⚠️ AND THE BRACKET SPELLING (v588): `state["orders"] = []` is the same emptying as `state.orders = []`, and
+// the first guard read only the dot form.
+const ORDER_FIELD = String.raw`state\s*(?:\.\s*orders|\[\s*["']orders["']\s*\])`;
+const DROPS_ORDERS = new RegExp(
+  `${ORDER_FIELD}\\s*=(?!=)`
+  + `|${ORDER_FIELD}\\s*\\.\\s*(?:splice|pop|shift)\\s*\\(`
+  + `|delete\\s+${ORDER_FIELD}\\b`
+  + `|${ORDER_FIELD}\\s*\\.\\s*length\\s*=`,
+);
 
 test("★★ no file may drop rows from state.orders except the one door (v444)", () => {
   // ⚠️ THE GUARD IS A GREP ON PURPOSE. A behaviour test can only cover the removals that exist today —

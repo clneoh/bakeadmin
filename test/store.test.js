@@ -845,6 +845,16 @@ function refill() {
 // pressing "Use my location", which no longer exists — and every one of their assertions was about
 // what the ORDER carries, not about that button. They are driven through the MAP there now, which
 // is the path a customer still has, and that file owns the Leaflet stub the map needs.
+// ⚠️ A WAY MUST BE CHOSEN BEFORE AN ORDER IS PLACED (v588). ⭐ The after-order reset now returns the page to
+// NOTHING chosen — before it, "Self collect" was left engaged for the next customer, so a test that never chose
+// a way was placing orders on a state the shop no longer reaches. Choosing is what a customer does, and the
+// Place-order guard refusing without it is the behaviour that change exists for.
+const chooseCollect = () => {
+  const f = document.getElementById("fulfillment");
+  f._value = "collect";
+  f._picked = true;
+};
+
 test("the receipt carries the strictest change/cancel window of the whole basket", async () => {
   // ⚠️ The two products and their two windows are the TEST's own fixture (v347) —
   // the fallback menu can no longer supply them, and never promised to.
@@ -867,6 +877,7 @@ test("the receipt carries the strictest change/cancel window of the whole basket
     // receives carries the name she confirms it against. Without this line the press refuses.
     document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
+      chooseCollect();
       await registry["order-btn"].onclick();
       await afterOrderNotice(); // ★ the notice follows her one second (v451)
       const line = confirmLines().find((t) => /change or cancel/i.test(t));
@@ -896,6 +907,7 @@ test("the receipt carries the strictest change/cancel window of the whole basket
         if (opts && opts.method === "POST") posts += 1;
         return countingFetch(url, opts);
       };
+      chooseCollect();
       await registry["order-btn"].onclick();
       await afterOrderNotice(); // ★ the notice follows her one second (v451)
       globalThis.fetch = countingFetch;
@@ -990,6 +1002,7 @@ test("an order without a ?via= link carries no referral stamp", async () => {
     // receives carries the name she confirms it against. Without this line the press refuses.
     document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
+    chooseCollect();
     await registry["order-btn"].onclick();
     const payload = JSON.parse(posted.body[0].data);
     assert.equal(payload.referredBy, undefined, "no stamp when there's no via");
@@ -1052,6 +1065,7 @@ test("order click sanitizes a +60-style phone to wa.me digits", async () => {
     document.getElementById("whatsapp-input").value = "+60 12-345 6789";
     // ⚠️ A NAME IS REQUIRED (v452) — her decision. Without it the press refuses.
     document.getElementById("name-input").value = "Aunty Bee";
+    chooseCollect();
     await registry["order-btn"].onclick();
     assert.ok(posted, "order was POSTed");
     const payload = JSON.parse(posted.body[0].data);
@@ -1550,6 +1564,7 @@ test("order that reaches the app shows received WITHOUT opening WhatsApp (no pop
     // receives carries the name she confirms it against. Without this line the press refuses.
     document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
+    chooseCollect();
     await registry["order-btn"].onclick();
     await afterOrderNotice(); // ★ the notice follows her one second (v451)
     assert.ok(posted, "order was POSTed to the backoffice");
@@ -1566,6 +1581,30 @@ test("order that reaches the app shows received WITHOUT opening WhatsApp (no pop
     globalThis.fetch = realFetch;
     window.open = realOpen;
   }
+});
+
+test("★★★ after an order, the next customer arrives with NO way chosen (v588)", async () => {
+  // ⚠️⚠️ MEASURED: the after-order reset left "Self collect" engaged — ⚠️ **so the next customer opened step 3
+  // with the card edged, the "Tap to choose one" prompt gone, and no guard left to stop an order placed with a
+  // way they never picked.** ⭐ The reset now returns the page to the state a new visitor sees.
+  const card = registry["menu"].children[0];
+  const stepper = card.children.find((c) => c.className === "card-body").children.find((c) => c.className === "stepper");
+  tapDay();
+  stepper.children[2]._listeners.click[0]();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => (opts && opts.method === "POST" ? { ok: true } : { ok: true, json: async () => [] });
+  try {
+    document.getElementById("name-input").value = "Aunty Bee";
+    document.getElementById("whatsapp-input").value = "60123456789";
+    chooseCollect();
+    await registry["order-btn"].onclick();
+    await afterOrderNotice();
+
+    assert.equal(document.getElementById("fulfillment")._value, "",
+      "★ the next customer opens the shop with a way already chosen — **an order can be placed with a way they never picked**");
+    assert.equal(registry["fulfil-pick"].hidden, false,
+      "★ and the 'Tap to choose one' prompt is gone, so the two cards read as descriptions again");
+  } finally { globalThis.fetch = realFetch; }
 });
 
 test("WhatsApp only opens as a fallback when the order could NOT reach the app", async () => {
@@ -1588,6 +1627,7 @@ test("WhatsApp only opens as a fallback when the order could NOT reach the app",
     // receives carries the name she confirms it against. Without this line the press refuses.
     document.getElementById("name-input").value = "Aunty Bee";
     document.getElementById("whatsapp-input").value = "60123456789";
+    chooseCollect();
     await registry["order-btn"].onclick();
     assert.equal(opened.length, 1, "WhatsApp opens only when the app could not be reached");
     assert.ok(String(opened[0]).startsWith(`https://wa.me/${CONFIG.whatsapp}?text=`),
@@ -2474,6 +2514,7 @@ test("the shop offers her kitchen ONCE — as itself, or as the fallback, never 
     assert.equal(registry["point-list"].children.length, 2, "both places are still offered");
     // ⚠️ And the card says what to do instead of pretending — the line that stands where the
     // highlight used to. It is inside the folded body, so it shows with the card.
+    chooseCollect();
     document.getElementById("fulfillment")._open = "collect";
     render();
     tapDay(); // ★ the step lock: step 1 must be HIS before step 2 opens
