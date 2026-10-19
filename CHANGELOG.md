@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v589)
+# Jienluv2bake — change history (v54 → v590)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v590, THE THIRD SWEEP, PART 2: STOCK, PAPER AND THE DAY'S ANSWER (NO DATABASE STEP).**
+
+**Your words:** __"go ahead with v590"__. The rest of what the third sweep found that changes a number she relies on.
+
+1. ⚠️⚠️ **A RECIPE AMOUNT WAS ROUNDED BEFORE IT REACHED THE SHELF.** A line written as 0.025 kg became 0.03 kg — **30 g taken for a 25 g line, 130 g for five loaves, and a 4 g line became 0 and wrote no stock row at all.** ⭐ The exact amount now travels; rounding belongs where a number is shown.
+2. ⚠️⚠️ **A SET MADE OF A SET COUNTED AS ONE.** The Party Box is 2 × Family = 8 loaves; **two boxes read "2 of 12" on the day while taking 16 pieces from the shop's pool**, and the shop had no cap for them. ⭐ The chain is followed to the product that carries the limit — for the day's capacity, the pool, the purchase order's own over-capacity warning and the published cap.
+3. ⚠️⚠️ **A HAND ORDER FOR A PRODUCT NOT SOLD THAT DAY ATE THE SHOP'S CAPACITY.** 9 focaccia plus one Saturday-only loaf on a Monday published "sold out" with **three focaccia still unsold**. ⭐ Only what is on sale that day counts toward the day's shop capacity.
+4. ⚠️⚠️ **THE PDF CUT OFF LONG HEADER LINES.** A 319-character stock-card sentence was drawn as one line **2,128 pt wide on a 482 pt column** — only its first ~85 characters reached the paper. ⭐ The title, subtitle, receipt note and empty-state sentence now wrap inside the margin, as the customer address has since v588.
+5. ⚠️ **THE DAY'S PURSE LINE COUNTED REFUNDED MONEY.** Two RM15 sales with one refunded read "Cash RM30" while your tin held RM15. ⭐ It is net of the refunds that came back that day, and says how much.
+6. ⚠️ **THE REFUND TICKER USED FACE PRICES.** On a coupon order it read "Ticked so far RM15" beside "up to RM12", then refused your press. ⭐ Each line is priced with the same discount the bill carries.
+7. ⚠️ **AN EDIT CARD FORGOT A DELETED CODE'S DISCOUNT.** It showed the order at full price while the saved order kept the frozen discount — which also produced a false "extra paid?" question. ⭐ The frozen amount is used on both cards.
+8. ⚠️ **A TRANSFER READ AS MONEY SHE PUT IN.** One RM200 TNG-to-Cash move made the card say "of the money in, RM200 was your own" on a day nothing entered the business. ⭐ Transfers and paybacks are not her own money in.
+9. ⚠️⚠️ **THE "NEXT BAKE DAY" BOX WAS COMPUTED FROM THE WEEKDAY RULE AND NEVER REPAINTED.** It kept naming a day that had closed, sold out or been removed, under a deadline already past. ⭐ It now takes the same real list the calendar is drawn from, on every refresh, and skips a sold-out day.
+
+**No database step. No edge function redeploy.** Nothing of yours is rewritten. 3,734 tests green.
 
 **19 Oct 2026 — engine v589, THE THIRD SWEEP, PART 1: WHAT COULD LOSE DATA OR OPEN THE DOOR (⚠️ REDEPLOY courier AND parcel).**
 

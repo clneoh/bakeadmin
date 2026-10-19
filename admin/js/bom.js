@@ -246,7 +246,8 @@ export function dayChangeInfo(state, dateStr, savedFp) {
   for (const a of added) {
     const product = byId(state.products || [], a.productId);
     if (!product) continue; // deleted product — its recipe is gone, nothing to price
-    totalUnits += a.qty;
+    // ⚠️ A PACK'S PIECES COUNT TOWARD THE DAY (v590) — the same rule v587 gave the day's capacity.
+    totalUnits += unitsOfOrder(state, { productId: a.productId, qty: a.qty });
     const { lines } = expandProduct(state, product, a.qty, []);
     for (const line of lines) {
       let it = acc.get(line.ingredientId);
@@ -452,7 +453,11 @@ export function expandProduct(state, product, scale = 1, warnings = []) {
   return {
     lines: [...map.entries()].map(([ingredientId, d]) => ({
       ingredientId,
-      qty: round2(d.qty * scale),
+      // ⚠️⚠️ NOT ROUNDED HERE (v590). ⚠️ `round2(d.qty * scale)` rounded in the RECIPE LINE'S OWN UNIT
+      // before the shelf conversion — ⚠️ **a 0.025 kg line became 0.03 kg (30 g off the shelf for 25), and a
+      // 4 g line written as 0.004 kg became 0 (the bake wrote no stock row at all).** ⭐ The exact quantity
+      // travels; rounding belongs where a number is shown, not where stock is taken.
+      qty: d.qty * scale,
       unit: d.unit,
     })),
     warnings,
@@ -551,13 +556,31 @@ export function recipeLineCosts(state, product) {
 export function isPoolablePack(state, product) {
   if (!product) return null;
   if (Number(product.limit) > 0) return null;
-  const lines = (product.recipe || []).filter((l) => (Number(l.qty) || 0) > 0);
+  // ⚠️⚠️ THROUGH EVERY LEVEL, NOT ONE (v590). ⚠️ A box of two family packs of eight pieces was counted as
+  // ONE by the day's capacity while the shop's pool counted EIGHT — ⚠️ **two boxes read 2 of 12 on her screen
+  // and consumed 16 pieces.** ⭐ The chain is followed to the product that actually carries the limit.
+  const t = terminalPackOf(state, product.id, new Set());
+  if (!t || t.baseId === product.id) return null;
+  const base = byId(state.products, t.baseId);
+  if (!base || base.active === false) return null;
+  return { baseId: base.id, baseQty: t.qty };
+}
+
+// The limited base at the end of a single-line pack chain, and how many of its pieces one unit consumes.
+// Cycle-safe; a mixed recipe (more than one line, or an ingredient line) ends the chain with null.
+function terminalPackOf(state, productId, stack) {
+  const p = byId(state.products, productId);
+  if (!p || stack.has(productId)) return null;
+  if (Number(p.limit) > 0) return { baseId: productId, qty: 1 };
+  const lines = (p.recipe || []).filter((l) => (Number(l.qty) || 0) > 0);
   if (lines.length !== 1) return null;
   const only = lines[0];
   if (!only.productId || only.ingredientId) return null;
-  const base = byId(state.products, only.productId);
-  if (!base || base.active === false || !(Number(base.limit) > 0)) return null;
-  return { baseId: base.id, baseQty: Number(only.qty) };
+  stack.add(productId);
+  const below = terminalPackOf(state, only.productId, stack);
+  stack.delete(productId);
+  if (!below) return null;
+  return { baseId: below.baseId, qty: (Number(only.qty) || 0) * below.qty };
 }
 
 // Pieces of a pool base still free for a delivery date = base.limit minus every
@@ -796,8 +819,18 @@ export function unitsOfOrder(state, o) {
 
 // Total planned units across ALL delivery dates (for the dashboard strip).
 export function totalUnitsOnDate(state, deliveryDateId) {
+  const rec = byId(state.deliveryDates, deliveryDateId);
+  const dateStr = rec && rec.date;
   return state.orders
     .filter((o) => o.deliveryDateId === deliveryDateId)
+    // ⚠️⚠️ AN OFF-SALE PRODUCT DOES NOT EAT THE DAY'S SHOP CAPACITY (v590). ⚠️ A hand-entered order for a
+    // product that is not sold that day counted against the day's limit — ⚠️ **9 focaccia + one Saturday-only
+    // loaf on a Monday published slots_left: 0, and the shop sold out with 3 focaccia unsold.** ⭐ The day's
+    // capacity is what is ON SALE that day (the same list `dayCapacityParts` adds up).
+    .filter((o) => {
+      const p = byId(state.products, o.productId);
+      return !p || sellOpen(p, dateStr);
+    })
     .reduce((s, o) => s + unitsOfOrder(state, o), 0);
 }
 

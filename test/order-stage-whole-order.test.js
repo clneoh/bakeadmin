@@ -254,6 +254,50 @@ test("★★★ the refund card opens with the figure the edit dialog named (v58
     "★ the card opened without the figure the dialog named — **she must retype the number she was just told**");
 });
 
+test("★★★ the day's purse line is NET of the refunds that came back that day (v590)", () => {
+  // ⚠️⚠️ MEASURED: two RM15 sales and one RM15 refunded the same day read "Cash RM30" on the line she
+  // checks her purse against, while her tin held RM15. ⭐ Each refund is taken off the account it came back
+  // from, and the total is named.
+  const refundedAt = new Date("2026-09-12T09:00:00").toISOString();
+  const st = state({ orders: [
+    row({ id: "ord_aaaaaaaaaaaa", status: "delivered", paidReceived: true, paidMethod: "Cash" }),
+    row({ id: "ord_bbbbbbbbbbbb", groupId: "ordg_refunded0000", status: "delivered",
+      paidReceived: true, paidMethod: "Cash", refundedAt, refundAmountRM: 16 }),
+  ] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_A.id }));
+  const line = all(root).find((n) => String(n.className).includes("money-line"));
+  assert.ok(line, "the day drew no purse line, so this proves nothing");
+  const said = String(line.textContent);
+  assert.match(said, /Cash RM 16\.00/,
+    "★ the header still counts the refunded sale as money in her purse — **she checks this line against her tin**");
+  assert.match(said, /RM 16\.00 refunded/, "and it must say what left");
+});
+
+test("★★★ the refund ticker cannot tick more than the customer paid (v590)", async () => {
+  // ⚠️⚠️ MEASURED: the ticker summed FACE prices while the cap was the discounted bill — ⚠️ **"Ticked so far
+  // RM15.00" beside "up to RM12.00", and then her own press was refused.**
+  const { refundOrder } = await import("../admin/js/views/orders.js");
+  const code = { id: "c3", code: "SAVE3", state: "live", vis: "public", frozen: false,
+    who: { type: "all" }, when: { from: "", to: "" }, basket: { type: "none", amount: 0 },
+    gives: { type: "rm", value: 3, cap: 0 }, often: { type: "unlimited", n: 0, maxRM: 0 },
+    beside: { type: "anything" }, say: "", sayZh: "", sayMs: "", used: 0, given: 0 };
+  const st = state({ orders: [row({ id: "ord_aaaaaaaaaaaa", status: "delivered", paidReceived: true,
+    paidMethod: "Cash", qty: 1, promo: "SAVE3" })] });
+  st.promoCodes = [code];
+  refundOrder(st, { orders: st.orders }, st.orders[0], { root: createEl("div"), dateId: DAY_A.id });
+
+  const popup = doc.getElementById("popup-layer");
+  const tick = all(popup).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "checkbox");
+  assert.ok(tick, "the refund card drew no line to tick");
+  tick.checked = true;
+  tick._listeners.change.forEach((f) => f());
+  const sum = all(popup).find((n) => String(n.className).includes("refund-sum"));
+  const ticked = sum.children[sum.children.length - 1].textContent;
+  assert.equal(ticked, "RM 13.00",
+    "★ the ticker priced the line at its FACE value — **it can tick more than the customer paid**");
+});
+
 test("★★★ 'Not yet' on a two-bake-day order un-pays the WHOLE order (v589)", () => {
   // ⚠️⚠️ MEASURED: `markUnpaid` looped `group.orders` — the day she edited — while every book reads the
   // order through its FIRST row. ⚠️ **From day B her answer was silently ignored (it still read PAID); from

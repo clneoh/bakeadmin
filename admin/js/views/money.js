@@ -1079,7 +1079,11 @@ export function renderMoney(root, state) {
     const accounts = accountsBetween(state, [m, mine], [out, refunds]);
     // ⚠️ ALL of her own money that came in this stretch, through ANY account — the sub-line under
     // the blocks. It read `mine.cash + mine.tng`, which was the same two-accounts-only mistake.
-    const mineTotal = [...(mine.byMethod || new Map()).values()].reduce((s, v) => s + v, 0);
+    // ⚠️ A TRANSFER OR A PAYBACK IS NOT MONEY SHE PUT IN (v590). ⚠️ Summing every deposit counted a RM200
+    // TNG-to-Cash move as RM200 of her own money arriving — ⚠️ **the card said "of the money in, RM200 was
+    // your own" on a day nothing entered the business.** ⭐ The same two flags the expense half already uses.
+    const mineOwn = (mine.rows || []).filter((d) => d && !d.transfer && !d.repay);
+    const mineTotal = mineOwn.reduce((s, d) => s + (Number(d.amount) || 0), 0);
     // ⚠️⚠️ AND NET IS THE SUM OF WHAT THEY HOLD, taken from the very same rows the blocks are drawn
     // from. ⭐ It is the v480 figure by construction rather than by a second formula that could drift
     // away from the lines above it — "the total must agree with the rows it totals" is the whole

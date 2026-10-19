@@ -330,13 +330,26 @@ function sheetPages(s, cur) {
     op: "rule", x1: PDF_MARGIN, y1: y, x2: PDF_RIGHT, y2: y,
     width: width == null ? 0.6 : width, color: color || RULE_INK });
 
+  // ⚠️⚠️ ONE WRAPPED LINE, DRAWN AT THE COLUMN (v590). ⚠️ The title, subtitle, empty-state sentence and
+  // receipt note were each drawn as ONE `Tj`: ⚠️ **measured, a 319-character empty-state sentence was 2,128 pt
+  // wide on a 482 pt column — only its first ~85 characters ever reached the paper.** ⭐ Every one of these now
+  // breaks inside the margin, exactly as the customer address has since v588.
+  const drawWrapped = (text, { font = "F1", size = 10, color = null, lead = PDF_LEAD } = {}) => {
+    const chunks = wrapText(String(text), PDF_RIGHT - PDF_MARGIN, { font, size });
+    if (!chunks.length) { y -= lead; return; }
+    for (const chunk of chunks) {
+      put(chunk, PDF_MARGIN, color ? { font, size, color } : { font, size });
+      y -= lead;
+    }
+  };
+
   const startPage = (continued) => {
     ops = [];
     pages.push({ w: A4.w, h: A4.h, ops });
     y = A4.h - PDF_MARGIN;
     if (continued) {
-      put(`${s.title} (continued)`, PDF_MARGIN, { font: "F2", size: 11, color: MUTED });
-      y -= 22;
+      drawWrapped(`${s.title} (continued)`, { font: "F2", size: 11, color: MUTED, lead: 14 });
+      y -= 8;
       rule(0.5);
       y -= 16;
       return;
@@ -348,9 +361,9 @@ function sheetPages(s, cur) {
       put(line, PDF_MARGIN, { size: 8.5, color: MUTED });
       y -= 11.5;
     }
-    put(s.title, PDF_MARGIN, { font: "F2", size: 18 });
-    y -= 24;
-    if (s.subtitle) { put(s.subtitle, PDF_MARGIN, { size: 10, color: MUTED }); y -= 15; }
+    drawWrapped(s.title, { font: "F2", size: 18, lead: 22 });
+    y -= 2;
+    if (s.subtitle) drawWrapped(s.subtitle, { size: 10, color: MUTED, lead: 15 });
     // ⚠️⚠️ THE CUSTOMER LINE RAN OFF THE PAGE (v588 — the audit's §8·1, never fixed until now). ⚠️ `to` is
     // the name plus an address whose line breaks are still in it; the PDF drew it as ONE unwrapped string, so
     // ⚠️ **a three-line address ran past the column and its breaks printed as raw bytes.** ⭐ Each of its own
@@ -363,8 +376,8 @@ function sheetPages(s, cur) {
       }
     }
     // The serial beside the order code, on the PDF and the shared text as on the screen (v577).
-    if (s.receipt) { put(s.receipt, PDF_MARGIN, { size: 9, color: MUTED }); y -= 13; }
-    else if (s.receiptNote) { put(s.receiptNote, PDF_MARGIN, { size: 9, color: MUTED }); y -= 13; }
+    if (s.receipt) { drawWrapped(s.receipt, { size: 9, color: MUTED, lead: 13 }); }
+    else if (s.receiptNote) { drawWrapped(s.receiptNote, { size: 9, color: MUTED, lead: 13 }); }
     y -= 3;
     rule(0.8);
     y -= 17;
@@ -403,8 +416,7 @@ function sheetPages(s, cur) {
   startPage(false);
 
   if (!s.lines.length) {
-    put(s.empty, PDF_MARGIN, { size: 10, color: MUTED });
-    y -= PDF_LEAD;
+    drawWrapped(s.empty, { size: 10, color: MUTED });
   } else {
     s.lines.forEach((l, i) => {
       // ⚠️ A COLUMN HEADER NAMES ITS COLUMNS ON THE PAPER TOO (v390) — smaller and muted, so it reads

@@ -36,6 +36,27 @@ const bread = () => ({ id: "p_bread", name: "Sourdough", active: true, recipe: [
 const order = (qty = 1, status = "paid") =>
   ({ id: "o", deliveryDateId: "del", productId: "p_bread", qty, status });
 
+test("★★★ a recipe line written in kg takes EXACTLY what it says (v590)", () => {
+  // ⚠️⚠️ MEASURED: the recipe quantity was rounded to 2 decimals IN THE LINE'S OWN UNIT before it became
+  // stock — ⚠️ **a 0.025 kg line (25 g) took 30 g off the shelf, five loaves took 130 g, and a 0.004 kg line
+  // (4 g) rounded to 0 and wrote NO stock row at all.** ⭐ The exact quantity now travels to the shelf.
+  const ing = flour(1000);
+  ing.unit = "kg";
+  ing.uomId = "kg";
+  const st = baseState([ing], [{ id: "p_x", name: "Loaf", active: true, recipe: [
+    { ingredientId: "ing_f", qty: 0.025, unit: "kg" },
+  ] }]);
+  assert.equal(stockMod.productConsumption(st, st.products[0], 1).get("ing_f"), 25,
+    "★ a 25 g line took 30 g — **rounding in the recipe's unit changes what the shelf gives up**");
+  assert.equal(stockMod.productConsumption(st, st.products[0], 5).get("ing_f"), 125,
+    "★ five loaves took 130 g instead of 125");
+
+  // ⚠️ AND A 4 g LINE DOES NOT ROUND AWAY TO NOTHING.
+  st.products[0].recipe[0].qty = 0.004;
+  assert.equal(stockMod.productConsumption(st, st.products[0], 1).get("ing_f"), 4,
+    "★ a 4 g line rounded to 0 and the bake wrote no stock row");
+});
+
 test("stockOf is the on-hand count, never below zero", () => {
   const st = baseState([flour(500)]);
   assert.equal(stockOf(st, st.ingredients[0]), 500);

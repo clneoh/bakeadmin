@@ -2,7 +2,7 @@
 
 import { addDays, deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus, costOf, dayCapacityParts, dayRuleRows, orderedOnDay, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
-import { dayMoney, groupValue, isCollected, isRefunded, orderNet } from "../money.js";
+import { dayMoney, groupValue, isCollected, isRefunded, orderNet, refundsBetween } from "../money.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
 import { DOW, WINDOW_WEEKS, deliveryWindow, occColour, occForDate, rollingWeeks,
@@ -23,7 +23,7 @@ import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "
 import { claimReceipt, incomingCapReached, maybePublishTracking, maybeSync, publishTracking, refundReceipt, stuckOrders, unrefundReceipt } from "../supabase.js";
 import { receiptLineOfGroup, receiptNoOf, receiptNoOfGroup, receiptStatusOfGroup } from "../receipts.js";
 import { couponDeclined, couponOnAny } from "../referrals.js";
-import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue, refundableCharge, paymentShift } from "../courier.js";
+import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue, promoOnBasket, refundableCharge, paymentShift } from "../courier.js";
 import { isCash, isTng, methodLabel, methodRank, methodsOf } from "../accounts.js";
 // ★ HER OWN EDITOR AND ITS ＋ CHIP (v478). The payment sheet adds an account ON THE SPOT with the
 // same form the money lists use, rather than a second way to write `state.settings.payMethods`.
@@ -1821,9 +1821,19 @@ function moneyLine(state, dateId) {
   const m = dayMoney(state, dateId);
   if (!m.count) return null;
   const cur = state.settings.currency || "RM";
+  // ⚠️⚠️ THE DAY'S PURSE LINE IS NET OF REFUNDS (v590). ⚠️ `tally` keeps a refunded sale's takings (v578:
+  // the refund is money OUT on the day it went back) — but this line subtracted nothing, so ⚠️ **a day with
+  // two RM15 sales and one RM15 refunded read "Cash RM30" while her tin held RM15**, on the very line she
+  // checks her purse against at the end of a run. ⭐ Each refund is taken off the account it came back from,
+  // and the total is named so the arithmetic is visible.
+  const rec = byId(state.deliveryDates, dateId);
+  const refunds = rec ? refundsBetween(state, rec.date, rec.date) : null;
+  const back = refunds || { cash: 0, tng: 0, total: 0, byMethod: new Map() };
   const bits = [];
-  if (m.cash) bits.push(`Cash ${fmtRM(m.cash, cur)}`);
-  if (m.tng) bits.push(`TNG ${fmtRM(m.tng, cur)}`);
+  const netCash = round2(m.cash - (back.cash || 0));
+  const netTng = round2(m.tng - (back.tng || 0));
+  if (netCash) bits.push(`Cash ${fmtRM(netCash, cur)}`);
+  if (netTng) bits.push(`TNG ${fmtRM(netTng, cur)}`);
   // ⚠️⚠️ AND EVERY OTHER ACCOUNT THAT TOOK MONEY TODAY IS NAMED (v478). Before this the line read
   // cash and TNG only — so once a customer's bank transfer could be recorded (this version), that
   // money would be counted in her takings, counted in "what should be in your purse and on your
@@ -1832,12 +1842,17 @@ function moneyLine(state, dateId) {
   //
   // ⚠️ IN HER LIST'S ORDER, by `methodRank` — the same sort `otherMethods` uses on the Money screen,
   // so the day's line and the money card read her accounts in the same order.
-  for (const [label, amount] of [...(m.byMethod || new Map())]
-    .filter(([label, amount]) => amount && !isCash(label) && !isTng(label))
-    .sort((a, b) => methodRank(state, a[0]) - methodRank(state, b[0]))) {
-    bits.push(`${label} ${fmtRM(amount, cur)}`);
+  // Every label that saw money EITHER way, so a refund from an account with no sale that day still shows.
+  const labels = new Set([...(m.byMethod || new Map()).keys(), ...(back.byMethod || new Map()).keys()]);
+  for (const label of [...labels]
+    .filter((l) => !isCash(l) && !isTng(l))
+    .sort((a, b) => methodRank(state, a) - methodRank(state, b))) {
+    // A refund is keyed to the account it came back from; `tally` keys takings the same way.
+    const net = round2(((m.byMethod || new Map()).get(label) || 0) - ((back.byMethod || new Map()).get(label) || 0));
+    if (net) bits.push(`${label} ${fmtRM(net, cur)}`);
   }
   if (m.unmarked) bits.push(`${fmtRM(m.unmarked, cur)} paid, no method`);
+  if (back.total) bits.push(`${fmtRM(back.total, cur)} refunded`);
   if (m.toCollectCount) bits.push(`${m.toCollectCount} to collect`);
   return bits.length ? el("p", { class: "card-sub money-line" }, bits.join(" · ")) : null;
 }
@@ -2691,7 +2706,8 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // The code, valued against the DRAFT's own basket and the charge this form is
     // currently showing — not against the saved order, so the figure moves with the
     // lines as she types them, exactly as the items total above it does.
-    const promo = promoValue(state, first.promo, itemsTotal, courierCharge);
+    // ⚠️ A DELETED CODE'S FROZEN DISCOUNT STILL APPLIES HERE (v590) — `promoOnBasket`, not `promoValue`.
+    const promo = promoOnBasket(state, group.orders, itemsTotal, courierCharge);
     const off = promo.money;
     // The same question the message answers, asked of the DRAFT's basket rather than the
     // saved order's, so this card explains a code that gave nothing exactly as the
@@ -4266,7 +4282,7 @@ function openNoteTrackingPopup(state, group, first, dateId, root) {
         // free-delivery code on a changed fee read "Total RM20.00" here while the saved order, its
         // message and its invoice all said RM16.00. ⚠️ The Edit popup already re-values per keystroke;
         // this one captured it once.
-        const off = promo.money > 0 ? promoValue(state, first.promo, itemsTotal, theirs).money : 0;
+        const off = promo.money > 0 ? promoOnBasket(state, group.orders, itemsTotal, theirs).money : 0;
         // And the same discount here (v330) — the two cards list one order's money, so a
         // discount named on one and missing from the other is the fault this pairing exists
         // to prevent. Read off the SAVED order, which is what this box is for.
@@ -5441,6 +5457,13 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
   // the bill. ⚠️ Offering it made the box read **"Ticked so far RM24.00"** beside **"up to RM16.00"**, and
   // then refuse her own press. ⭐ `bill.courier` is the same figure the invoice prints.
   const charge = refundableCharge(state, group);
+  // ⚠️⚠️ THE TICKER IS PRICED THE WAY THE BILL WAS (v590). ⚠️ It summed FACE prices while the cap was the
+  // DISCOUNTED bill — a RM15 loaf with a RM3 friend's coupon showed "Ticked so far RM15.00" beside "up to
+  // RM12.00", and then refused her own press. ⭐ Each line's share is scaled by the same discount the bill
+  // carries, so the ticks can never total more than the customer paid.
+  const face = round2(lines.reduce((s, l) => s + (l.price == null ? 0 : l.price * l.qty), 0) + charge);
+  const scale = face > cap && face > 0 ? cap / face : 1;
+  const share = (v) => round2((Number(v) || 0) * scale);
 
   const ticks = new Map();
   let courierWanted = false;
@@ -5449,8 +5472,8 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
   let sumEl = null;
 
   const tickedTotal = () => round2(
-    lines.reduce((s, l) => s + (ticks.get(l.id) || 0) * (l.price == null ? 0 : l.price), 0)
-    + (courierWanted ? charge : 0));
+    lines.reduce((s, l) => s + share((ticks.get(l.id) || 0) * (l.price == null ? 0 : l.price)), 0)
+    + (courierWanted ? share(charge) : 0));
 
   // The box follows the ticks until she types in it, and after that it is hers — which is the whole
   // of what she picked: tick what came back to get the number right, then change it if she wants.
@@ -5459,7 +5482,7 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
       const on = ticks.has(r.line.id);
       const q = ticks.get(r.line.id) || 0;
       r.box.checked = on;
-      r.amt.textContent = fmtRM(q * (r.line.price == null ? 0 : r.line.price), cur);
+      r.amt.textContent = fmtRM(share(q * (r.line.price == null ? 0 : r.line.price)), cur);
       // ⚠️⚠️ AND THIS BOX IS DELIBERATELY LEFT EXACTLY AS IT WAS (v458). I changed it — holding the value
       // back while she typed — **and then looked at what that would do, and put it back.**
       // ⭐ A refund line clamps to what was sold, and this box is rewritten from that clamped figure on
@@ -5472,7 +5495,7 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
     }
     if (courierUI) {
       courierUI.box.checked = courierWanted;
-      courierUI.amt.textContent = fmtRM(courierWanted ? charge : 0, cur);
+      courierUI.amt.textContent = fmtRM(courierWanted ? share(charge) : 0, cur);
     }
     const total = tickedTotal();
     if (sumEl) sumEl.textContent = fmtRM(total, cur);

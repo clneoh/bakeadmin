@@ -1661,6 +1661,24 @@ test("★★★ an edit's refund stays out of the sale's month and moves the ref
   assert.equal(refundOf(st, { orders: legacy }), 0, "a legacy edit-refund must not be counted twice");
 });
 
+test("★★★ a transfer between her own accounts is not money she put in (v590)", () => {
+  // ⚠️⚠️ MEASURED: the line under the accounts summed every deposit including `transfer` and `repay` rows —
+  // ⚠️ **one RM200 TNG-to-Cash move on a quiet day read "of the money in, RM200.00 was your own", though
+  // nothing entered the business.** ⭐ The same two flags the expense half already ignores.
+  globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const today = todayISO();
+  const st = state();
+  st.settings.payMethods = ["Cash", "TNG"];
+  st.deliveryDates = [{ id: "d18", date: today }];
+  st.orders = [];
+  st.deposits = [{ id: "t1", date: today, amount: 200, method: "Cash", source: "TNG", transfer: true }];
+  const root = document.createElement("div");
+  renderMoney(root, st);
+  const said = allOf(root).map((n) => String(n.textContent || "")).join(" | ");
+  assert.equal(/was your own/.test(said), false,
+    "★ a move between her own accounts was counted as new money — **Cash and TNG both gained, she gained nothing**");
+});
+
 test("★★★ a refund on an order with no way of paying is SHOWN, not silent (v587)", () => {
   // ⚠️⚠️ MEASURED: it fell into an "unmarked" bucket no block, journal or Net reads — ⚠️ **Money was silent about
   // a refund Profit reported.** ⭐ It cannot go into an account it was never paid from; it can be said.

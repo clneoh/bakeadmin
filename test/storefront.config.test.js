@@ -88,7 +88,7 @@ globalThis.fetch = async (url) => {
 };
 
 const { mergeStorefront, placeOrder, labelOpenToCount, labelOpenCounter, postLabelOpen,
-  cutoffText, nextOpenDay, upcomingDates } = await import("../store/app.js");
+  cutoffText, nextOpenDay, upcomingDates, firstOpenSpec, dateKey } = await import("../store/app.js");
 const { CONFIG } = await import("../store/config.js");
 
 const settle = async () => {
@@ -620,6 +620,24 @@ test("★★ the next day a customer can ACTUALLY have bread is the answer, not 
   assert.equal(onMonday.getDate(), 14,
     "⚠️ on the delivery day itself the answer is still that day — its 6pm deadline was the night before");
   assert.equal(onMonday.getDay(), 3, "and Wednesday is the next day she bakes");
+});
+
+test("★★★ the answer box follows the REAL days, and skips one that is sold out (v590)", () => {
+  // ⚠️⚠️ MEASURED: the box was drawn once from the WEEKDAY RULE and never repainted — ⚠️ **a day that had
+  // closed, sold out or been removed went on being named, under a deadline already in the past.** ⭐ Every
+  // repaint now passes the same list the calendar is drawn from.
+  const wed = new Date(2026, 9, 21);
+  const fri = new Date(2026, 9, 23);
+  assert.equal(firstOpenSpec([wed, fri], {}), wed, "with both open, the first is the answer");
+  assert.equal(firstOpenSpec([wed, fri], { [dateKey(wed)]: 0 }), fri,
+    "★ a SOLD-OUT day was still named as the next day a customer can have bread");
+  assert.equal(firstOpenSpec([wed, fri], { [dateKey(wed)]: 3 }), wed, "a day with slots left is still the answer");
+  assert.equal(firstOpenSpec([], {}), null, "no day at all says nothing rather than guessing");
+
+  // ⚠️ AND THE REPAINT IS WIRED, not only computed: `rerender` must call the box with that list.
+  const SRC = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
+  assert.match(SRC, /paintDayAnswer\(CONFIG, cutoffText\(CONFIG\.cutoff\), firstOpenSpec\(dates, avail\)\)/,
+    "★ the box is still painted once from the weekday rule — **it can name a day that has gone**");
 });
 
 test("★★ the closed-day refusal speaks the page's own clock, not the stored 18:00 (v581)", () => {

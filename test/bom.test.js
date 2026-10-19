@@ -431,6 +431,41 @@ test("productRemaining uses the day's adjusted limit with unchanged bookings", (
   assert.deepEqual(productRemaining(st, "del_a", "prd_f"), { limit: 0, booked: 2, remaining: -2 });
 });
 
+test("★★★ a pack OF A PACK counts all its pieces toward the day AND the pool (v590)", () => {
+  // ⚠️⚠️ MEASURED: the Party Box is 2 × Family = 8 loaves. ⚠️ `unitsOfOrder` read one level (the Family's
+  // 4) and isPoolablePack stopped there, so **two boxes read 2 of 12 on her screen while consuming 16
+  // pieces from the shop's pool** — and the shop published no cap for the box at all.
+  const st = fixtureState();
+  st.orders = [
+    { id: "o1", deliveryDateId: "del_a", productId: "prd_p", qty: 12 },     // 48 pieces, one family level
+    { id: "o2", deliveryDateId: "del_a", productId: "prd_c", qty: 2 },      // 16 pieces, two levels
+  ];
+  assert.equal(unitsOfOrder(st, st.orders[1]), 16,
+    "★ two Party Boxes counted as two units — **the shop sells eight loaves short**");
+  assert.equal(totalUnitsOnDate(st, "del_a"), 64, "and the day counts every piece from both lines");
+  const cap = capacityStatus(st, "del_a");
+  assert.equal(cap.total, 64);
+  assert.equal(cap.remaining, 12 - 64, "the day is short by what was really baked, not by the box count");
+  // The shop's own pool reads the same pieces through `baseUnitsOf` (it always has).
+  const pool = poolRemaining(st, "del_a", "prd_f");
+  assert.equal(pool.booked, 64, "the pool and the day must not disagree about the same boxes");
+});
+
+test("★★★ a hand order for a product NOT on sale does not eat the day's shop capacity (v590)", () => {
+  // ⚠️⚠️ MEASURED: 9 focaccia (limit 12) plus one hand-entered order for a Saturday-only loaf qty 8 on a
+  // Monday read 17/12 — ⚠️ **the shop published slots_left: 0 and sold out with 3 focaccia unsold.**
+  const st = fixtureState();
+  st.products.find((p) => p.id === "prd_s").sellRules = [{ days: [6] }]; // Saturdays only
+  st.orders = [
+    ...Array.from({ length: 9 }, (_, i) => ({ id: `f${i}`, deliveryDateId: "del_a", productId: "prd_f", qty: 1 })),
+    { id: "s1", deliveryDateId: "del_a", productId: "prd_s", qty: 8 },
+  ];
+  const cap = capacityStatus(st, "del_a");
+  assert.equal(cap.total, 9, "★ the off-sale loaf's hand order consumed the shop's capacity");
+  assert.equal(cap.capacity, 12);
+  assert.equal(cap.remaining, 3, "★ the shop sold out with three focaccia unsold");
+});
+
 test("poolRemaining uses the base's adjusted limit for that date", () => {
   const st = fixtureState();
   st.deliveryDates[0].dayAdj = { prd_f: -3 };
@@ -500,11 +535,13 @@ test("dayRuleRows lists active limited products (menu order) and finds poolable 
   const { rows, packs } = dayRuleRows(st, "2026-09-07");
   assert.deepEqual(rows.map((r) => [r.productId, r.name, r.usual, r.delta]),
     [["prd_f", "Focaccia", 12, 3]]);
-  assert.deepEqual(packs, ["Family (4 pcs)"], "a poolable pack whose base is listed");
+  // ⚠️ v590: a pack OF A PACK reaches the same base through every level — the Party Box is 2 × Family
+  // = 8 pieces, and it belongs in this list as much as the Family does.
+  assert.deepEqual(packs, ["Family (4 pcs)", "Party Box"], "every poolable pack whose base is listed");
 
   const empty = dayRuleRows(st, "2026-10-01"); // a date with no adjustments yet
   assert.deepEqual(empty.rows.map((r) => [r.productId, r.delta]), [["prd_f", 0]]);
-  assert.deepEqual(empty.packs, ["Family (4 pcs)"]);
+  assert.deepEqual(empty.packs, ["Family (4 pcs)", "Party Box"]);
 });
 
 test("parseDayDelta: blank is no change, signed whole numbers only", () => {
@@ -655,7 +692,9 @@ test("dayChangeInfo explodes an added family pack into its component's leaf ingr
   const st = fixtureState();
   st.orders = [{ id: "ord_p1", deliveryDateId: "del_a", productId: "prd_p", qty: 1 }];
   const info = dayChangeInfo(st, "2026-09-07", "");
-  assert.equal(info.totalUnits, 1);
+  // ⚠️ v590: a family set IS four pieces of its base, so it takes four of the day's units — the same rule
+  // the shop's pool has always used, and the one v587 gave a direct pack.
+  assert.equal(info.totalUnits, 4);
   const flour = info.items.find((i) => i.ingredientId === "ing_f");
   assert.equal(flour.totalQty, 2000, "one family set = 4 × 500 g flour");
 });

@@ -182,7 +182,17 @@ export function promoOn(state, orders) {
   const rows = Array.isArray(orders) ? orders : [];
   const first = rows[0];
   if (!first) return { code: "", money: 0 };
-  const live = promoValue(state, first.promo, basketItems(state, rows), customerCourierFee(first));
+  return promoOnBasket(state, rows, basketItems(state, rows), customerCourierFee(first));
+}
+
+// The same rule against a DRAFT basket (v590). ⚠️ An edit card priced the code with `promoValue` alone, which
+// answers 0 for a code she has deleted — ⚠️ **so the card and the Note/tracking panel showed the order at its
+// full price while `customerTotal` kept the frozen discount, and the false "extra paid?" question followed.**
+export function promoOnBasket(state, orders, items, deliveryFee = 0) {
+  const rows = Array.isArray(orders) ? orders : [];
+  const first = rows[0];
+  if (!first) return { code: "", money: 0 };
+  const live = promoValue(state, first.promo, items, deliveryFee);
   if (live.money > 0) return live;
   // ⚠️⚠️ A CODE SHE HAS SINCE DELETED KEEPS ITS DISCOUNT (v551). ⭐ Her delete screen PROMISES it —
   // __"those keep it, and you still owe them what you promised"__ — and the app dated that promise: an

@@ -12,7 +12,7 @@
 // packs round on the combined total, and a running grand total shows below.
 
 import { longDate, todayISO, weekdayName, shortDate } from "../dates.js";
-import { explodeBomDates, explodePicks, ordersFingerprint, effectiveCapacity, dayChangeInfo, restockOnlyItems } from "../bom.js";
+import { explodeBomDates, explodePicks, ordersFingerprint, effectiveCapacity, dayChangeInfo, restockOnlyItems, unitsOfOrder } from "../bom.js";
 import { el, button, emptyState, toast, select, showPopup } from "../ui.js";
 import { byId, save, newId } from "../state.js";
 import { priceItems, notPurchasedNames, fmtQtyText } from "../purchasing.js";
@@ -95,7 +95,9 @@ export function renderPO(root, state, params) {
 function metaOf(state, rec) {
   const past = rec.date < todayISO();
   const orders = (state.orders || []).filter((o) => o.deliveryDateId === rec.id);
-  const units = orders.reduce((s, o) => s + (Number(o.qty) || 0), 0);
+  // ⚠️ A 4-PACK IS FOUR UNITS HERE TOO (v590). ⚠️ Raw quantities made the PO's own over-capacity warning
+  // impossible to trigger — "4 units planned (capacity 12)" for sixteen pieces.
+  const units = orders.reduce((s, o) => s + unitsOfOrder(state, o), 0);
   const covered = coveringPO(state, rec.date);
   const fp = covered ? ordersFingerprint(state, rec.date) : "";
   const accurate = covered ? poAccurate(state, covered, rec.date, fp) : false;

@@ -29,7 +29,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { customerTotal, moneyLines, promoOn, promoValue, freezePromoOnOrders, paymentShift } = await import("../admin/js/courier.js");
+const { customerTotal, moneyLines, promoOn, promoValue, promoOnBasket, freezePromoOnOrders, paymentShift } = await import("../admin/js/courier.js");
 const { round2 } = await import("../admin/js/state.js");
 const { buildConfirmation } = await import("../admin/js/confirm.js");
 const { buildPaymentReminder, buildShippedMessage } = await import("../admin/js/messages.js");
@@ -284,13 +284,26 @@ test("a code that has been fully claimed still discounts the orders that claimed
 
 // ── the shape of the answer ──────────────────────────────────────────────────
 test("promoValue answers the same way for an order as for a figure handed in", () => {
-  // promoOn is a thin reader over promoValue, and the Edit form goes through promoValue
-  // because the basket is not saved yet. A drift between the two would make the form's
-  // preview total disagree with the message sent a moment later.
+  // ⚠️ The Edit form goes through `promoOnBasket` (v590), which adds the frozen-deleted-code rule to
+  // `promoValue`. For a LIVE code the three must agree, or the form's preview and the message differ.
   const { st, g } = ordered();
   assert.deepEqual(promoOn(st, g.orders), promoValue(st, "FRESH10", 30, 0));
+  assert.deepEqual(promoOnBasket(st, g.orders, 30, 0), promoValue(st, "FRESH10", 30, 0));
   assert.deepEqual(promoValue(st, "", 30, 0), { code: "", money: 0 }, "no code, no discount");
   assert.deepEqual(promoValue(st, "NOPE", 30, 0), { code: "", money: 0 }, "an unknown code, no discount");
+});
+
+test("★★★ a deleted code's frozen discount still prices a DRAFT basket (v590)", () => {
+  // ⚠️⚠️ MEASURED: the Edit card and the Note/tracking panel priced the code with `promoValue` alone —
+  // ⚠️ **so for a code she had deleted the card showed the order at full price, while `customerTotal` kept
+  // the frozen discount, and the false "has the extra been paid?" question followed.**
+  const { st, g } = ordered();
+  for (const o of g.orders) o.promoRM = 10;   // exactly what the delete freezes
+  st.promoCodes = [];
+  assert.equal(promoValue(st, "FRESH10", 30, 0).money, 0, "a deleted code gives nothing live");
+  const draft = promoOnBasket(st, g.orders, 30, 0);
+  assert.equal(draft.money, 10, "★ the edit card priced a deleted code at full price");
+  assert.equal(draft.frozen, true, "and it says the amount is the frozen promise, not a live award");
 });
 
 test("the money lines put the promo between the workings and the total", () => {

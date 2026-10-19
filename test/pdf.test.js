@@ -256,6 +256,26 @@ test("★★★ the customer's address breaks at its own lines and inside the co
     "★ an address's line break printed as a raw byte");
 });
 
+test("★★★ a long title, subtitle, receipt note and empty sentence stay on the page (v590)", () => {
+  // ⚠️⚠️ MEASURED: the empty-state sentence of a fresh stock card (319 characters) was drawn as ONE `Tj`
+  // **2,128 pt wide on a 482 pt column** — only its first ~85 characters reached the paper, and a 45 mm tail
+  // of a business-length subtitle was cut at the edge. ⭐ Every header line now breaks inside the margin.
+  const empty = "A stock card with nothing in it yet. ".repeat(8);
+  const subtitle = "Consolidated invoice for Aisyah binti Abdullah — 12 Jalan Bukit Jambul Indah, "
+    + "Taman Sri Nibong, Sungai Nibong, 11900 Bayan Lepas, Pulau Pinang";
+  const note = "No receipt number yet — the number could not be drawn, so this sale has no serial on the "
+    + "paper or in the register until it is claimed online.";
+  const s = journalSheet({ title: "Stock card", bakery: "Jien Luv 2 Bake", empty, subtitle, receiptNote: note,
+    lines: [], totals: [] });
+  const drawn = [...latin1(journalPdf(s)).matchAll(/\(([^)]*)\) Tj/g)].map((m) => m[1]);
+  assert.equal(drawn.some((x) => x.length > 200), false,
+    "★ a three-hundred-character sentence was drawn as ONE line — **most of it is off the paper**");
+  for (const tail of ["yet.", "Pinang", "online."]) {
+    assert.ok(drawn.some((x) => x.endsWith(tail)),
+      `★ the end of the text ("${tail}") never reaches the page`);
+  }
+});
+
 test("an empty journal is still a document she can send", () => {
   const s = journalSheet({ title: "Sales journal", lines: [], totals: [],
     empty: "Nothing was sold in September 2026." });

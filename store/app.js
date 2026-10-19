@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "589";
+export const SHOP_BUILD = "590";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -666,11 +666,15 @@ function dayBefore(d) {
 // one he is looking at; the heading tells him, and the green edge says it before he reads.
 //   • nothing open for today  → "Today's bake has closed" / the next day he can have it / the deadline
 //   • still time to order     → "You're in time"        / the same two lines
-function paintDayAnswer(cfg, cutoffSay) {
+function paintDayAnswer(cfg, cutoffSay, nextDay) {
   const box = document.getElementById("day-answer");
   if (!box) return;
 
-  const next = nextOpenDay(cfg);
+  // ⚠️⚠️ THE BOX FOLLOWS HER REAL DAYS, NOT THE WEEKDAY PATTERN (v590). ⚠️ It was drawn once, from
+  // `nextOpenDay` (the weekday rule), and never repainted — ⚠️ **so a day that had closed, sold out or been
+  // removed stayed named, with a deadline already in the past.** ⭐ `rerender` passes the same real list the
+  // calendar is drawn from; `undefined` keeps the older behaviour for the first static paint.
+  const next = nextDay !== undefined ? nextDay : nextOpenDay(cfg);
   const lede = document.getElementById("steps-lede");
   if (lede) {
     lede.hidden = false;
@@ -754,6 +758,16 @@ export function daySpecs(dates, availMap = {}) {
     const left = availMap[dateKey(d)];
     return { date: d, soldOut: left != null && left <= 0 };
   });
+}
+
+// ⭐ The first day a customer can actually have bread on, from the REAL list the calendar draws
+// (v590). `dates` has already been through the cut-off (`isOpen`); this only drops a day the live
+// availability says is full. ⚠️ The answer box used to ask the weekday RULE instead and never asked again.
+export function firstOpenSpec(dates, availMap = {}) {
+  return (dates || []).find((d) => {
+    const left = availMap && availMap[dateKey(d)];
+    return !(left != null && left <= 0);
+  }) || null;
 }
 
 export function buildMessage(cfg, order) {
@@ -3405,6 +3419,10 @@ function clearFieldMarks() {
     // asked for) since the last refresh or since they picked this day.
     reconcileCart();
     buildCalendar();
+    // ⚠️⚠️ AND THE ANSWER BOX IS REPAINTED FROM THE SAME LIST (v590) — after `buildCalendar`, because that is
+    // where `dates` and `avail` have just settled. ⭐ A day that has closed, sold out or been removed can no
+    // longer go on being named under a deadline that already passed.
+    paintDayAnswer(CONFIG, cutoffText(CONFIG.cutoff), firstOpenSpec(dates, avail));
     renderMenu();
     // ⚠️ LAST, and here rather than anywhere else, because EVERYTHING funnels through `rerender`: the day
     // tapped, the menu rebuilt, the 30-second refresh, the availability arriving. One call site covers
