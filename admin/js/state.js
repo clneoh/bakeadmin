@@ -794,8 +794,18 @@ export function applyRedactions(state) {
   // ⚠️ AND THEIR PROFILE IS GONE FOR GOOD (v598) — a newer profile edit from the other phone used to merge it
   // back as a live customer with the full name and number.
   const phones = redactedPhones(state);
-  if (phones.size && Array.isArray(state.customers)) {
-    state.customers = state.customers.filter((c) => !(c && phones.has(String(c.whatsapp || "").trim())));
+  // ⚠️⚠️ AND A PERSON WITH NO PHONE IS MATCHED BY THEIR PROFILE'S KEY (v599). ⚠️ `redactedPhones` is built
+  // from `who`, which is empty for a customer who only ever gave a name — ⚠️ **so a newer profile row from an
+  // offline phone merged the name back in as a live customer.** ⭐ The key was recorded with the redaction.
+  const profileKeys = new Set();
+  for (const r of Array.isArray(state && state.redactions) ? state.redactions : []) {
+    const k = String((r && r.profileKey) || "").trim();
+    if (k) profileKeys.add(k);
+  }
+  if ((phones.size || profileKeys.size) && Array.isArray(state.customers)) {
+    state.customers = state.customers.filter((c) => c
+      && !phones.has(String(c.whatsapp || "").trim())
+      && !profileKeys.has(String(c.key || "")));
   }
   let cleared = 0;
   // ⚠️⚠️ AND THE REMOVED SHELF (v595). ⚠️ It was not redacted: ⚠️ **a forgotten customer's cancelled order kept

@@ -25,8 +25,11 @@ test("★★★ an UNKNOWN booking is passed from the vendor through the functio
     "★ the courier function drops the vendor's `unknown` before answering the app");
 
   const run = read("admin/js/views/delivery_run.js");
-  assert.match(run, /if \(out\.unknown\) bookUnknown = true;/,
+  // ⚠️ v599: the run also WRITES the fact onto its orders, so a reopened screen stays locked.
+  assert.match(run, /if \(out\.unknown\) \{/,
     "★ the Delivery run reads the flag and does not keep the fact");
+  assert.match(run, /o\.courierUnknownAt = at;/,
+    "★ the run's unknown is memory only — **reopening the screen resurrects every Book press**");
   assert.match(run, /busy \|\| bookUnknown/,
     "★ the run's Book press is still offered under an unknown trip — **a second booking may be charged twice**");
 

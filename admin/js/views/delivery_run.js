@@ -1347,7 +1347,20 @@ export function renderDeliveryRun(root, state, params) {
     if (!root.isConnected) return;
     if (!out.ok) {
       busy = false;
-      if (out.unknown) bookUnknown = true;
+      if (out.unknown) {
+        // ⚠️⚠️ AND THE FACT IS WRITTEN DOWN, NOT ONLY REMEMBERED (v599). ⚠️ `bookUnknown` is memory — ⚠️ **leaving
+        // the screen and coming back brought every Book press back under a trip that may already be charged.**
+        // ⭐ The same stamp the single-trip card uses, on every order this run would have booked.
+        bookUnknown = true;
+        const at = new Date().toISOString();
+        for (const stop of (priced && Array.isArray(priced.stops) ? priced.stops : [])) {
+          const id = String((stop && (stop.id || stop.orderId)) || "");
+          if (!id) continue;
+          const o = (state.orders || []).find((x) => x && String(x.id) === id);
+          if (o) o.courierUnknownAt = at;
+        }
+        save(state);
+      }
       statusLine.textContent = out.unknown
         ? `${out.reason} ⚠️ Look in your courier app before asking for this run again — a second booking may be charged twice.`
         : out.reason;

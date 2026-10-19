@@ -485,3 +485,91 @@ test("★★★ a refund from ONE day's row refunds the WHOLE order (v587)", () 
     "★ only the day's slice carries the refund — **the books keep the sale and no account loses the money**");
   assert.equal(st.orders.every((o) => o.refundedAt), true, "and the order is only half refunded");
 });
+
+// ── v599: the edit/refund arithmetic after a freeze ───────────────────────
+
+const money = await import("../admin/js/money.js");
+
+test("★★★ the refund card accepts the figure the edit itself named (v599)", async () => {
+  // ⚠️⚠️ MEASURED: the cap was the POST-EDIT bill less prior refunds, while the promised refund was
+  // paid − post-edit worth — ⚠️ **RM48 paid (3 × RM16), edited down to RM16: the dialog said "Refund RM32",
+  // the box opened on 32, and the press was refused ("up to RM16.00"), leaving the books at RM16 against
+  // RM48 of cash.** ⭐ The cap is the money she still holds.
+  const st = state({ orders: [row({ id: "ord_aaaaaaaaaaaa", status: "paid", paidReceived: true,
+    paidMethod: "Cash", qty: 3 })] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_A.id }));
+  press(root, "Edit");
+  const popup = doc.getElementById("popup-layer");
+  const qty = all(popup).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "number"
+    && n.attrs.step === "1");
+  qty.value = "1";
+  qty._listeners.input[0].call(qty);              // 3 → 1: RM48 becomes RM16
+  press(popup, "Save changes");
+
+  const layer = doc.getElementById("confirm-layer");
+  const saveIt = all(layer).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Save it");
+  assert.ok(saveIt, "the money-in question did not appear");
+  saveIt._listeners.click.forEach((f) => f());
+  const refundIt = all(layer).find((n) => n.tagName === "BUTTON" && /^Refund RM/.test(String(n.textContent).trim()));
+  assert.ok(refundIt, "the refund question did not appear");
+  refundIt._listeners.click.forEach((f) => f());
+
+  const card = doc.getElementById("popup-layer");
+  const box = all(card).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "number"
+    && n.attrs.step === "0.01");
+  assert.equal(box.value, "32", "the card did not open on the figure the dialog promised");
+  const go = all(card).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Refund");
+  for (const f of go._listeners.click) await f();
+
+  assert.equal(st.orders[0].refundAmountRM, 32,
+    "★ her own press was refused — **the books keep RM16 of a RM48 sale and the refund never happened**");
+  assert.equal(money.orderNet(st, { orders: st.orders }), 16, "RM48 in, RM32 back, RM16 kept");
+});
+
+test("★★★ an edit back up ADDS the extra to the frozen sale (v599)", async () => {
+  // ⚠️⚠️ MEASURED: the refreeze SUBSTITUTED the new worth for the old, while the refund stayed accumulated —
+  // ⚠️ **RM32 paid → edit to RM16 + RM16 refund → edit back to RM32 + "Yes, paid too" read net RM16 against
+  // RM32 in her hand.** ⭐ Money received only ever goes up when the customer pays the extra.
+  const st = state({ orders: [row({ id: "ord_aaaaaaaaaaaa", status: "paid", paidReceived: true,
+    paidMethod: "Cash", qty: 2 })] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_A.id }));
+
+  // First: edit down and refund the difference.
+  press(root, "Edit");
+  let popup = doc.getElementById("popup-layer");
+  let qty = all(popup).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "number"
+    && n.attrs.step === "1");
+  qty.value = "1";
+  qty._listeners.input[0].call(qty);
+  press(popup, "Save changes");
+  let layer = doc.getElementById("confirm-layer");
+  all(layer).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Save it")
+    ._listeners.click.forEach((f) => f());
+  all(layer).find((n) => n.tagName === "BUTTON" && /^Refund RM/.test(String(n.textContent).trim()))
+    ._listeners.click.forEach((f) => f());
+  const firstCard = doc.getElementById("popup-layer");
+  const go = all(firstCard).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Refund");
+  for (const f of go._listeners.click) await f();
+  assert.equal(st.orders[0].paidWasRM, 32, "precondition: the sale froze at what was paid");
+  assert.equal(st.orders[0].refundAmountRM, 16, "precondition: RM16 went back");
+
+  // Second: edit back up — the customer pays the extra.
+  press(root, "Edit");
+  popup = doc.getElementById("popup-layer");
+  qty = all(popup).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "number"
+    && n.attrs.step === "1");
+  qty.value = "2";
+  qty._listeners.input[0].call(qty);
+  press(popup, "Save changes");
+  layer = doc.getElementById("confirm-layer");
+  const paidToo = all(layer).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Yes, paid too");
+  assert.ok(paidToo, "paying for the extra did not ask — or asked the wrong question");
+  paidToo._listeners.click.forEach((f) => f());
+
+  assert.equal(st.orders[0].paidWasRM, 48,
+    "★ the extra RM16 was not added to the money received — **RM32 in her hand reads RM16**");
+  assert.equal(money.orderNet(st, { orders: st.orders }), 32,
+    "★ net money kept is not what she holds");
+});

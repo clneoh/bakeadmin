@@ -338,8 +338,14 @@ function rightTag(m) {
 // text share. A single day reads exactly as it always did.
 function headline(recs) {
   const first = recs[0];
-  if (recs.length === 1) return `${weekdayName(first.date)}, ${longDate(first.date)}`;
-  return recs.map((r) => shortDate(r.date)).join(" · ");
+  // ⚠️ A BAD DATE MUST NOT PRINT A DANGLING COMMA (v599) — `longDate`/`shortDate` answer "" for a
+  // malformed one, so the weekday was left naming a day with no date beside it.
+  if (recs.length === 1) {
+    const day = longDate(first.date);
+    return day ? `${weekdayName(first.date)}, ${day}` : "This bake day";
+  }
+  const days = recs.map((r) => shortDate(r.date)).filter(Boolean);
+  return days.length ? days.join(" · ") : "These bake days";
 }
 
 function previewCard(state, chosen, bom, needsReview) {
@@ -404,10 +410,12 @@ function emptyPreview(state, chosen, needsReview) {
           "It stays out of your list until you tell the app how to handle it. Tap the day above marked \"orders changed\" to see the new order — then ignore it, or save an extra-only list. Until you do, any further new orders just add onto that same list."));
     }
     return el("div", { class: "card po-card" },
-      emptyState(anyOrders ? "Those days are already shopped ✓" : "No orders yet",
-        anyOrders
-          ? "Every day with orders already has a saved, unchanged list. Tick any day above to rebuild it."
-          : "The PO is built from orders — add some orders to a bake day first, then come back."));
+      // ⚠️ AND AN EMPTY PREVIEW IS A SCREEN INSTRUCTION, NOT PAPER (v599).
+      el("div", { class: "no-print" },
+        emptyState(anyOrders ? "Those days are already shopped ✓" : "No orders yet",
+          anyOrders
+            ? "Every day with orders already has a saved, unchanged list. Tick any day above to rebuild it."
+            : "The PO is built from orders — add some orders to a bake day first, then come back.")));
   }
   return el("div", { class: "card po-card" },
     emptyState("Nothing to buy",

@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v598)
+# Jienluv2bake — change history (v54 → v599)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v599, THE VERIFICATION SWEEP: THE LAST FIXES, THEN FREEZE (⚠️ RE-RUN shared_pool_slots.sql; REDEPLOY parcel).**
+
+**Your words:** __"finish v598 then one verification sweep"__, and __"correcting without thorough understanding… is damaging."__ This is that sweep's batch. It is the last code change for the week: no new features, and money is only touched again if a real sale shows a wrong figure.
+
+1. ⚠️⚠️⚠️ **AN OFFLINE EDIT SURVIVED A DAMAGED BOOK.** A queued edit made the app skip that record's cloud copy, so the book stayed empty, the protection lifted, and the next save wrote a deletion over the edit — **the order and her change left both phones.** The unsent edit now rides on top of the restored record and stays queued.
+2. ⚠️⚠️ **A HEALED PHONE NO LONGER PUSHES FACTORY SETTINGS.** The damaged-book read covered records but not settings, so the stock bake days, cut-off and capacity could overwrite hers. The settings row is forced too, and an unsent settings change is re-applied on top.
+3. ⚠️ **AN IMPORT WHOSE RE-QUEUE FAILED NO LONGER LOSES THE ORDER** — the rows stay in memory until the queue row can actually be retried.
+4. ⚠️ **"FORGET THIS CUSTOMER" WITH NO PHONE** now records the profile key, so a name-only person cannot merge back from the other phone; and the Forget button is no longer drawn on a row that already says "Details removed".
+5. ⚠️⚠️ **THE EDIT/REFUND ARITHMETIC.** The draft no longer carries the frozen sale (so an edit-down asks the right question); **the refund card accepts the figure the app itself named** (RM48 paid, edited to RM16, refund RM32 now records); paying the extra **adds** to the money received instead of replacing it (RM32 paid, RM16 refunded, edited back reads RM32 kept, not RM16); and an ordinary refund also freezes the sale, so a later edit cannot subtract it twice.
+6. ⚠️⚠️ **A DELETED BAKE DAY NO LONGER READS AS A BAKE DAY.** When she has published dates, those are the answer; the weekday pattern applies only when there are no rows.
+7. ⚠️ **A MIXED PACK COUNTS EVERY LOAF IT HOLDS** toward the day — two hampers of two loaves and three buns count 10, matching the shop's pool instead of reading 2.
+8. ⚠️ **THE LIVE TRIGGER COUNTS AN UNLIMITED PRODUCT'S SALE AGAIN** (v598 skipped any product with no availability row), and a forged pool quantity is back inside the whole-order ceiling.
+9. ⚠️ **THE HOMEPAGE** arms its retry on a failed or unreadable answer, not only a thrown one; a stale or hand-edited homepage choice can no longer point the loaf's card at a value pack.
+10. ⚠️ **THE REVIEWS** fetch the review id the carousel compares, so a language switch keeps the reader's place; a failed-load note switches language too.
+11. ⚠️ **SCREEN READERS:** a dialog the action just opened keeps the keyboard (the refund sheet was being skipped), each refund quantity box names its line, an availability day names its occasion, and an add-mode bake day has a name.
+12. ⚠️ **PRINTING:** no "Pick another period", no app route on the P&L footer, no PO warnings or empty-preview instructions on paper; a malformed date no longer leaves a dangling title; and the invoice SCREEN says how to retry while the customer's paper keeps only the fact.
+
+**⚠️ Re-run `supabase/shared_pool_slots.sql` — your live trigger still has v598's unlimited-product gap and the forged-pool blind spot. ⚠️ Redeploy `parcel` if its code changed.** Nothing of yours is rewritten. 3,831 tests green.
 
 **19 Oct 2026 — engine v598, THE FIFTH SWEEP: WHAT MY OWN LAST FIXES BROKE (⚠️ RE-RUN shared_pool_slots.sql; REDEPLOY parcel).**
 

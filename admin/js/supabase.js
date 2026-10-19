@@ -462,7 +462,11 @@ export function storefrontPayload(state) {
     // ⭐ She names the product in Settings; the exact published NAME travels, because the shop addresses
     // products by name and the id means nothing on the public page. Absent = the homepage's old rule.
     homeProduct: (() => {
+      // ⚠️⚠️ A PACK IS NEVER THE HOMEPAGE PRODUCT (v599) — a stale id from before the picker excluded packs
+      // would price the loaf's card with a box. ⭐ An unknown/stale id publishes nothing, and the homepage
+      // falls back to its own rule rather than a wrong name.
       const pick = byId(state.products || [], sf.homeProductId);
+      if (pick && isPoolablePack(state, pick) !== null) return "";
       return pick && pick.active !== false && pick.draft !== true && Number(pick.price) > 0
         && String(pick.name || "").trim() ? String(pick.name).trim() : "";
     })(),
@@ -583,10 +587,14 @@ export async function refreshStorefront(state) {
     // empty choice and its next publish sent `homeProduct: ""` — ⚠️ **silently reverting the homepage card to the
     // first name containing focaccia.** ⭐ A NAME that is published is adopted onto the local product; an empty
     // one is "no opinion" and clears nothing (a phone that never chose must not erase another phone's choice).
-    if (typeof remote.homeProduct === "string" && remote.homeProduct.trim()) {
+    // ⚠️⚠️ AND ONLY A REAL PRODUCT IS ADOPTED — NEVER A VALUE PACK (v599). ⚠️ The published NAME was matched
+    // without the pack exclusion the picker has, so a stale or hand-edited name could point the loaf's card
+    // at a 4-loaf box. ⭐ And an empty list (a fresh phone's first sign-in, racing the first pull) adopts
+    // nothing, leaving the choice to the pull rather than writing "" over the other phone's pick.
+    if (typeof remote.homeProduct === "string" && remote.homeProduct.trim() && (state.products || []).length) {
       const wanted = remote.homeProduct.trim().toLowerCase();
       const hit = (state.products || []).find((p) => p && String(p.name || "").trim().toLowerCase() === wanted);
-      if (hit) sf.homeProductId = hit.id;
+      if (hit && isPoolablePack(state, hit) === null) sf.homeProductId = hit.id;
     }
     // The developer credit follows the same rule: the published values win, so
     // the More → Settings & this app ✉ rows and the footers match what customers see.
@@ -1317,12 +1325,17 @@ export async function pullIncoming(state) {
         // any save succeeded lost that customer's order from everywhere the app can reach.** ⭐ The rows this
         // import created are removed from memory (so a retry cannot duplicate them) and the claim is released.
         const ids = Array.isArray(created) ? created.map(String) : [];
-        discardImportedRows(state, ids);
-        await fetch(`${c.url}/rest/v1/incoming_orders?id=eq.${row.id}`, {
+        // ⚠️⚠️ THE RELEASE IS CHECKED BEFORE THE ROWS ARE DISCARDED (v599). ⚠️ The PATCH was fire-and-forget,
+        // so a connection that dropped between the claim and the release left the queue row `imported` (never
+        // retried) while the orders had already been removed from memory — ⚠️ **the customer's order existed
+        // nowhere.** ⭐ A failed release keeps the orders in memory for the next save; the row stays `imported`,
+        // so a retry can never duplicate them.
+        const released = await fetch(`${c.url}/rest/v1/incoming_orders?id=eq.${row.id}`, {
           method: "PATCH",
           headers: { ...auth, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify({ status: "new" }),
-        }).catch(() => {});
+        }).then((r) => !!(r && r.ok)).catch(() => false);
+        if (released) discardImportedRows(state, ids);
         continue;
       }
       // The claim already prevents a second import; delete is just cleanup.

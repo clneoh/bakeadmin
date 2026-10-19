@@ -404,7 +404,9 @@ export function readOrder(json: unknown): { ok: true; booked: Booked[]; failed: 
     }
   }
   if (!booked.length && !failed.length) {
-    return { ok: false, reason: "EasyParcel accepted the call but sent back no order." };
+    // ⚠️⚠️ AND A ROW WITH NEITHER A NUMBER NOR A REASON IS UNKNOWN TOO (v599) — a truncated gateway answer to a
+    // call that both creates and charges must not leave the Book press live.
+    return { ok: false, unknown: true, reason: "EasyParcel accepted the call but sent back no order." };
   }
   return { ok: true, booked, failed };
 }

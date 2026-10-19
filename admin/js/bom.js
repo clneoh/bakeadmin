@@ -826,13 +826,35 @@ export function capacityStatus(state, deliveryDateId) {
 // FOUR — while this counted the row's quantity alone: ⚠️ **a day with two 4-packs read "2/12 … can still take
 // 10" while the shop had 4 left.** ⭐ v580 aligned the order picker; this is the same piece, counted for the
 // day's own capacity.
+// Every limited base a product draws from — one for an ordinary pack, SEVERAL for a mixed one.
+function limitedBasesOf(state, productId, stack, out) {
+  const p = byId(state.products, productId);
+  if (!p || stack.has(productId)) return;
+  // ⚠️⚠️ THE PIECES ARE COUNTED EVEN WHEN THE BASE IS HIDDEN (v598) — `active` is deliberately not read.
+  if (Number(p.limit) > 0) { out.add(productId); return; }
+  stack.add(productId);
+  for (const line of p.recipe || []) {
+    const qty = Number(line.qty) || 0;
+    if (qty > 0 && line.productId && !line.ingredientId) limitedBasesOf(state, line.productId, stack, out);
+  }
+  stack.delete(productId);
+}
+
 export function unitsOfOrder(state, o) {
   const qty = Number(o && o.qty) || 0;
-  // ⚠️⚠️ THE PIECES ARE COUNTED EVEN WHEN THE BASE IS HIDDEN (v598). ⚠️ `isPoolablePack` answers null for a pack
-  // whose base is hidden (it is not OFFERED any more) — ⚠️ **so its orders counted 1 each and 48 loaves read as
-  // 12.** ⭐ How much bread a pack takes is a fact of its recipe, not of whether the base is on sale.
-  const t = terminalPackOf(state, o && o.productId, new Set());
-  return qty * (t ? t.qty : 1);
+  if (qty <= 0) return 0;
+  // ⚠️⚠️ A MIXED PACK DRAWS FROM EVERY BASE IT HOLDS (v599). ⚠️ `terminalPackOf` answers null for a recipe with
+  // more than one line, so a hamper of two loaves and two buns counted **1** toward the day while the pool
+  // counted its pieces — ⚠️ **the day's bar read one short for every hamper sold.** ⭐ Sum each limited base's
+  // own piece count, the same arithmetic `poolRemaining` uses.
+  const bases = new Set();
+  limitedBasesOf(state, o && o.productId, new Set(), bases);
+  if (!bases.size) return qty;
+  let total = 0;
+  for (const baseId of bases) {
+    total += qty * baseUnitsOf(state, baseId, o && o.productId, new Map(), new Set());
+  }
+  return total;
 }
 
 // The base a pack draws from when that base is HIDDEN — the pack cannot be offered (its cap has left the shop).

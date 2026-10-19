@@ -486,9 +486,13 @@ function availabilityCard(state, product) {
       if (past) { cells.push(el("span", { class: cls }, dayNum)); continue; }
       // Tapping a marked day names it as well as marking it — a holiday is the one
       // thing that decides a sell day for her, so it has to be readable here too.
+      // ⚠️ THE OCCASION IS PART OF THE DAY'S NAME (v599). ⚠️ The label overrode the children, so a day marked
+      // "Deepavali" was read as a bare date — the one fact that decides whether the product sells.
+      const tip = tipEl(state.occasions, d, past);
+      const tipText = tip ? String(tip.textContent || "").trim() : "";
       const cell = el("button", { class: `${cls} tappable`, type: "button", dataset: { date: d },
-        "aria-label": longDate(d) },
-        dayNum, tipEl(state.occasions, d, past));
+        "aria-label": tipText ? `${longDate(d)}, ${tipText}` : longDate(d) },
+        dayNum, tip);
       byDate.set(d, cell);
       cells.push(cell);
     }

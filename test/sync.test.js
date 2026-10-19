@@ -2950,3 +2950,73 @@ test("★★★ a burst of refreshes is ONE refresh, 1.5 s after the last (v584)
   t.mock.timers.tick(10000);
   assert.equal(calls.length, 1, "★ the refresh repeated itself after the burst");
 });
+
+// ── v599: the damaged book must not eat what never reached the cloud ──────
+
+test("★★★ an offline edit survives a damaged book (v599)", async () => {
+  // ⚠️⚠️ MEASURED: the queued edit made `localNewerOrSame` true, so the full read SKIPPED the cloud row —
+  // ⚠️ **the book stayed empty, the hold cleared, and the next save wrote a tombstone over the pending edit:
+  // the order and her change left the cloud and the other phone.** ⭐ With no readable book the unsent edit
+  // rides on top of the cloud's row and stays queued.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.unreadableSave = { kept: "bakeadmin.v1.unreadable", at: "2026-10-19T00:00:00.000Z" };
+    st.orders = [];
+    seedToken(store);
+    seedJournal(store, {
+      meta: { "orders:o1": "2026-10-02T00:00:00.000Z" },
+      snapshot: { "orders:o1": '{"id":"o1","qty":1}' },
+      pending: { "orders:o1": { kind: "orders", id: "o1", updated_at: "2026-10-03T00:00:00.000Z",
+        data: { id: "o1", qty: 5 }, _deleted: false } },
+    });
+    const restoreFetch = installFetch(async () => ({
+      ok: true, json: async () => [
+        { ...cloudRow("orders", "o1", { id: "o1", qty: 1 }, "2026-10-02T00:00:00.000Z"), seq: 9 },
+      ],
+    }));
+    try {
+      await sync.pull(st);
+      assert.equal(st.orders.length, 1,
+        "★ the cloud row was skipped as 'not newer' — **the book stayed empty and the record was lost**");
+      assert.equal(st.orders[0].qty, 5,
+        "★ her unsent edit was dropped instead of laid over the restored record");
+      const j = JSON.parse(store.get("bakeadmin.sync"));
+      assert.ok(j.pending["orders:o1"],
+        "★ the unsent edit was cleared — **the next save tombstones the order from the cloud**");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("★★★ a damaged book takes the cloud's settings, not its factory ones (v599)", async () => {
+  // ⚠️⚠️ MEASURED: the settings branch ignored `forceCloud`, and `bakeadmin.sync.seen` made the seed's
+  // shipped values look like a deliberate answer — ⚠️ **the healed phone kept Mon/Wed/Fri, 6:00PM and 12, then
+  // pushed them over the shared row.** ⭐ The settings row is forced too.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.unreadableSave = { kept: "bakeadmin.v1.unreadable", at: "2026-10-19T00:00:00.000Z" };
+    seedToken(store);
+    seedJournal(store, {
+      meta: { "settings:default": "2026-10-19T00:00:01.000Z" },
+      snapshot: { "settings:default": JSON.stringify(st.settings) },
+    });
+    const restoreFetch = installFetch(async () => ({
+      ok: true, json: async () => [
+        {
+          ...cloudRow("settings", "default", {
+            defaultCapacity: 20, deliveryDays: [2, 4, 6], cutoff: "17:30", currency: "RM",
+          }, "2026-10-19T00:00:00.000Z"),
+          seq: 9,
+        },
+      ],
+    }));
+    try {
+      await sync.pull(st);
+      assert.deepEqual(st.settings.deliveryDays, [2, 4, 6],
+        "★ the healed phone kept its factory bake days — **and will push them over hers**");
+      assert.equal(st.settings.cutoff, "17:30", "and its factory cut-off");
+      assert.equal(st.settings.defaultCapacity, 20, "and its factory capacity");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});

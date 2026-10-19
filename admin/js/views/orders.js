@@ -2766,9 +2766,22 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // ⚠️⚠️ AND THE DRAFT IS THE WHOLE ORDER'S WORTH (v598). ⚠️ It was the day's slice, while `paidWas` is the
     // whole sale — ⚠️ **on a split order the two figures were of different things.** ⭐ The other days' rows
     // ride along untouched; only this day's lines are the draft.
-    const _others = familyOfOrder(state, group.orders).filter((o) => !group.orders.some((g) => g.id === o.id));
-    const _draftRows = priced.map((l) => ({ ...first, id: l.id, productId: l.productId, qty: l.qty, unitPrice: l.price }));
+    // ⚠️⚠️ AND THE DRAFT CARRIES NO FROZEN SALE (v599). ⚠️ `{ ...first }` copied `paidWasRM`, so `orderTakings`
+    // answered the OLD figure and the draft was never the edited worth — ⚠️ **RM32 paid, edited down to RM16, the
+    // dialog still said it "now comes to RM32", so an edit-up asked for the wrong extra and an edit-down asked the
+    // opposite question.** ⭐ The draft is a WORTH, which has no payment in it; every row is stripped, including
+    // the other days' (the family is read through its first row).
+    const stripFreeze = (o) => { const { paidWasRM: _p, ...rest } = o; return rest; };
+    const _others = familyOfOrder(state, group.orders)
+      .filter((o) => !group.orders.some((g) => g.id === o.id)).map(stripFreeze);
+    const _draftRows = priced.map((l) => ({
+      ...stripFreeze(first), id: l.id, productId: l.productId, qty: l.qty, unitPrice: l.price,
+    }));
     draftNow = orderTakings(state, { orders: [..._others, ..._draftRows] });
+    // ⚠️ AND WHAT THE ORDER WAS WORTH BEFORE THIS EDIT (v599) — the extra is measured against the BILL, not
+    // against the money still held after a refund. ⭐ See the refreeze note below.
+    const billBefore = round2(customerTotal(state, { orders: familyOfOrder(state, group.orders) }).total);
+    const extraPaid = round2(draftNow - billBefore);
     // ⚠️⚠️ AND THE HINT SPEAKS THE SAME FIGURE THE QUESTION WILL (v595). ⚠️ It compared the goods-only paid
     // amount with `nowTotal` INCLUDING the courier charge — ⚠️ **RM7 in the hint and RM15 in the question, two
     // money figures on one flow.** ⭐ One draft figure, goods only.
@@ -2896,14 +2909,23 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // real: the extra was paid too, or it was not and the order goes back to being unpaid.
     const shift = paymentShift(paidWas, draftNow);
     const extra = shift.amount;
+    // ⚠️ AND THE EXTRA IS MEASURED AGAINST THE BILL, NOT AGAINST THE MONEY STILL HELD (v599) — a refund in
+    // the middle must not make the customer pay for money that was never theirs again.
+    const extraPaid = round2(draftNow - round2(customerTotal(state, { orders: family }).total));
+    // ⚠️⚠️ A SALE THAT ALREADY HAS MONEY BACK ON IT IS FROZEN TOO (v599). ⚠️ Only an *edit* refund stamped the
+    // freeze, so an ordinary refund followed by an edit-up re-priced the sale and subtracted the refund twice —
+    // ⚠️ **RM32 paid, RM20 refunded, edited up, and the books read RM12 against RM28 in her hand.**
+    const hadMoney = wasEditedRefund || (isCollected(group) && Number(first && first.refundAmountRM) > 0);
     if (shift.dir === "extra") {
       return confirmDialog(
         `THE MONEY IS IN — this order was paid ${fmtRM(paidWas, cfgCur)} and now comes to `
         + `${fmtRM(draftNow, cfgCur)}. Has the extra ${fmtRM(extra, cfgCur)} been paid too?`,
-        // ⚠️⚠️ AND PAYING THE EXTRA MOVES THE FROZEN SALE UP WITH IT (v598). ⚠️ `orderTakings` answers the
+        // ⚠️⚠️ AND PAYING THE EXTRA ADDS IT TO THE MONEY RECEIVED (v598/v599). ⚠️ `orderTakings` answers the
         // frozen amount, so the extra was never counted anywhere — ⚠️ **RM30 paid, edited to RM15 with a RM15
-        // refund, then edited back and paid again still read RM15.** ⭐ The new worth is what she has now.
-        () => applyEdits(wasEditedRefund ? { refreezeTo: draftNow } : {}),
+        // refund, then edited back and paid again still read RM15.** ⭐ It is ADDED, not substituted: refunds
+        // accumulate against the same sale, and replacing the freeze with the new worth subtracted them again
+        // (RM32 paid, RM16 refunded, edited back to RM32 read RM16 of RM32 held).
+        () => applyEdits(hadMoney ? { refreezeBy: extraPaid } : {}),
         {
           yesLabel: "Yes, paid too",
           noLabel: "Not yet",
@@ -2942,7 +2964,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     applyEdits();
   };
 
-  const applyEdits = ({ markUnpaid = false, refreezeTo = null } = {}) => {
+  const applyEdits = ({ markUnpaid = false, refreezeBy = 0 } = {}) => {
     const chosen = lines.filter((l) => l.productId);
     if (!chosen.length) return toast("Choose a product");
     const destId = draft.deliveryDateId || curId;
@@ -3015,9 +3037,12 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // ⚠️⚠️ AND "NOT YET" MEANS THE MONEY IS NOT IN (v577). ⭐ The Pay press returns and Money stops counting
     // the sale — the honest answer, and the only one that keeps her accounts true when she adds bread to an
     // order the customer has not paid the extra for.
-    // ⚠️ AND THE FROZEN SALE FOLLOWS A PAYMENT FOR THE EXTRA (v598).
-    if (refreezeTo != null && Number(refreezeTo) > 0) {
-      for (const o of familyOfOrder(state, group.orders)) o.paidWasRM = round2(Number(refreezeTo));
+    // ⚠️ AND THE FROZEN SALE FOLLOWS A PAYMENT FOR THE EXTRA (v598/v599) — by ADDITION.
+    if (refreezeBy != null && Number(refreezeBy) > 0) {
+      const base = Number(first && first.paidWasRM) || Number(refreezeBy);
+      for (const o of familyOfOrder(state, group.orders)) {
+        o.paidWasRM = round2((Number(o.paidWasRM) || base) + Number(refreezeBy));
+      }
       save(state);
       maybeSync(state);
     }
@@ -4247,6 +4272,14 @@ async function openInvoice(state, group) {
     // zero, which would be the app inventing a receipt the books do not have.
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
       receiptLineOfGroup(whole.orders, orderCode(first)) || receiptStatusOfGroup(whole.orders, cur)),
+    // ⚠️⚠️ THE SCREEN STILL GIVES THE WAY OUT (v599). ⚠️ v598 rightly took "reopen the app" off the
+    // CUSTOMER'S paper, but the screen lost every hint too — ⚠️ **she was left with a number that never
+    // arrived and nothing to do about it.** ⭐ `no-print`: the paper keeps the fact, the screen keeps the fix.
+    !receiptLineOfGroup(whole.orders, orderCode(first)) && first.paidReceived
+      ? el("p", { class: "card-sub no-print", style: "margin:0 0 10px" },
+          "The bakery's records could not be reached to draw the number. Close this and open the invoice "
+          + "again once the phone is back online — the number is drawn then, and this page will show it.")
+      : null,
     journalBodyEl(sheet, cur),
     el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
 }
@@ -5512,7 +5545,15 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
   // ⚠️ AND MONEY ALREADY GIVEN BACK IS NOT REFUNDABLE AGAIN (v598): refunds accumulate now, so the cap is the
   // bill less what has already gone back.
   const priorRefund = round2(Number(first && first.refundAmountRM) || 0);
-  const cap = round2(Math.max(0, bill.total - priorRefund));
+  // ⚠️⚠️ THE CAP IS THE MONEY SHE STILL HOLDS, NOT THE EDITED BILL (v599). ⚠️ On an edit-down the bill has
+  // already been lowered before this card opens, so `bill.total - priorRefund` was SMALLER than the refund the
+  // app itself had just promised — ⚠️ **RM48 paid, edited to RM16, the dialog said "Refund RM32", the box showed
+  // 32 and "up to RM16.00", and the press was refused: the books kept RM16 against RM48 of cash.** ⭐ The frozen
+  // sale is what came in; the cap is that less everything already given back.
+  // ⚠️ The edit flow hands over the sale AS IT WAS PAID (captured before the edit lowered the bill), which is
+  // the money she is actually holding; an ordinary Refund press prices it from the order itself.
+  const held = Number(paidWas) > 0 ? round2(Number(paidWas)) : orderTakings(state, { orders: family });
+  const cap = round2(Math.max(0, (held > 0 ? held : bill.total) - priorRefund));
 
   const lines = family.map((o) => ({
     id: o.id, qty: Number(o.qty) || 0, price: orderLinePrice(state, o), name: orderLineName(state, o),
@@ -5576,7 +5617,10 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
     const rows = lines.map((line) => {
       const amt = el("span", { class: "refund-amt" }, "");
       const qtyBox = line.qty > 1
-        ? el("input", { class: "input refund-qty", type: "number", inputmode: "numeric", "aria-label": "How many came back",
+        // ⚠️ EACH BOX NAMES ITS OWN LINE (v599): every row's box read the same "How many came back", so a
+        // screen reader on the second loaf could not tell her which box she was in.
+        ? el("input", { class: "input refund-qty", type: "number", inputmode: "numeric",
+            "aria-label": `How many came back — ${line.name || "this item"}`,
             min: "1", max: String(line.qty),
             oninput: () => {
               const v = Math.max(1, Math.min(line.qty, parseInt(qtyBox.value, 10) || 1));
@@ -5655,6 +5699,13 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
             // the flag is what stops it being counted twice. ⭐ Cleared by any ordinary refund, because a
             // later real refund is a real one.
             if (fromEdit) o.refundFromEdit = true; else delete o.refundFromEdit;
+            // ⚠️⚠️ AN ORDINARY REFUND FREEZES THE SALE TOO (v599). ⚠️ Only an edit refund used to stamp
+            // `paidWasRM`, so a later edit re-priced the whole sale and subtracted this refund a second
+            // time. ⭐ The money received at this moment is what the books must keep.
+            if (!fromEdit && !(Number(o.paidWasRM) > 0)) {
+              const was = orderTakings(state, { orders: family });
+              if (was > 0) for (const f of family) f.paidWasRM = was;
+            }
             // ⚠️⚠️ THE SALE AMOUNT IS FROZEN WHEN AN EDIT ANSWERS IT (v589). ⭐ Without it the edit rewrote
             // the PAST month's takings (September's RM30 became RM15) while the refund month showed nothing
             // leaving — ⚠️ **her October tin never moved, which is exactly what v578 was written to stop.**

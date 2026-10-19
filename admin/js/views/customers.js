@@ -460,7 +460,11 @@ function profileBlockEl(state, r, refresh, onSaved) {
         // ★★ v374 IS WHY IT IS OFFERED TO EVERYONE NOW. `forgetCustomer` redacts the ORDERS as well, so
         // the press finally does the whole of what it says: the details go, the sales record stays, and
         // the two cases differ only in how much there is to say about it. See `forgetPress`.
-        button("🗑 Forget", () => forgetPress(state, r, refresh, onSaved), "ghost small"))),
+        // ⚠️ AND NOT ON A ROW THAT ALREADY READS "Details removed" (v599): its `_key` is the redaction key,
+        // so the press matched no order and reported "0 orders cleaned" while doing nothing. A dead control.
+        (state.orders || []).some((o) => o && o.redactedKey && o.redactedKey === r._key)
+          ? null
+          : button("🗑 Forget", () => forgetPress(state, r, refresh, onSaved), "ghost small"))),
     // WHAT THIS ADVOCATE GETS AND WHAT THEY HAVE HAD (v291). It sits UNDER the profile top rather
     // than inside `.profile-who`, because it carries a press and the who-column is a flex child
     // beside the avatar. It was a bare sentence from v289 until she asked how to EXERCISE the

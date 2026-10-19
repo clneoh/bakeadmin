@@ -431,7 +431,8 @@ function renderDetail(root, state, po) {
           `Corrected ${fmtTime(po.amendedAt)} — this is what you actually took and paid.`)
       : null,
     boughtNote(po),
-    po.warnings?.length ? el("div", { class: "warn", style: "margin-top:10px" }, po.warnings.join(" ")) : null);
+    // ⚠️ A WARNING FOR HER SCREEN, NOT FOR THE PAPER (v599).
+    po.warnings?.length ? el("div", { class: "warn no-print", style: "margin-top:10px" }, po.warnings.join(" ")) : null);
 
   // Correcting the list is offered only until something has LANDED — bought OR marked not buying
   // (her decision, 3 Oct 2026, widened at v389). Once a shop's packs are on the shelf the money may

@@ -81,6 +81,12 @@ function waDigits(n) {
 // so the baker sets the name (+ email(s) and/or a WhatsApp number) once in the
 // app and the homepage footer shows them after the next "publish". Until then
 // the line stays hidden.
+// ⚠️⚠️ ONE PLACE ARMS THE RETRY (v599). ⚠️ v598's timer sat in `catch`, so a 503 or a non-JSON answer —
+// the two failures that do NOT throw — returned early and latched for the whole visit.
+function armDevRetry() {
+  if (!retryTimer) retryTimer = setTimeout(() => { retryTimer = null; loadDevConfig(); }, 30000);
+}
+
 async function loadDevConfig() {
   if (devLoaded) return;
   // ⚠️⚠️ ONE FAILED REQUEST MUST NOT FREEZE THE SALE FACTS FOR THE WHOLE VISIT (v596). ⚠️ This latched
@@ -91,12 +97,15 @@ async function loadDevConfig() {
     const res = await fetch(
       `${BASE}/rest/v1/storefront_config?select=data&id=eq.default`,
       { headers: { apikey: ANON } });
-    if (!res.ok) return;
+    if (!res.ok) { armDevRetry(); return; }
     const rows = await res.json().catch(() => null);
-    const raw = Array.isArray(rows) && rows[0] ? rows[0].data : null;
-    if (!raw) return;
+    // ⚠️ A READ THAT DID NOT COME BACK AS ROWS IS A FAILURE, NOT AN EMPTY ANSWER — `null` here means the
+    // JSON itself was unreadable, which must not latch either.
+    if (!Array.isArray(rows)) { armDevRetry(); return; }
+    const raw = rows[0] ? rows[0].data : null;
+    if (!raw) return; // an empty table is a real answer: nothing is published
     const cfg = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (!cfg || typeof cfg !== "object") return;
+    if (!cfg || typeof cfg !== "object") { armDevRetry(); return; }
     const name = typeof cfg.developerName === "string" ? cfg.developerName.trim() : "";
     const emails = Array.isArray(cfg.developerEmails)
       ? cfg.developerEmails.map((e) => String(e).trim()).filter(Boolean)
@@ -128,7 +137,7 @@ async function loadDevConfig() {
     // ⚠️⚠️ AND IT ACTUALLY TRIES AGAIN (v598). ⚠️ v596 stopped latching the failure, but nothing called this
     // function again — ⚠️ **so a homepage opened in a tunnel kept the typed RM16 for the whole visit while the
     // shop polled and recovered.** ⭐ One retry on a timer, and one the moment the phone is back online.
-    if (!retryTimer) retryTimer = setTimeout(() => { retryTimer = null; loadDevConfig(); }, 30000);
+    armDevRetry();
   }
 }
 

@@ -875,7 +875,11 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString(), { for
       try { payload = JSON.parse(row.data); } catch { continue; }
       if (!payload || typeof payload !== "object") continue;
 
-      if (localNewerOrSame || cloudAt <= localAt) {
+      // ⚠️⚠️ A DAMAGED BOOK TAKES THE CLOUD'S SETTINGS ROW (v599). ⚠️ The forced read covered records and not
+      // this branch, and `bakeadmin.sync.seen` still made this phone's factory answers look like an opinion —
+      // ⚠️ **so a healed phone kept the stock delivery days, cut-off and capacity and then pushed them over
+      // hers.** ⭐ `forceCloud` skips rule 2 here; an unsent settings change is re-applied below.
+      if (!forceCloud && (localNewerOrSame || cloudAt <= localAt)) {
         // Rule 2: local wins, so this phone's own answers stand — but the push
         // that follows REPLACES the row wholesale, and a key this phone has no
         // opinion about must not be deleted by a payload that simply omits it.
@@ -938,10 +942,14 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString(), { for
       // row that a freshly set up phone happened to stamp newest.
       if (!hasOpinion("production", payload)) delete merged.production;
       state.settings = { ...state.settings, ...merged };
+      // ⚠️ AND A SETTINGS CHANGE THAT NEVER REACHED THE CLOUD SURVIVES THE HEAL (v599) — it is re-applied on
+      // top of the cloud's row and stays pending, so the flush still sends it.
+      const resend = forceCloud && pending && !pending._deleted && pending.data && typeof pending.data === "object";
+      if (resend) state.settings = { ...state.settings, ...pending.data };
       const own = recordPayload("settings", state.settings);
       b.meta[key] = cloudAt;
-      b.snapshot[key] = canonical(own);
-      delete b.pending[key];
+      b.snapshot[key] = canonical(resend ? payload : own);
+      if (!resend) delete b.pending[key];
       changed = true;
 
       // Rule 3: the cloud row says nothing about a guarded key this phone holds
@@ -1003,7 +1011,14 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString(), { for
     // SEED, while `b.meta` still holds the timestamps of everything this phone itself pushed — ⚠️ **so every
     // cloud row was skipped as "not newer", the book stayed empty, and clearing the hold let the next save
     // tombstone it all.** ⭐ A local UNSENT change still wins; anything else is taken from the cloud.
-    if (localNewerOrSame || (!forceCloud && cloudAt <= localAt)) continue;
+    // ⚠️⚠️ AN UNSENT EDIT SURVIVES A DAMAGED BOOK (v599). ⚠️ `localNewerOrSame` skipped the cloud row because
+    // the queued edit is newer, but the damaged state held no copy of the record — ⚠️ **so the forced read
+    // restored nothing, the hold cleared, and the next save tombstoned the order, deleting her offline edit
+    // from the cloud and the other phone.** ⭐ With no readable book the unsent edit rides ON TOP of the cloud
+    // row instead of replacing it; a queued DELETE still wins and is left alone.
+    const restorePending = forceCloud && pending && !pending._deleted
+      && pending.data && typeof pending.data === "object" ? pending.data : null;
+    if ((localNewerOrSame && !restorePending) || (!forceCloud && cloudAt <= localAt)) continue;
 
     if (idx >= 0) {
       // ⚠️⚠️ MERGED IN PLACE, NEVER SWAPPED (v589). ⚠️ `list[idx] = payload` replaced the object, while an
@@ -1028,10 +1043,14 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString(), { for
     } else {
       list.push(payload);
     }
+    if (restorePending) {
+      const rec = idx >= 0 ? list[idx] : list[list.length - 1];
+      if (rec && typeof rec === "object") Object.assign(rec, restorePending);
+    }
     changed = true;
     b.meta[key] = cloudAt;
     b.snapshot[key] = canonical(payload);
-    delete b.pending[key];
+    if (!restorePending) delete b.pending[key];
   }
 
   return { changed, applied };

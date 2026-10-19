@@ -324,6 +324,12 @@ export function confirmDialog(message, onYes, { danger = false, yesLabel = "Conf
   try { card.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
   function restoreOpener() {
     try {
+      // ⚠️⚠️ A DIALOG THE ACTION OPENED KEEPS THE KEYBOARD (v599). ⚠️ "Save it" opens the refund card before
+      // this runs, and the title fallback then took focus OUT of the card it had just opened — ⚠️ **the refund
+      // sheet was on screen with its first control skipped and the keyboard nowhere near it.** ⭐ If focus is
+      // already inside another VISIBLE dialog, leave it exactly where the action put it.
+      const active = typeof document !== "undefined" ? document.activeElement : null;
+      if (active && active !== opener && insideOpenCard(active)) return;
       if (opener && opener.focus && opener.isConnected !== false) { opener.focus({ preventScroll: true }); return; }
       // ⚠️⚠️ AND WHEN THE ACTION REBUILT THE SCREEN, FOCUS GOES SOMEWHERE SAID (v598). ⚠️ A delete's re-render
       // removes the control that opened the question, so focus fell to `<body>` and the next Tab started at the
@@ -341,6 +347,24 @@ export function confirmDialog(message, onYes, { danger = false, yesLabel = "Conf
     layer.replaceChildren();
     if (restore) restoreOpener();
   }
+}
+
+// ⚠️ IS THIS NODE INSIDE A VISIBLE CARD? (v599) — read from the layers themselves, because a node removed
+// from a closed layer is still `document.activeElement` for one instant and must not count.
+function insideOpenCard(node) {
+  if (!node || typeof document === "undefined" || typeof document.getElementById !== "function") return false;
+  for (const id of ["confirm-layer", "popup-layer"]) {
+    const layer = document.getElementById(id);
+    if (!layer || layer.hidden !== false || !layer.children) continue;
+    const stack = Array.from(layer.children);
+    while (stack.length) {
+      const n = stack.pop();
+      if (!n) continue;
+      if (n === node) return true;
+      if (n.children) stack.push(...Array.from(n.children));
+    }
+  }
+  return false;
 }
 
 // A card opens over the screen it is about, and on a phone it covers the very

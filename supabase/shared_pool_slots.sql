@@ -85,10 +85,14 @@ begin
         end if;
         -- ⚠️⚠️ A PACK LINE'S OWN QUANTITY IS NOT A DAY SLOT (v598) — its pieces arrive in `pool`, and counting
         -- both would count every pack twice. The row tells us which kind it is.
-        if t_qty between 1 and 100 and not exists (
-          select 1 from public.product_availability pa
-           where pa.date = odate and pa.product = coalesce(btrim(t_line->>'name'), '') and pa.pool_base is not null
-        ) then
+        -- ⚠️ ONLY A LINE THAT HITS A PUBLISHED ROW COUNTS (v599) — an unpublished name moves no count anyway,
+        -- and a pack whose pack row did not publish would otherwise be counted twice toward the ceiling.
+        if t_qty between 1 and 100
+           and exists (select 1 from public.product_availability pa
+                        where pa.date = odate and pa.product = coalesce(btrim(t_line->>'name'), ''))
+           and not exists (select 1 from public.product_availability pa
+                            where pa.date = odate and pa.product = coalesce(btrim(t_line->>'name'), '')
+                              and pa.pool_base is not null) then
           total_wanted := total_wanted + t_qty;
         end if;
       end loop;
@@ -99,7 +103,10 @@ begin
           else
             t_qty := 0;
           end if;
-          if t_qty between 1 and 100 then total_wanted := total_wanted + t_qty; end if;
+          -- ⚠️⚠️ NO 100 CAP HERE (v599): step 3 no longer caps a pool row, so a forged pool qty outside 1..100
+          -- was neither capped NOR counted — ⚠️ **1,000,000,000 pieces zeroed a day through the pre-check's blind
+          -- spot.** ⭐ Every positive pool qty is summed, so the whole-order ceiling catches it.
+          if t_qty >= 1 then total_wanted := total_wanted + t_qty; end if;
         end loop;
       end if;
       if total_wanted > 200 then
@@ -133,7 +140,17 @@ begin
       -- ⚠️⚠️ ONLY A LINE THAT HIT A BASE ROW IS A DAY SLOT (v598). ⚠️ A pack's line matched nothing here, and its
       -- pieces are added by step 3 — counting this too dropped the day by 1 + 4 for one 4-pack.
       get diagnostics hits = row_count;
-      if hits > 0 then day_qty := day_qty + lqty; end if;
+      if hits > 0 then
+        day_qty := day_qty + lqty;
+      elsif not exists (
+        -- ⚠️⚠️ AN UNLIMITED PRODUCT HAS NO ROW, AND ITS LINE IS STILL A DAY SLOT (v599). ⚠️ v598's ROW_COUNT gate
+        -- skipped it — ⚠️ **5 buns on a 12-loaf day left the shop reading 12.** ⭐ No row at all = a real sale;
+        -- a derived (pool_base) row = a pack, whose pieces arrive in step 3.
+        select 1 from public.product_availability pa
+         where pa.date = odate and pa.product = lname
+      ) then
+        day_qty := day_qty + lqty;
+      end if;
     end loop;
 
     -- 3) Every pack in `pool` draws its base out of the shared pool in whole

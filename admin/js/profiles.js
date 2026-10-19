@@ -95,6 +95,12 @@ export function forgetCustomer(state, rowKey) {
   const key = newId("red");
   const at = new Date().toISOString();
 
+  // ⚠️ THE PROFILE'S OWN KEY GOES WITH THE REDACTION (v599) — a name-only customer has no phone, so the
+  // profile filter had nothing to match and a newer profile row from the other phone brought them back.
+  const prof = (state.customers || []).find((p) => p
+    && (p.key === rowKey || (keyOf({ whatsapp: p.whatsapp, customerName: p.name }) || p.key) === rowKey));
+  const profileKey = String((prof && prof.key) || rowKey || "");
+
   // 1 — the sales record stays; the person on it does not.
   // ⚠️⚠️ AND EACH ROW GETS A SYNCED REDACTION OF ITS OWN (v592). ⚠️ The cleared fields alone lose to a newer
   // order row on the next merge — ⚠️ **one Paid press on the other phone put the name, number and address back
@@ -111,7 +117,7 @@ export function forgetCustomer(state, rowKey) {
     delete o.lineNote;
     delete o.refundNote;
     state.redactions = state.redactions.filter((r) => !(r && r.id === o.id));
-    state.redactions.push({ id: o.id, at, key, ...(who ? { who } : {}) });
+    state.redactions.push({ id: o.id, at, key, ...(who ? { who } : {}), ...(profileKey ? { profileKey } : {}) });
   }
 
   // 2 — their own record, their coupons, their hand-outs.

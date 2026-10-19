@@ -417,6 +417,13 @@ test("★★★ today's bake is only 'closed' when she actually bakes today", ()
     "precondition: once the bake day arrives, ordering for it has closed");
   assert.equal(todayStillOpen({ cutoff: "" , deliveryDays: [1, 3, 5] }, new Date(2026, 9, 19, 10, 0)), true,
     "with no cut-off at all there is nothing to have closed");
+  // ⚠️⚠️ AND HER PUBLISHED DAYS OUTRANK THE WEEKDAY (v599). ⚠️ v598 OR-ed the pattern in, so a Wednesday she
+  // had DELETED still read "You're in time" — ⚠️ **the page offered a bake she had taken off.** ⭐ When rows
+  // exist, the row is the answer; the pattern is only for the no-rows fallback (`undefined`).
+  const wed = new Date(2026, 9, 21, 9, 0); // Wed 21 Oct, a weekday-bake day
+  assert.equal(todayStillOpen(cfg, wed, false), true,
+    "★ a deleted bake day was reported as a bake that has closed (or is still open) because it was a Wednesday");
+  assert.equal(todayStillOpen(cfg, wed, true), false, "a day that IS in her rows still closes at its cut-off");
 });
 
 test("isOpen keeps a later day open and treats a missing cutoff as always open", () => {

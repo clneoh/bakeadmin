@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "598";
+export const SHOP_BUILD = "599";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -637,10 +637,11 @@ export function todayStillOpen(cfg, now = new Date(), bakesTodayOverride) {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const weekdayBakes = Array.isArray(cfg && cfg.deliveryDays) && cfg.deliveryDays.includes(start.getDay());
   const bakesToday = bakesTodayOverride !== undefined
-    // ⚠️⚠️ EITHER ANSWER MAY SAY YES (v598). ⚠️ The published table can start TOMORROW (the weekday fallback
-    // is written from tomorrow onward), so "not in the table" does not mean she is not baking today — ⚠️ **a
-    // Wednesday bake day said "You're in time".** ⭐ The pattern and the rows are both her answer.
-    ? (!!bakesTodayOverride || weekdayBakes)
+    // ⚠️⚠️ WHEN SHE HAS PUBLISHED DAYS, THOSE ARE THE ANSWER (v599). ⚠️ v598 OR-ed the weekday pattern in,
+    // so a date she had DELETED still read "You're in time" because it was a Wednesday — ⚠️ **the page
+    // offered a bake she had taken off.** ⭐ The pattern is the fallback only when there are no rows at all
+    // (the caller passes `undefined` then), which is the case the fallback is for.
+    ? !!bakesTodayOverride
     : weekdayBakes;
   return !bakesToday || isOpen(cfg, start, now);
 }

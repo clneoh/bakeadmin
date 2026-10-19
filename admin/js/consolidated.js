@@ -392,7 +392,9 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
       ? `This customer has nothing${kind === "all" ? " yet" : " in this period"}.`
       : kind === "all"
         ? "Nothing has been sold yet."
-        : "Nothing was sold in this period. Pick another period.",
+        // ⚠️ "Pick another period" was instruction on PAPER (v599) — the journal's empty line prints. ⭐ The
+        // fact alone is what a reader needs.
+        : "Nothing was sold in this period.",
     note: said.join(" "),
   };
 }

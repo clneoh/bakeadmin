@@ -604,8 +604,9 @@ test("the statement says the cost is a recipe cost, and that it is FROZEN onto t
     "⚠️ and it admits what the older orders' frozen cost actually is, rather than implying it is history");
   assert.match(text, /not what you actually spent/,
     "so the figure is never read as money she paid out");
-  assert.match(text, /the Money screen is where the cash is/,
-    "and she is sent to the screen that does hold the cash");
+  // ⚠️ v599: the note appears on PAPER, so it names the record rather than an app screen she is not holding.
+  assert.match(text, /your record of cash is where the money is/,
+    "and she is sent to the record that does hold the cash");
 });
 
 // ── the month arrows (v115) ──────────────────────────────────────────────────
@@ -697,7 +698,7 @@ test("the Profit and loss card prints and shares the whole statement, figure for
     // The reader of Gross profit on paper needs the same warning the screen gives.
     assert.match(shared.text, /built from the recipe and the ingredient prices you have recorded/,
       "the statement explains its own cost figure on paper too");
-    assert.match(shared.text, /the Money screen is where the cash is/);
+    assert.match(shared.text, /your record of cash is where the money is/);
   } finally { delete globalThis.navigator.share; }
 });
 
@@ -734,7 +735,8 @@ test("every journal behind a statement line wears the pair, and shares its own b
     assert.match(shared.text, /Focaccia × 2 · Aisyah/, "what leaves is the journal she opened");
     assert.ok(shared.text.split("\n").find((l) => l.startsWith("Total")).endsWith("RM 30.00"),
       "and it lands on that line's own figure");
-    assert.match(shared.text, /From More → Profit\./, "with where it came from on it");
+    // ⚠️ v599: an app ROUTE printed on an accountant's paper. The source is named without a screen to tap.
+    assert.match(shared.text, /From her bookkeeping app\./, "with where it came from on it");
   } finally { delete globalThis.navigator.share; }
 });
 

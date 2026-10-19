@@ -820,3 +820,25 @@ test("restockOnlyItems returns only the low actives not already listed, in name 
   assert.equal(rows.length, 1);
   assert.equal(rows[0].ingredientId, "ing_f");
 });
+
+test("★★★ a MIXED pack counts every loaf it holds toward the day (v599)", () => {
+  // ⚠️⚠️ MEASURED: `terminalPackOf` answers null for a recipe with more than one line, so `unitsOfOrder`
+  // counted a mixed hamper as ONE while `poolRemaining` counted its pieces — ⚠️ **the day's bar read one short
+  // for every hamper sold, and the shop's slots were published against the wrong total.**
+  const st = fixtureState();
+  st.products.push(
+    { id: "prd_b", name: "Bun", unit: "piece", limit: 6, active: true, price: 4, recipe: [
+      { ingredientId: "ing_f", qty: 80, unit: "g" },
+    ] },
+    { id: "prd_m", name: "Mix Box", unit: "set", active: true, price: 42, recipe: [
+      { productId: "prd_f", qty: 2, unit: "loaf" },
+      { productId: "prd_b", qty: 3, unit: "piece" },
+    ] },
+  );
+  st.orders = [{ id: "o1", deliveryDateId: "del_a", productId: "prd_m", qty: 2 }];
+  assert.equal(unitsOfOrder(st, st.orders[0]), 10,
+    "★ a mixed hamper counted as one unit — **2 boxes read 2 while the shop's pool counted 10**");
+  assert.equal(totalUnitsOnDate(st, "del_a"), 10, "and the day is short by the same amount");
+  assert.equal(poolRemaining(st, "del_a", "prd_f").booked, 4, "the focaccia pool sees its 2 × 2 loaves");
+  assert.equal(poolRemaining(st, "del_a", "prd_b").booked, 6, "the bun pool sees its own 2 × 3");
+});

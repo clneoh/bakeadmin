@@ -177,7 +177,10 @@ export async function shrinkReviewPhoto(file) {
 export async function loadApproved() {
   try {
     const res = await fetch(
-      `${BASE}/rest/v1/reviews?select=name,stars,message,lang,photo,created_at&published=eq.true&order=created_at.desc`,
+      // ⚠️⚠️ `id` IS SELECTED (v599). ⚠️ v598's place-keeping compared `r.id`, which the query never asked
+      // for — ⚠️ **so `findIndex` was always -1 and every language switch still opened slide 1.** ⭐ The
+      // carousel's own `onSlide` already reports it; it just had nothing to report.
+      `${BASE}/rest/v1/reviews?select=id,name,stars,message,lang,photo,created_at&published=eq.true&order=created_at.desc`,
       { headers: { apikey: SUPABASE.anonKey } });
     if (!res.ok) return null;
     const rows = await res.json().catch(() => null);
@@ -697,8 +700,12 @@ if (hasDOM) {
   window.addEventListener("i18nchange", () => {
     // ⚠️⚠️ AND A FAILED LOAD'S NOTE FOLLOWS THE SWITCH TOO (v598). ⚠️ `rowsCache` is null after a failed
     // fetch, so this skipped the redraw and "Reviews can't load right now" stayed English on the Chinese page.
-    if (rowsCache) drawGrid();
-    else loadApproved();
+    // ⚠️⚠️ THE NOTE IS REDRAWN IN THE NEW LANGUAGE (v599). ⚠️ The old fallback called `loadApproved()` and
+    // threw the answer away, so a failed note stayed in the previous language while the rest of the page
+    // switched. ⭐ Draw what is known now; only when nothing is cached is a fresh read started, and it
+    // redraws if it lands.
+    drawGrid();
+    if (!rowsCache) loadApproved().then((rows) => { if (rows) { rowsCache = rows; drawGrid(); } });
   });
   initReviews();
 }

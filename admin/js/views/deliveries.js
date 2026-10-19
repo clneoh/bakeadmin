@@ -380,7 +380,7 @@ function dayCell(state, date, today, addedMap, pickable, allowPast = false) {
   // than left standing as a description of behaviour that no longer happens.
   // ⚠️ A date that carries orders already asked; now so does one that does not.
   if (added && !past) {
-    return el("button", { class: `${cls} tappable`,
+    return el("button", { class: `${cls} tappable`, "aria-label": longDate(date),
       onclick: () => { nameDay(state.occasions, date, past); deleteDate(state, addedTo); } }, ...inner);
   }
   // ⚠️⚠️ A PAST DAY IS PICKABLE WHEN THE **ADD** CALENDAR ASKS FOR IT (v464) — and never in occasion mode,

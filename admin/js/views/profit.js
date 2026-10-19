@@ -37,13 +37,13 @@ const dayMonth = (iso) => longDate(String(iso).slice(0, 10)).slice(0, -5);
 // steady from then on, but the figure it settled at is that day's recipe cost, not what the
 // flour cost when the order was actually baked. The app never recorded one; saying otherwise
 // would be inventing a number.
-const COST_OF_SALES_NOTE = "Cost of sales is built from the recipe and the ingredient prices you have recorded. It is frozen onto each order when you take it, so changing a recipe or a price from now on does not rewrite a sale already made. Orders taken before this was introduced were pinned at the cost they were already showing. It is still not what you actually spent, and gross profit is a guide to your pricing rather than your bank balance — the Money screen is where the cash is.";
+const COST_OF_SALES_NOTE = "Cost of sales is built from the recipe and the ingredient prices you have recorded. It is frozen onto each order when you take it, so changing a recipe or a price from now on does not rewrite a sale already made. Orders taken before this was introduced were pinned at the cost they were already showing. It is still not what you actually spent, and gross profit is a guide to your pricing rather than your bank balance — your record of cash is where the money is.";
 
 // The cash half of the same story: a pack bought today is not costed all at once. It closes
 // with the one choice she has to make about her own hours, and carries the month's own count
 // of lines nothing could price — that count moves month to month, which is why this is a
 // function of the statement rather than a fixed string.
-const cashFooter = (pl) => "A pack bought today is not costed all at once — it is cash on the Money screen and stock on the shelf, and becomes cost of sales as the bread made from it is sold. Sales are counted by the day you deliver. "
+const cashFooter = (pl) => "A pack bought today is not costed all at once — it is cash in your cash record and stock on the shelf, and becomes cost of sales as the bread made from it is sold. Sales are counted by the day you deliver. "
   + (pl.uncosted ? `${pl.uncosted} line${pl.uncosted === 1 ? "" : "s"} this month had no recipe cost and was counted as nothing — check that product's recipe. ` : "")
   + "Your own unpaid hours are not costed on their own: either pay yourself a Salary (you), with EPF and SOCSO as their own category, or mark Labour as a not-bought ingredient (Ingredients, in the app) and put the hours into the recipes. Count them one way, never both.";
 
@@ -77,9 +77,9 @@ function openExpenseJournal(state, label, from, to, monthTitle) {
     totals: [{ label: "Total", amount: -total }],
     empty: `Nothing recorded under ${label || "your running costs"} in ${monthTitle}.`,
     note: rows.length
-      ? "These are the rows the line above is made of, each with what it was for and how it was paid. They are recorded on the Money screen (Add an expense), so a correction is made there — and both screens move together, because this is the same list."
-      : "It will fill up on its own as you record spending under this category on the Money screen (Add an expense).",
-    where: "More → Profit",
+      ? "These are the rows the line above is made of, each with what it was for and how it was paid. They are recorded as expenses, so a correction is made there — and both screens move together, because this is the same list."
+      : "It will fill up on its own as you record spending under this category.",
+    where: "her bookkeeping app",
     bakery: bakeryName(state),
   });
 
@@ -96,8 +96,8 @@ function openExpenseJournal(state, label, from, to, monthTitle) {
       el("span", {}, "Total"), el("span", { class: "info-val" }, fmtRM(-total, cur))),
     el("p", { class: "card-sub", style: "margin:10px 0 0" },
       rows.length
-        ? "These are the rows the line above is made of, each with what it was for and how it was paid. They are recorded on the Money screen (Add an expense), so a correction is made there — and both screens move together, because this is the same list."
-        : "It will fill up on its own as you record spending under this category on the Money screen (Add an expense)."),
+        ? "These are the rows the line above is made of, each with what it was for and how it was paid. They are recorded as expenses, so a correction is made there — and both screens move together, because this is the same list."
+        : "It will fill up on its own as you record spending under this category."),
     el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
 }
 
@@ -124,7 +124,7 @@ function openRefundJournal(state, from, to, monthTitle) {
     note: "These are the refunds recorded on your orders, each on the day the money went back. They are "
       + "recorded when you press Refund on an order, so a correction is made there — and both screens move "
       + "together, because this is the same list.",
-    where: "More → Profit",
+    where: "her bookkeeping app",
     bakery: bakeryName(state),
   });
 
@@ -177,8 +177,8 @@ function openTradingJournal(state, which, from, to, monthTitle) {
     empty: sales ? `Nothing was sold in ${monthTitle}.` : `Nothing was baked for sale in ${monthTitle}.`,
     note: sales
       ? "These are the order lines the figure above is made of, each with the customer's own name. A sale counts on the day it is DELIVERED, not the day it was ordered — the same day the day headers and the customer's calendar use. They are recorded in Orders, so a correction is made there; both screens move together, because this is the same list."
-      : `These are what those very lines cost to bake, taken from your recipes — not the packs you bought, which are cash on the Money screen and stock on the shelf.${uncosted ? ` ${uncosted} line${uncosted === 1 ? "" : "s"} this month had no recipe cost and was counted as nothing, so check that product's recipe.` : ""}`,
-    where: "More → Profit",
+      : `These are what those very lines cost to bake, taken from your recipes — not the packs you bought, which are cash in your cash record and stock on the shelf.${uncosted ? ` ${uncosted} line${uncosted === 1 ? "" : "s"} this month had no recipe cost and was counted as nothing, so check that product's recipe.` : ""}`,
+    where: "her bookkeeping app",
     bakery: bakeryName(state),
   });
 
@@ -195,7 +195,7 @@ function openTradingJournal(state, which, from, to, monthTitle) {
       el("span", {}, "Total"), el("span", { class: "info-val" }, fmtRM(total, cur))),
     el("p", { class: "card-sub", style: "margin:10px 0 0" }, sales
       ? "These are the order lines the figure above is made of, each with the customer's own name. A sale counts on the day it is DELIVERED, not the day it was ordered — the same day the day headers and the customer's calendar use. They are recorded in Orders, so a correction is made there; both screens move together, because this is the same list."
-      : `These are what those very lines cost to bake, taken from your recipes — not the packs you bought, which are cash on the Money screen and stock on the shelf.${uncosted ? ` ${uncosted} line${uncosted === 1 ? "" : "s"} this month had no recipe cost and was counted as nothing, so check that product's recipe.` : ""}`),
+      : `These are what those very lines cost to bake, taken from your recipes — not the packs you bought, which are cash in your cash record and stock on the shelf.${uncosted ? ` ${uncosted} line${uncosted === 1 ? "" : "s"} this month had no recipe cost and was counted as nothing, so check that product's recipe.` : ""}`),
     el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
 }
 
@@ -297,7 +297,7 @@ export function renderProfit(root, state) {
       ],
       totals: [],
       note: `${COST_OF_SALES_NOTE}\n\n${cashFooter(pl)}`,
-      where: "More → Profit",
+      where: "her bookkeeping app",
       bakery: bakeryName(state),
     });
 
@@ -345,7 +345,7 @@ export function renderProfit(root, state) {
       el("div", { class: "card" },
         el("p", { class: "card-title" }, "Your own money"),
         el("p", { class: "card-sub", style: "margin:0 0 8px" },
-          "What you put in is capital and what you take out is drawings. Neither is income and neither is a cost — they move cash, and the Money screen is where you check that."),
+          "What you put in is capital and what you take out is drawings. Neither is income and neither is a cost — they move cash, and your cash record is where you check that."),
         line("Capital you put in", pl.capital),
         line("Drawings you took out", -pl.drawings),
         line("In the business so far this month", pl.capital - pl.drawings, " pl-total")),

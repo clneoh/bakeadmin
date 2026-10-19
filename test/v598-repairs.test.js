@@ -26,8 +26,9 @@ test("★★★ the damaged copy cannot be deleted into a tombstone (v598)", () 
 
 test("★★★ an edit that pays for the extra moves the frozen sale; undo keeps it (v598)", () => {
   const orders = read("admin/js/views/orders.js");
-  assert.match(orders, /refreezeTo: draftNow/, "★ paying the extra never reaches the frozen sale");
-  assert.match(orders, /for \(const o of familyOfOrder\(state, group\.orders\)\) o\.paidWasRM = /,
+  // ⚠️ v599: the refreeze is an ADDITION (`refreezeBy`), not a substitution — see v599-repairs.
+  assert.match(orders, /refreezeBy: extraPaid/, "★ paying the extra never reaches the frozen sale");
+  assert.match(orders, /for \(const o of familyOfOrder\(state, group\.orders\)\) \{\s*\n\s*o\.paidWasRM = /,
     "the refreeze is written to the whole sale");
   const undoAt = orders.indexOf("function undoRefundOrder");
   assert.ok(undoAt > 0, "the undo moved");
@@ -61,7 +62,8 @@ test("★★★ the homepage retries a failed settings read (v598)", () => {
 
 test("★★ a language switch keeps the review and its place (v598)", () => {
   const src = read("reviews.js");
-  assert.match(src, /if \(rowsCache\) drawGrid\(\);\s*\n\s*else loadApproved\(\);/,
+  // ⚠️ v599: draw first, then re-read only when nothing is cached.
+  assert.match(src, /drawGrid\(\);\s*\n\s*if \(!rowsCache\) loadApproved\(\)/,
     "★ a failed load's note stays in the old language");
   assert.match(src, /buildCarousel\(rows, currentReviewId\)/, "★ a language switch throws the reader to slide 1");
   assert.match(read("store/app.js"), /\(CONFIG\.products \|\| \[\]\)\.length \? t\("noMenuToday"\) : t\("noMenu"\)/,
@@ -88,15 +90,17 @@ test("★★ the backoffice dialogs and calendars are named (v598)", () => {
     ["admin/js/views/deliveries.js", "the bake-day calendar"],
     ["admin/js/views/products.js", "the availability calendar"],
   ]) {
-    assert.match(read(file), /"aria-label": longDate\(/, `${why}'s days are still named by their number`);
+    assert.match(read(file), /"aria-label": (tipText \? `\$\{longDate\(d\)\}, \$\{tipText\}` : )?longDate\(/,
+      `${why}'s days are still named by their number`);
   }
 });
 
 test("★★★ the live slot trigger counts a pack ONCE toward the day (v598)", () => {
   // ⚠️ SQL CHECK: her database runs this. ⚠️ v596 added both the line's qty and the pool's pieces.
   const src = read("supabase/shared_pool_slots.sql");
-  assert.match(src, /get diagnostics hits = row_count;\s*\n\s*if hits > 0 then day_qty := day_qty \+ lqty; end if;/,
-    "★ a pack line still adds its own qty as well as its pieces");
+  // ⚠️ v599: an unlimited product (no row) still counts; only a derived pack row is excluded.
+  assert.match(src, /if hits > 0 then\s*\n\s*day_qty := day_qty \+ lqty;\s*\n\s*elsif not exists \(/,
+    "★ a pack line still adds its own qty as well as its pieces — or an unlimited line no longer counts");
   assert.match(src, /if pqty < 1 or pname = '' then/, "the pool row is capped at 100 again — a legitimate large pack order is ignored");
   assert.match(src, /total_wanted > 200/, "the whole-order ceiling is gone");
   assert.match(read("supabase/advisor_fixes.sql"), /to_regclass\('public\.order_alert_errors'\) is not null\s*\n\s*and conrelid = to_regclass/,
