@@ -247,8 +247,12 @@ Deno.serve(async (req) => {
       // A refusal here is ORDINARY, not a fault: Lalamove only allows a cancellation
       // while a driver is still being found, or within five minutes of one being
       // matched. Logged rather than treated as a failure of the function.
+      // ⚠️⚠️ EXCEPT WHEN IT TIMED OUT (v589). ⚠️ The provider marks a 20-second timeout UNKNOWN, and this
+      // branch dropped the flag — ⚠️ **the run said the cancellation was refused and kept the job stamped as
+      // booked, with nothing recording that nobody knows whether the trip is still coming.** ⭐ The flag is
+      // forwarded as the booking branch forwards it.
       console.error("[courier] cancellation refused:", out.reason);
-      return json({ ok: false, reason: out.reason });
+      return json({ ok: false, ...(out.unknown ? { unknown: true } : {}), reason: out.reason });
     }
     return json({ ok: true });
   }

@@ -364,6 +364,32 @@ test("the market and a fresh nonce travel with every call", async () => {
   } finally { s.restore(); }
 });
 
+test("★★★ an unreadable reply or a 5xx is UNKNOWN, never a refusal or a booked trip (v589)", async () => {
+  // ⚠️⚠️ MEASURED: a 200 carrying HTML was reported as `{ok:true, data:null}` — ⚠️ **an unreadable booking
+  // was SUCCESS with no order** — and a 502 was an ordinary refusal. ⚠️ Either way the Book press stayed
+  // live under a trip that may already be booked and charged. ⭐ 4xx stays a definite refusal.
+  let s = stubFetch({ ok: true, status: 200, text: async () => "<html>fault</html>" });
+  try {
+    const a = await llmRequest(cfg(), { method: "POST", path: "/v3/orders", body: {} });
+    assert.equal(a.ok, false, "★ a 200 that is not JSON was reported as a booked trip");
+    assert.equal(a.unknown, true, "★ an unreadable booking reply left the Book press live");
+  } finally { s.restore(); }
+
+  s = stubFetch({ ok: false, status: 502, text: async () => "<html>bad gateway</html>" });
+  try {
+    const b = await llmRequest(cfg(), { method: "POST", path: "/v3/orders", body: {} });
+    assert.equal(b.ok, false);
+    assert.equal(b.unknown, true, "★ a 502 was reported as an ordinary refusal — a second Book may charge twice");
+  } finally { s.restore(); }
+
+  s = stubFetch(jsonReply({ message: "invalid" }, 422));
+  try {
+    const c = await llmRequest(cfg(), { method: "POST", path: "/v3/orders", body: {} });
+    assert.equal(c.ok, false);
+    assert.notEqual(c.unknown, true, "a 4xx is a real refusal, and must not claim the trip may exist");
+  } finally { s.restore(); }
+});
+
 test("the query string is sent in the URL and left out of the signature", async () => {
   // Lalamove verifies the path it received. Signing the market into the path would
   // be a 401 on every call with nothing on screen to explain it.

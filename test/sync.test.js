@@ -757,6 +757,32 @@ test("★★★ an OLDER tombstone cannot delete a newer, already-synced record 
   } finally { restore(); }
 });
 
+test("★★★ a cloud row merged under an open card keeps the record's OBJECT (v589)", async () => {
+  // ⚠️⚠️ MEASURED: `list[idx] = payload` swapped the object, while an open edit card still held the OLD one —
+  // ⚠️ **she typed a new name, pressed Update, read "Product updated", and the change existed nowhere**:
+  // `Object.assign` landed on an object the list no longer contained. ⭐ The record keeps its identity and is
+  // merged in place.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    const open = { id: "prd_a", name: "Focaccia", price: 16 };
+    st.products = [open];
+    seedToken(store);
+    seedJournal(store, { meta: { "products:prd_a": "2026-02-01T00:00:00.000Z" } });
+    const restoreFetch = installFetch(async () => ({
+      ok: true, json: async () => [cloudRow("products", "prd_a",
+        { id: "prd_a", name: "Focaccia (new)", price: 18 }, "2026-02-02T00:00:00.000Z")],
+    }));
+    try {
+      await sync.pull(st);
+      assert.equal(st.products[0], open,
+        "★ the record was swapped for a new object — **an open edit card writes into a detached copy**");
+      assert.equal(open.name, "Focaccia (new)", "the record itself must carry the cloud's values");
+      assert.equal(open.price, 18, "and every field, not only the name");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
 test("★★★ a setting she deliberately put BACK to the shipped value is not undone (v587)", async () => {
   // ⚠️⚠️ MEASURED: the five "birth" settings were judged by CONTENT, so a phone that set her bake days back to
   // Mon/Wed/Fri had "no opinion" — ⚠️ **and the next pull restored the cloud's old days over her choice.** ⭐ Once

@@ -2726,7 +2726,12 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     const paidWas = isCollected(group) ? orderNet(state, group) : 0;
     const nowTotal = Math.max(0, itemsTotal + here - off - coupon.amount);
     const short = round2(paidWas - nowTotal);
-    draftNow = nowTotal;
+    // ⚠️⚠️ THE COMPARISON IS GOODS AGAINST GOODS (v589). ⚠️ `paidWas` is `orderNet` — the customer's money
+    // for the bread, with the courier charge kept out because it was never her takings — while `nowTotal`
+    // included the charge. ⚠️ **So editing ANY paid order with a customer-borne courier charge falsely asked
+    // "has the extra RM8 been paid too?", and "Not yet" un-paid the order.** ⭐ `draftNow` is the goods-only
+    // figure; the receipt above still shows the whole total.
+    draftNow = Math.max(0, round2(itemsTotal - off - coupon.amount));
     paidShortEl.replaceChildren(...(paidWas > 0 && short > 0
       ? [el("p", { class: "hint paid-short" },
           `⚠️ THE MONEY IS IN — this order was paid ${fmtRM(paidWas, cfgCur)}. As it stands it comes to `
@@ -2862,7 +2867,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
             + `comes to — so the customer is owed that difference back. Refund it?`,
             // ⚠️⚠️ AND IT OPENS WITH THE FIGURE ALREADY IN (v577) — the dialog just named RM5 and the card
             // opened at 0, so she retyped the number it had told her. §3·9.
-            () => refundOrder(state, group, first, { root, dateId, fromEdit: true, amount: short }),
+            () => refundOrder(state, group, first, {
+              root, dateId, fromEdit: true, amount: short,
+              // ⚠️ THE SALE AS IT WAS PAID, BEFORE THE EDIT (v589) — see `orderTakings` in money.js.
+              paidWas: orderTakings(state, group),
+            }),
             { yesLabel: `Refund ${fmtRM(short, cfgCur)}` });
         },
         { yesLabel: "Save it" });
@@ -2944,7 +2953,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // the sale — the honest answer, and the only one that keeps her accounts true when she adds bread to an
     // order the customer has not paid the extra for.
     if (markUnpaid) {
-      for (const o of group.orders) {
+      // ⚠️⚠️ THE WHOLE ORDER, NOT THE DAY'S SLICE (v589). ⚠️ Every book reads the order through its FIRST
+      // row, so clearing only the rows on the day she edited left a two-bake-day order reading PAID — ⚠️
+      // **her "Not yet" was silently ignored from the second day, and dropped the whole sale from the
+      // first.** ⭐ The same `familyOfOrder` the Pay press uses.
+      for (const o of familyOfOrder(state, group.orders)) {
         o.paidReceived = false;
         delete o.paidMethod;
       }
@@ -5410,7 +5423,9 @@ function firstOf(group) {
 // sequence that the numbering exists to prevent.
 // ⚠️ `fromEdit` (v549): this refund ANSWERS an edit that already lowered the order's takings. See the
 // note in `money.js refundOf` — the money must not be counted twice.
-function refundOrder(state, group, first, { root, dateId, fromEdit = false, amount = null } = {}) {
+export function refundOrder(state, group, first, { root, dateId, fromEdit = false, amount = null, paidWas = null } = {}) {
+  // Exported so a test can open the card and read the figure in its box — the fault this replaces was
+  // pinned by grepping the source, which passed while the line sat inside the wrong handler (v589).
   const cur = (state.settings && state.settings.currency) || "RM";
   // ⚠️⚠️ THE CAP IS WHAT THE CUSTOMER ACTUALLY PAID — never the goods' face price. A coupon or a
   // promo code means they handed over less than the bread was priced at, and handing back the
@@ -5477,11 +5492,6 @@ function refundOrder(state, group, first, { root, dateId, fromEdit = false, amou
               const v = Math.max(1, Math.min(line.qty, parseInt(qtyBox.value, 10) || 1));
               ticks.set(line.id, v);
               sync();
-    // ★★★ THE FIGURE THE QUESTION NAMED, ALREADY IN THE BOX (v587 — it was mis-placed at v577). ⚠️ It had been
-    // written inside the quantity box's KEYSTROKE handler, so it never ran when the card opened: ⚠️ **the card
-    // still opened at 0 and the next press still said "Type how much to give back".** ⭐ Here, once, after the
-    // box exists and the ticks have been painted. `typed` keeps the ticks from overwriting it.
-    if (amount != null && boxEl) { typed = true; boxEl.value = String(round2(Number(amount) || 0)); }
             } })
         : null;
       const box = el("input", { type: "checkbox", onchange: () => {
@@ -5552,6 +5562,12 @@ function refundOrder(state, group, first, { root, dateId, fromEdit = false, amou
             // the flag is what stops it being counted twice. ⭐ Cleared by any ordinary refund, because a
             // later real refund is a real one.
             if (fromEdit) o.refundFromEdit = true; else delete o.refundFromEdit;
+            // ⚠️⚠️ THE SALE AMOUNT IS FROZEN WHEN AN EDIT ANSWERS IT (v589). ⭐ Without it the edit rewrote
+            // the PAST month's takings (September's RM30 became RM15) while the refund month showed nothing
+            // leaving — ⚠️ **her October tin never moved, which is exactly what v578 was written to stop.**
+            // ⭐ The amount she actually received stays with its sale; the refund goes out in its own month.
+            if (fromEdit && Number(paidWas) > 0) o.paidWasRM = round2(Number(paidWas));
+            // An ordinary refund leaves any frozen sale alone: the sale amount was already received.
             // ★★★ AND WHETHER THIS UNDID THE WHOLE SALE (v551). ⭐ The box's own cap IS the bill, so
             // "everything went back" is known HERE and nowhere else — and the two books that must not
             // count a refunded sale (the referral ledger and a promo code's quota) cannot work it out
@@ -5579,6 +5595,12 @@ function refundOrder(state, group, first, { root, dateId, fromEdit = false, amou
             : `${fmtRM(value, cur)} refunded and off your takings — but the receipt could NOT be marked in the register. Run supabase/receipts.sql, then open this order's Invoice.`);
           renderAll(root, state, new URLSearchParams({ date: dateId }));
         }, "primary")));
+    // ★★★ THE FIGURE THE QUESTION NAMED, ALREADY IN THE BOX (v589 — misplaced at v577 AND at v587).
+    // ⚠️ Both earlier versions wrote it inside a field's handler: first the quantity box (v577), then the
+    // quantity box's KEYSTROKE handler again (v587). ⚠️ **Neither runs when the card opens, so it still
+    // started at 0 and the next press still said "Type how much to give back".** ⭐ Here, once, after the
+    // box exists and before the first paint; `typed` keeps the ticks from overwriting it.
+    if (amount != null && boxEl) { typed = true; boxEl.value = String(round2(Number(amount) || 0)); }
     sync();
     return body;
   });
@@ -5618,6 +5640,7 @@ function undoRefundOrder(state, group, first, { root, dateId } = {}) {
       // answered an edit, and an undone refund is not answering anything.
       delete o.refundedFull;
       delete o.refundFromEdit;
+      delete o.paidWasRM;
     }
     anchorRowId = first.id;
     save(state);

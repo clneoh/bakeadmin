@@ -234,6 +234,79 @@ test("★★★ paying from ONE day's row pays the WHOLE order (v587)", () => {
   assert.equal(isCollected({ orders: st.orders }), true, "and the order itself still reads unpaid");
 });
 
+test("★★★ the refund card opens with the figure the edit dialog named (v589)", async () => {
+  // ⚠️⚠️ MISPLACED TWICE: v577 wrote the prefill inside a field's handler, v587 moved it into the quantity
+  // box's KEYSTROKE handler — ⚠️ **it still never ran when the card opened, so the box read 0 and the next
+  // press said "Type how much to give back".** ⚠️ The test that "covered" it only grepped the source, so
+  // both versions were green. ⭐ This opens the real card and reads the real box.
+  const { refundOrder } = await import("../admin/js/views/orders.js");
+  const st = state({ orders: [row({ id: "ord_aaaaaaaaaaaa", status: "paid", paidReceived: true,
+    paidMethod: "Cash", qty: 2, price: 15 })] });
+  const group = { orders: st.orders };
+  refundOrder(st, group, st.orders[0], { root: createEl("div"), dateId: DAY_A.id,
+    fromEdit: true, amount: 15, paidWas: 30 });
+
+  const layer = doc.getElementById("popup-layer");
+  const box = all(layer).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "number"
+    && n.attrs.step === "0.01");
+  assert.ok(box, "the refund card drew no amount box, so this proves nothing");
+  assert.equal(box.value, "15",
+    "★ the card opened without the figure the dialog named — **she must retype the number she was just told**");
+});
+
+test("★★★ 'Not yet' on a two-bake-day order un-pays the WHOLE order (v589)", () => {
+  // ⚠️⚠️ MEASURED: `markUnpaid` looped `group.orders` — the day she edited — while every book reads the
+  // order through its FIRST row. ⚠️ **From day B her answer was silently ignored (it still read PAID); from
+  // day A it dropped the whole sale.** ⭐ The same `familyOfOrder` the Pay press uses.
+  const st = state({ orders: [
+    row({ id: "ord_aaaaaaaaaaaa", status: "paid", paidReceived: true, paidMethod: "Cash", qty: 2 }),
+    row({ id: "ord_bbbbbbbbbbbb", deliveryDateId: DAY_B.id, deliveryDate: DAY_B.date, status: "paid",
+      paidReceived: true, paidMethod: "Cash", qty: 2 }),
+  ] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_B.id }));
+  press(root, "Edit");
+  const popup = doc.getElementById("popup-layer");
+  const qty = all(popup).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "number"
+    && n.attrs.step === "1");
+  assert.ok(qty, "the Edit card drew no quantity box, so this proves nothing");
+  qty.value = "3";
+  qty._listeners.input[0].call(qty);              // edit UP, so the dialog asks about the extra
+  press(popup, "Save changes");
+
+  const notYet = all(doc.getElementById("confirm-layer"))
+    .find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Not yet");
+  assert.ok(notYet, "the 'extra paid?' question did not appear, so the answer was never given");
+  notYet._listeners.click.forEach((f) => f());
+
+  assert.deepEqual(st.orders.map((o) => o.paidReceived), [false, false],
+    "★ only the edited day was un-paid — **the order still reads PAID in every book**");
+});
+
+test("★★★ a customer-borne courier charge does not fake an 'extra paid?' question (v589)", () => {
+  // ⚠️⚠️ MEASURED: `paidWas` was `orderNet` (goods only — the courier charge is never her takings) and it was
+  // compared with a draft total that INCLUDED the charge. ⚠️ **Editing the note on a paid order with an RM8
+  // customer charge asked whether the extra RM8 had been paid; answering "Not yet" un-paid the order.**
+  const st = state({ orders: [
+    row({ id: "ord_cccccccccccc", status: "paid", paidReceived: true, paidMethod: "Cash", qty: 2,
+      fulfillment: "courier", address: "12 Jalan Bunga, 10450 Penang", courierFee: 8, courierPaidBy: "customer" }),
+  ] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_A.id }));
+  press(root, "Edit");
+  const popup = doc.getElementById("popup-layer");
+  const notes = all(popup).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "text"
+    && /note/i.test(String(n.attrs.placeholder || "")));
+  if (notes) { notes.value = "ring the bell"; if (notes._listeners.input) notes._listeners.input[0].call(notes); }
+  press(popup, "Save changes");
+
+  const asked = all(doc.getElementById("confirm-layer"))
+    .some((n) => String(n.textContent).includes("Has the extra"));
+  assert.equal(asked, false,
+    "★ a courier charge that never entered her accounts was counted as money she had received");
+  assert.equal(st.orders[0].paidReceived, true, "and the order is still paid");
+});
+
 test("★★★ a refund from ONE day's row refunds the WHOLE order (v587)", () => {
   // ⚠️⚠️ MEASURED: the refund was stamped on the slice only, while `refundOf` reads the first row — ⚠️ **so
   // the refund never left any account and Profit kept the sale, although the register was marked.**

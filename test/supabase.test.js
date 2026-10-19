@@ -633,6 +633,49 @@ test("pullIncoming imports storefront orders, marks and deletes the rows", async
   }
 });
 
+test("★★★ an imported order is SAVED before its cloud row is deleted (v589)", async () => {
+  // ⚠️⚠️ MEASURED: the claim was flipped and the queue row DELETEd while the order lived only in memory,
+  // with one save after the whole loop — ⚠️ **a phone that locked mid-loop lost every order imported so
+  // far, and nothing retried them: the queue only reads status=new.** ⭐ Each row is durable before its
+  // source is removed.
+  const store = new Map();
+  const events = [];
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => {
+      store.set(k, String(v));
+      if (k === "bakeadmin.v1") events.push({ t: "save", orders: (JSON.parse(String(v)).orders || []).length });
+    },
+    removeItem: (k) => { store.delete(k); },
+  };
+  const state = makeState();
+  state.products = [{ id: "prd_1", name: "Focaccia", active: true }];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const row = { id: "abc-999", data: JSON.stringify({
+    customer: "Ain", date: "2026-09-04", total: 15, lines: [{ name: "Focaccia", qty: 1, price: 15 }],
+  }) };
+  globalThis.fetch = async (url, opts) => {
+    const method = (opts && opts.method) || "GET";
+    if (method === "DELETE" && String(url).includes("incoming_orders")) events.push({ t: "delete" });
+    if (String(url).includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (String(url).includes("/rest/v1/incoming_orders") && method === "GET") return { ok: true, json: async () => [row] };
+    if (String(url).includes("/rest/v1/incoming_orders") && method === "PATCH") return { ok: true, json: async () => [row] };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    await pullIncoming(state);
+    const saved = events.findIndex((e) => e.t === "save" && e.orders === 1);
+    const deleted = events.findIndex((e) => e.t === "delete");
+    assert.ok(deleted >= 0, "the row was never cleaned up, so this proves nothing");
+    assert.ok(saved >= 0, "★ the imported order was never written to the phone");
+    assert.ok(saved < deleted,
+      "★ the cloud row was deleted before the order was saved — **an interruption loses it and nothing retries**");
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realLocalStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = realLocalStorage;
+  }
+});
+
 test("★★★ fifty unimportable rows no longer hide a REAL order behind them", async () => {
   // ⚠️⚠️ THE FAULT (v551): one read of the first 50, with no order at all, and a row that cannot be
   // imported is deliberately left `new` so it keeps retrying. ⭐ **So fifty such rows filled the ceiling for

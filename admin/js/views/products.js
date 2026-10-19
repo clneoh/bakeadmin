@@ -602,7 +602,7 @@ function buildEditor(state, product) {
   const unitChoices = productUnitOptions(state, product);
   const unit = select(unitChoices.options, unitChoices.value, null, "Pick a unit…");
   const price = el("input", { class: "input", type: "number", inputmode: "decimal", step: "0.01",
-    placeholder: "sell price (RM, optional)", value: product?.price ?? "" });
+    placeholder: "sell price (RM — needed to sell on the shop)", value: product?.price ?? "" });
   const limit = el("input", { class: "input", type: "number", inputmode: "numeric", min: "1",
     placeholder: "e.g. 12", "data-suggest": "12", value: product?.limit ?? "",
     title: "Max units of this product per bake day. Limits are added together for the day's availability (e.g. 12 focaccia + 12 sandwiches = 24). Leave blank for no limit." });
@@ -1301,7 +1301,12 @@ function openEditProductPopup(state, product, root) {
           Object.assign(product, values);
           for (const k of drop || []) delete product[k];
           applyTrMeta(product, tr);
-          toast("Product updated");
+          // ⚠️⚠️ A LIVE PRODUCT WITH NO PRICE IS NOT ON THE SHOP (v589). ⭐ It used to be published as
+          // RM0.00 and sold for nothing; the publish now leaves it out, and this says so instead of
+          // "Product updated" — a change that looks saved but does not reach customers must say why.
+          toast(isLive(product) && !(Number(product.price) > 0)
+            ? "Saved — not on the shop until it has a price"
+            : "Product updated");
           save(state);
           if (wasLive) maybeSyncStorefront(state); // live text changed → shop gets it
           close();

@@ -143,16 +143,8 @@ test("the receipt line beside the serial names the ORDER CODE, not the invoice n
     "★ the invoice's receipt line no longer names the order's own code beside the serial");
 });
 
-test("the refund card opens with the figure the question named (v577, §3·9)", () => {
-  // ⚠️⚠️ THE FAULT: the edit-down dialog said "RM5 less was paid … Refund it?" and the card it opened had
-  // **0 in the box**, so the next press said "Type how much to give back" — ⚠️ **she retyped the number the
-  // dialog had just told her.** ⭐ Source-level, and named as such: the popup is not driven by the suite.
-  const SRC = readFileSync(new URL("../admin/js/views/orders.js", import.meta.url), "utf8");
-  assert.match(SRC, /refundOrder\(state, group, first, \{ root, dateId, fromEdit: true, amount: short \}\)/,
-    "★ the refund card is opened without the figure the dialog named, so she must retype it");
-  assert.match(SRC, /if \(amount != null && boxEl\)/,
-    "★ the refund card accepts the figure but never puts it in the box");
-});
+// ⚠️ The refund card's opening figure is DRIVEN in order-stage-whole-order.test.js (v589). The source
+// grep that lived here passed while the line sat inside the quantity box's keystroke handler — twice.
 
 test("two orders are two invoices, and neither is numbered by the other", () => {
   const st = state();

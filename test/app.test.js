@@ -298,6 +298,34 @@ test("app password lock: the lock layer owns the screen until the PIN is correct
   } finally { restore(); }
 });
 
+test("★★★ a missing #lock-layer locks the app instead of opening it (v589)", async () => {
+  // ⚠️⚠️ MEASURED: `passLock` answered "unlocked" whenever the element was absent — ⚠️ **one typo in
+  // admin/index.html disabled the PIN, and no test read that file.** ⭐ The shim creates any id on demand,
+  // so it could never reproduce this; here the lookup itself is made to fail.
+  freshDOM();
+  installStorage({
+    "bakeadmin.v1": stateJSON({
+      settings: {
+        defaultCapacity: 12, deliveryDays: [1, 3, 5], cutoff: "18:00", currency: "RM",
+        supabase: { enabled: false, url: "", anonKey: "", email: "", password: "" },
+        cloud: { enabled: false },
+        lock: { enabled: true, pinHash: HASH_1234 },
+      },
+    }),
+  });
+  const realGet = document.getElementById;
+  document.getElementById = (id) => (id === "lock-layer" ? null : realGet(id));
+  try {
+    await import("../admin/js/app.js?case=lockmissing");
+    const made = document.body.children.find((c) => c && c.id === "lock-layer");
+    assert.ok(made, "the app did not build a lock layer, so it cannot be locked");
+    assert.equal(made.hidden, false,
+      "★ with no #lock-layer the app opened itself — **the PIN was bypassed by a missing element**");
+    assert.ok(made.children.length > 0, "the lock screen was not drawn into the built layer");
+    assert.equal(realGet("view").children.length, 0, "the dashboard painted behind the missing lock");
+  } finally { restore(); }
+});
+
 test("lock 'enabled' with no stored PIN never gates the app", async () => {
   freshDOM();
   installStorage({

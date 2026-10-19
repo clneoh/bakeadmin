@@ -488,8 +488,16 @@ function passLock() {
   // no lock screen is shown — the lock is meant to start from the NEXT open.
   if (!lockedNow()) { unlocked = true; return Promise.resolve(true); }
   return new Promise((resolve) => {
-    const layer = document.getElementById("lock-layer");
-    if (!layer) { unlocked = true; return resolve(true); } // can't lock without the layer
+    // ⚠️⚠️ A MISSING LAYER IS A BROKEN PAGE, NOT AN OPEN DOOR (v589). ⚠️ The old line unlocked the app
+    // when `#lock-layer` was absent — ⭐ **so one typo in admin/index.html disabled the PIN**, and no test
+    // read that file. ⭐ The layer is BUILT when it is missing, and the lock is drawn into it.
+    let layer = document.getElementById("lock-layer");
+    if (!layer) {
+      layer = document.createElement("div");
+      layer.id = "lock-layer";
+      layer.className = "lock-layer";
+      (document.body || document.documentElement).appendChild(layer);
+    }
     renderLock(layer, state, { onUnlocked: () => { unlocked = true; resolve(true); } });
   });
 }

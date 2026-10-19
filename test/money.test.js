@@ -1634,6 +1634,33 @@ test("★★★ deleting one half of a TRANSFER takes the other half with it (v5
     "★ the other half survived — **Cash and Net now overstate by the whole transfer**");
 });
 
+test("★★★ an edit's refund stays out of the sale's month and moves the refund's month (v589)", async () => {
+  // ⚠️⚠️ MEASURED: RM30 paid in Cash on 5 Sep; edited down to one loaf (RM15) on 2 Oct, accepting "Refund
+  // RM15?". ⚠️ **September's takings became RM15 — a past month rewritten — and October showed nothing
+  // leaving**, which is exactly the fault v578 was written to prevent. ⭐ The sale keeps the amount she was
+  // paid; the refund is money OUT on the day it went back.
+  const { orderTakings, refundOf, refundsBetween } = await import("../admin/js/money.js");
+  const st = state();
+  st.deliveryDates = [{ id: "d18", date: "2026-09-05" }];
+  st.orders = [row({ id: "ed1", deliveryDateId: "d18", deliveryDate: "2026-09-05",
+    status: "delivered", paidReceived: true, paidMethod: "Cash",
+    paidAt: "2026-09-05T08:00:00.000Z", refundedAt: "2026-10-02T08:00:00.000Z",
+    refundAmountRM: 15, refundFromEdit: true, paidWasRM: 30 })];
+  const g = { orders: st.orders };
+  assert.equal(orderTakings(st, g), 30, "★ the sale's own month was rewritten by the edit");
+  assert.equal(refundOf(st, g), 15, "★ the refund is not counted as money going back");
+  assert.equal(refundsBetween(st, "2026-09-01", "2026-09-30").total, 0,
+    "the refund must not be counted in the sale's month");
+  assert.equal(refundsBetween(st, "2026-10-01", "2026-10-31").total, 15,
+    "★ October's tin never moves — the refund is invisible in the month it went back");
+
+  // ⚠️ A LEGACY edit-refund (recorded before this version, with no frozen sale amount) still answers 0:
+  // its sale was genuinely rewritten by the edit, so counting the refund too would take it off twice.
+  const legacy = [row({ id: "ed2", status: "delivered", paidReceived: true, paidMethod: "Cash",
+    refundedAt: "2026-10-02T08:00:00.000Z", refundAmountRM: 15, refundFromEdit: true })];
+  assert.equal(refundOf(st, { orders: legacy }), 0, "a legacy edit-refund must not be counted twice");
+});
+
 test("★★★ a refund on an order with no way of paying is SHOWN, not silent (v587)", () => {
   // ⚠️⚠️ MEASURED: it fell into an "unmarked" bucket no block, journal or Net reads — ⚠️ **Money was silent about
   // a refund Profit reported.** ⭐ It cannot go into an account it was never paid from; it can be said.

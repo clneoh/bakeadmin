@@ -1,8 +1,24 @@
-# Jienluv2bake — change history (v54 → v588)
+# Jienluv2bake — change history (v54 → v589)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v589, THE THIRD SWEEP, PART 1: WHAT COULD LOSE DATA OR OPEN THE DOOR (⚠️ REDEPLOY courier AND parcel).**
+
+**Your words:** __"go ahead with v589"__. The third sweep found 65 faults across eight areas. This version fixes the ones that could lose a record, hide a sale, or leave a booking to be charged twice.
+
+1. ⚠️⚠️ **THE APP PASSWORD COULD BE BYPASSED BY ONE TYPO IN THE PAGE.** If the lock's anchor was missing, the app decided it could not lock and **opened itself**. ⭐ It now builds the lock and draws it anyway, and a test deletes the anchor on purpose to prove the app stays locked.
+2. ⚠️⚠️ **AN EDIT MADE WHILE THE OTHER PHONE SYNCED COULD VANISH.** Sync swapped the record for a new object, while your open card still wrote into the old one — **"Product updated" was shown and the change existed nowhere.** ⭐ The record is now merged in place, so an open card always writes into the record that is really there. Products, ingredients, suppliers, units, promos and scenarios.
+3. ⚠️⚠️ **A STOREFRONT ORDER WAS DELETED FROM THE CLOUD QUEUE BEFORE IT WAS SAVED.** An interruption mid-import lost every order so far, and nothing retried them. ⭐ Each order is now written to the phone before its cloud copy is removed.
+4. ⚠️⚠️ **AN UNREADABLE COURIER OR PARCEL REPLY WAS TREATED AS A REFUSAL — OR AS A BOOKED TRIP.** A 502 page, or a 200 that was not JSON, left the Book press live under a trip that may already be charged. ⭐ Those replies are now **UNKNOWN**, the same as a timeout, and the Book press locks. A cancel that times out carries UNKNOWN too.
+5. ⚠️ **A PRODUCT WITH NO PRICE WAS SOLD FOR RM0.00.** Clearing the price published it as free while the homepage kept RM16. ⭐ Only a priced product reaches the shop, and the Products screen says **"not on the shop until it has a price"**.
+6. ⚠️⚠️ **AN EDIT'S REFUND REWROTE A PAST MONTH.** Editing a paid order down changed September's takings, while October showed nothing leaving. ⭐ The sale keeps the amount you were paid; the refund is money OUT in the month it went back.
+7. ⚠️ **"NOT YET" ON A TWO-BAKE-DAY ORDER WAS IGNORED**, or dropped the whole sale depending on which day you edited from. ⭐ It now un-pays the whole order.
+8. ⚠️ **EDITING A PAID ORDER FALSELY ASKED FOR THE COURIER CHARGE.** The question compared goods-only takings with a total that included the charge. ⭐ Goods are compared with goods.
+9. ⚠️ **THE REFUND CARD STILL OPENED AT 0** (the third placement of this line). ⭐ It is now filled from the figure the question named, and a test opens the real card and reads the real box.
+
+**No database step. ⚠️ Redeploy the edge functions `courier` and `parcel`** — the UNKNOWN replies live there. Nothing of yours is rewritten: no order, price, stock row or setting is touched.
 
 **19 Oct 2026 — engine v588, WHAT THE SECOND SWEEP FOUND: WHAT THE PAGES SAY AND PRINT (NO DATABASE STEP).**
 

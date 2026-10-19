@@ -202,7 +202,18 @@ export async function llmRequest(
     try { data = JSON.parse(text); } catch { data = null; }
   }
   if (!res.ok) {
-    return { ok: false, status: res.status, data, reason: plainReason(data, res.status) };
+    // ⚠️⚠️ A 5xx MAY HAVE BEEN PROCESSED (v589) — an error page is not a refusal. ⚠️ It was answered as an
+    // ordinary failure, so the Book press stayed live under a trip that may already be booked and charged.
+    // ⭐ A 4xx is a real refusal; a 5xx is UNKNOWN.
+    return { ok: false, status: res.status, data,
+      ...(res.status >= 500 ? { unknown: true } : {}),
+      reason: plainReason(data, res.status) };
+  }
+  // ⚠️ AND A 2xx THAT IS NOT JSON IS NOT SUCCESS (v589). ⚠️ `{ok:true, data:null}` was reported to the app
+  // as a booked trip with no order, and the app's Book press stayed live. ⭐ Unreadable is unknown.
+  if (text && data === null) {
+    return { ok: false, status: res.status, data: null, unknown: true,
+      reason: "Lalamove's answer could not be read — the trip may already be booked. Check your Lalamove app before booking again." };
   }
   return { ok: true, status: res.status, data, reason: "" };
 }

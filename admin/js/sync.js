@@ -982,7 +982,18 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
     if (localNewerOrSame || cloudAt <= localAt) continue;
 
     if (idx >= 0) {
-      list[idx] = payload;
+      // ⚠️⚠️ MERGED IN PLACE, NEVER SWAPPED (v589). ⚠️ `list[idx] = payload` replaced the object, while an
+      // open edit card still held the OLD one — ⚠️ **she typed a new name, pressed Update, read "Product
+      // updated", and the change existed nowhere**: `Object.assign` landed on an object the list no longer
+      // contained. ⭐ The record's own object keeps its identity; keys the cloud dropped are removed, so the
+      // merged record is exactly the payload.
+      const target = list[idx];
+      if (target && typeof target === "object" && payload && typeof payload === "object") {
+        for (const k of Object.keys(target)) if (!(k in payload)) delete target[k];
+        Object.assign(target, payload);
+      } else {
+        list[idx] = payload;
+      }
     } else {
       list.push(payload);
     }

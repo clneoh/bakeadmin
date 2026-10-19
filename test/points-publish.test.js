@@ -401,6 +401,22 @@ function areaState({ areas = [], points = [] } = {}) {
   return st;
 }
 
+test("★★★ a product with no price is not published as RM0.00 (v589)", () => {
+  // ⚠️⚠️ MEASURED: `Number(p.price) || 0` turned a cleared price into a FREE loaf — the shop drew RM0.00 and
+  // accepted the order, while the homepage's own reader refused zero and kept its typed figure. ⭐ Only a
+  // priced product reaches the shop; the Products screen says which one is waiting for a price.
+  const st = liveState([]);
+  st.products = [
+    { id: "p1", name: "Focaccia", price: 16, active: true, unit: "loaf" },
+    { id: "p2", name: "Sandwich", price: 0, active: true, unit: "piece" },
+    { id: "p3", name: "No price at all", active: true, unit: "piece" },
+  ];
+  const out = storefrontPayload(st);
+  assert.deepEqual(out.products.map((p) => p.name), ["Focaccia"],
+    "★ an unpriced product was published — **the shop sells it for RM0.00**");
+  assert.equal(out.products[0].price, 16);
+});
+
 test("★★ the published payload carries the AREAS, and the Points in the order the shop draws them", () => {
   const st = areaState({
     areas: [

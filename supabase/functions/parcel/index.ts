@@ -91,7 +91,16 @@ async function ask(cfg: Config, action: string, params: Record<string, unknown>)
       // would give "Unexpected token <" as her reason, which is true and useless — so the
       // failure is named for what it is.
       console.error("[parcel] non-JSON reply from", action, res.status, text.slice(0, 200));
-      return { ok: false, reason: `EasyParcel answered with something that was not readable (HTTP ${res.status}).` };
+      // ⚠️⚠️ AN UNREADABLE REPLY TO A BOOKING IS UNKNOWN, NOT REFUSED (v589). ⚠️ Their host answers a
+      // fault with an HTML page AFTER it may already have accepted the order and charged the wallet — and
+      // this was reported as a plain failure, so the app's Book press stayed live under a parcel that may
+      // already exist. ⭐ The flag is what removes the press; the words alone never did.
+      return {
+        ok: false,
+        // Any status: a page that cannot be read says nothing about whether the order was accepted.
+        unknown: true,
+        reason: `EasyParcel answered with something that was not readable (HTTP ${res.status}).`,
+      };
     }
     return parsed as Record<string, unknown>;
   } catch (err) {

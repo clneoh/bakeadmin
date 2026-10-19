@@ -303,7 +303,12 @@ export function storefrontPayload(state) {
   // list, so adding/editing/hiding a product in the app updates the customer
   // page after a publish. No separate menu to drift or clobber.
   const products = (Array.isArray(state.products) ? state.products : [])
-    .filter((p) => p && p.draft !== true && p.active !== false && String(p.name || "").trim())
+    // ⚠️⚠️ A PRODUCT WITH NO PRICE IS NOT PUBLISHED AS RM0.00 (v589). ⚠️ `Number(p.price) || 0` turned a
+    // cleared price into a FREE loaf: the shop drew RM0.00 and accepted the order, while the homepage's own
+    // price reader refused zero and kept its typed figure. ⭐ Only a priced product reaches the shop; the
+    // Products screen says which ones are waiting for a price.
+    .filter((p) => p && p.draft !== true && p.active !== false && String(p.name || "").trim()
+      && Number(p.price) > 0)
     .map((p) => {
       const out = {
         name: String(p.name).trim(),
@@ -1268,6 +1273,12 @@ export async function pullIncoming(state) {
       const created = importIncoming(state, row);
       if (!created) continue;
       imported.push(row.id);
+      // ⚠️⚠️ SAVED BEFORE THE CLOUD COPY IS DELETED (v589). ⚠️ The claim was flipped and the queue row
+      // DELETEd while the order existed only in memory, and the one save came after the whole loop — ⚠️ **an
+      // interruption (phone locks, tab discarded) lost every order imported so far: the queue only reads
+      // `status=new`, so nothing retried and no screen recorded the loss.** ⭐ Each row is made durable
+      // before its source is removed.
+      save(state);
       // The claim already prevents a second import; delete is just cleanup.
       await fetch(`${c.url}/rest/v1/incoming_orders?id=eq.${row.id}`, {
         method: "DELETE",

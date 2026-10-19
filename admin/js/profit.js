@@ -101,8 +101,11 @@ export function profitBetween(state, from, to) {
   }
 
   // ⭐ THE REFUNDS GIVEN IN THIS STRETCH — as a figure of their OWN, whatever month their sale was
-  // delivered in (v578). ⚠️ An edit's refund is already out of its sale (v549), so `refundOf` answers 0
-  // for it. ⭐ It is its own line rather than a smaller Sales figure, because a month with only a refund in
+  // delivered in (v578). ⭐ An edit's refund is included from v589: its sale amount is frozen on the order
+  // (`paidWasRM`), so the money leaves in the month of the refund instead of rewriting the sale's month.
+  // ⚠️ A legacy edit-refund (no frozen amount) still answers 0 — its sale was genuinely rewritten by the
+  // edit, and subtracting the refund too would count it twice. ⭐ It is its own line rather than a smaller
+  // Sales figure, because a month with only a refund in
   // it would otherwise read **Sales −RM15**, and a statement line cannot be allowed to read as a fault.
   let refunds = 0;
   for (const g of groupOrders(state.orders || [])) {

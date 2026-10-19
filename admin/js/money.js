@@ -97,6 +97,12 @@ export function isRefunded(x) {
 // the discounts she gave. The courier charge stays OUT — it is a pass-through to the courier and was
 // never her takings (see the note at the top of this file).
 export function orderTakings(state, group) {
+  // ⚠️⚠️ A SALE EDITED DOWN KEEPS THE AMOUNT THAT WAS PAID (v589). ⚠️ Re-pricing it from the edited lines
+  // rewrote a PAST month (September's RM30 became RM15) while the refund month showed nothing leaving. ⭐
+  // `paidWasRM` is stamped when an edit's refund is recorded, so the sale stays in its month and the refund
+  // is money OUT in its own (v578's rule). A legacy order without it keeps the old behaviour.
+  const frozen = Number(firstOf(group) && firstOf(group).paidWasRM);
+  if (Number.isFinite(frozen) && frozen > 0) return round2(frozen);
   const t = customerTotal(state, group);
   return round2(Math.max(0, t.items - t.promo - t.coupon));
 }
@@ -120,7 +126,11 @@ export function refundOf(state, group) {
   // subtracting the refund as well counts one event twice. ⭐ **The refund is still recorded** — the
   // receipt register reads `refundAmountRM` directly and still says the money went back — **it simply does
   // not move the takings a second time.**
-  if (first.refundFromEdit) return 0;
+  // ⚠️ AN EDIT'S REFUND COUNTS LIKE ANY OTHER ONCE THE SALE AMOUNT IS FROZEN (v589). ⭐ The v549 rule —
+  // answer 0 so the edit is not counted twice — was right while the edit reduced the sale; with
+  // `paidWasRM` the sale no longer moves, so suppressing the refund would lose the money-out row.
+  // A LEGACY order (refundFromEdit, no frozen amount) still answers 0: its sale was rewritten by the edit.
+  if (first.refundFromEdit && !(Number(first.paidWasRM) > 0)) return 0;
   const stored = Number(first.refundAmountRM);
   if (Number.isFinite(stored) && stored > 0) return round2(stored);
   if (first.refundedAt) return round2(customerTotal(state, group).total);
