@@ -1090,6 +1090,22 @@ test("buildMessage appends the delivery method and courier address", () => {
   assert.ok(msg.includes("📍 12 Jalan Bunga, Penang"));
 });
 
+test("★★★ the offline message keeps each item's note and the door pin (v592)", () => {
+  // ⚠️⚠️ MEASURED: the fallback text printed only name/qty/price — ⚠️ **a customer's "no nuts" and a condo
+  // door pin were in the cloud order and absent from the WhatsApp message**, which is the one path that must
+  // carry the whole order when the cloud cannot be reached.
+  const cfg = { name: "Jienluv2bake", products: [] };
+  const msg = buildMessage(cfg, {
+    date: "Wed, 2 Sep",
+    lines: [{ name: "Focaccia", qty: 1, price: 15, note: "no nuts" }],
+    total: 15, customer: "", note: "", fulfillment: "courier",
+    address: "12 Jalan Bunga", place: { lat: 5.4141, lng: 100.3288 },
+  });
+  assert.ok(msg.includes("📝 no nuts"), "★ the item's own note is not in the message the baker receives");
+  assert.ok(msg.includes("📌 5.414100, 100.328800"), "★ the door pin is not in the message");
+  assert.ok(msg.includes("maps.google.com/?q=5.4141,100.3288"), "the pin has no link to open");
+});
+
 test("★★★ a collection order names the point it is collected from (v581)", () => {
   // ⚠️⚠️ MEASURED: the message said "Self collect" and nothing else, although the order carries the
   // Point's name — ⚠️ **so the baker could not tell which place from the message she was sent**, and the

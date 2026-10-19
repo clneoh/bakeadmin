@@ -395,7 +395,9 @@ export function packingLabelData(state, group, style = "full") {
     const recipientAddress = address
       ? address.split(/\n+/).map((s) => s.trim()).filter(Boolean) : [];
     const rows = [];
-    rows.push(["mail-sec", "FROM"]);
+    // ⚠️⚠️ A "FROM" HEADING WITH NOTHING UNDER IT (v592). ⚠️ With no mailing address the parcel printed a bare
+    // FROM on its outside — ⚠️ **an incomplete sender block a courier has to interpret.** ⭐ No lines, no heading.
+    if (senderLines.length) rows.push(["mail-sec", "FROM"]);
     // ⚠️⚠️ AN INSTRUCTION TO HER WAS PRINTED ON THE PARCEL (v583). ⚠️ With no mailing address the FROM block
     // read **"Set your bakery address in Settings → Mailing labels"** — ⚠️ **on the outside of a parcel a
     // courier is carrying.** ⭐ The sheet says nothing it cannot say; the preview tells her what is missing.
@@ -4562,6 +4564,11 @@ function labelSheetEl(state, group, style) {
 // (async browsers) and by a fallback timer, so a leftover class can never blank
 // a later PO print.
 function printActiveLabel() {
+  // ⚠️ A PHONE THAT CANNOT PRINT SAYS SO (v592) — before the class is added, so no trace is left.
+  if (!(typeof window !== "undefined" && typeof window.print === "function")) {
+    toast("This phone can't print — use Share instead.");
+    return;
+  }
   document.body.classList.add("label-print");
   // ⚠️⚠️ THE PAPER IS 100 × 150 mm, AND IT IS SET ONLY FOR THIS PRINT (v575). ⭐ `@page` cannot be scoped by a
   // body class — it applies to the whole document — so a fixed rule in the stylesheet would force the receipt,
@@ -4579,7 +4586,7 @@ function printActiveLabel() {
     window.removeEventListener("afterprint", done);
     clearTimeout(timer);
   };
-  const timer = setTimeout(done, 2000);
+  const timer = setTimeout(done, 10000);
   window.addEventListener("afterprint", done);
   window.print();
 }

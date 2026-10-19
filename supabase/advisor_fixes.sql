@@ -22,8 +22,24 @@
 --
 -- Kept for postgres and service_role: the database itself and Supabase's own tooling.
 
-revoke execute on function public.alert_new_order() from public, anon, authenticated;
-revoke execute on function public.decrement_slots_on_order() from public, anon, authenticated;
+-- ⚠️⚠️ GUARDED, SO THE FILE NEVER ABORTS ON A PROJECT THAT HAS NOT RUN THE OTHER SCRIPTS (v592). ⚠️ A revoke
+-- naming a function that does not exist is an ERROR (42883), and it would stop this file BEFORE the primary-key
+-- repair below. ⭐ Each revoke runs only where its function exists.
+do $$
+begin
+  if to_regprocedure('public.alert_new_order()') is not null then
+    execute 'revoke execute on function public.alert_new_order() from public, anon, authenticated';
+    raise notice 'Revoked the direct call on alert_new_order.';
+  else
+    raise notice 'alert_new_order() does not exist here — skipped.';
+  end if;
+  if to_regprocedure('public.decrement_slots_on_order()') is not null then
+    execute 'revoke execute on function public.decrement_slots_on_order() from public, anon, authenticated';
+    raise notice 'Revoked the direct call on decrement_slots_on_order.';
+  else
+    raise notice 'decrement_slots_on_order() does not exist here — skipped.';
+  end if;
+end $$;
 
 
 -- 2. order_alert_errors HAS NO PRIMARY KEY ON THE LIVE TABLE.

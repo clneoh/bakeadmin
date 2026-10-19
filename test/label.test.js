@@ -295,7 +295,9 @@ test("★★★ mailing without a bakery address prints NO reminder on the parce
     fulfillment: "courier", whatsapp: "60123456789", address: "88 Jalan Merdeka",
   })), "mailing");
   assert.equal(data.style, "mailing");
-  assert.equal(data.rows[0][1], "FROM");
+  // ⚠️ v592: no address, no heading either. A bare FROM on the outside of a parcel is an incomplete block.
+  assert.equal(data.rows.some(([k, t]) => k === "mail-sec" && t === "FROM"), false,
+    "★ a bare FROM heading was printed with nothing under it");
   assert.equal(data.rows.some(([k, t]) => k === "mail-line" && t.includes("Settings")), false,
     "★ an instruction to the baker is printed on the parcel");
 });

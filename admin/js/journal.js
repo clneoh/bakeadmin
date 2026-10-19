@@ -573,7 +573,7 @@ export function printJournal(sheet, cur = "RM") {
     if (typeof window !== "undefined") window.removeEventListener("afterprint", done);
     clearTimeout(timer);
   };
-  const timer = setTimeout(done, 2000);
+  const timer = setTimeout(done, 10000);
   if (typeof window !== "undefined") window.addEventListener("afterprint", done);
   window.print();
 }

@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v591)
+# Jienluv2bake — change history (v54 → v592)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v592, THE THIRD SWEEP, PART 4: THE REST (⚠️ RE-RUN THE SLOTS SQL; REDEPLOY shop-geocode).**
+
+**Your words:** __"go ahead with the rest of the sweep"__. Everything the third sweep had left that changes a record, a message or a printed figure. Two items still wait on you: the homepage's price product (which product it should follow), and the two-phone settings lists (scenarios/categories) — they need a design, not a patch.
+
+1. ⚠️⚠️ **"FORGET THIS CUSTOMER" CAME BACK.** The cleared name, number and address lived only on the order rows, and the merge takes the newest — **one later Paid press on the other phone put them back on both.** ⭐ Each forgotten order now has its own redaction record, synced like any other, applied on every load and pull; and a merge cannot restore what it erased.
+2. ⚠️ **A REMOVED ORDER ON THE SHELF KEPT A DEAD DAY.** When two duplicate dates were merged or a shared day id split, live orders were re-pointed but removed ones were not — **put back, it belonged to no day and that day could be sold over capacity.** ⭐ Both repairs re-point the shelf too.
+3. ⚠️ **DELETING EVERY UNIT LASTED ONLY UNTIL THE NEXT LOAD.** An empty list was read as "never seeded", so the units came back and cancelled the removals. ⭐ An empty list with removals recorded stays empty.
+4. ⚠️ **THE OFFLINE WHATSAPP MESSAGE DROPPED ITEM NOTES AND THE DOOR PIN.** A customer's "no nuts" and a condo door pin were in the order and absent from the message — **the one path that must carry everything.** ⭐ Both are printed now.
+5. ⚠️ **WHEN EVERY DAY WAS FULL, PLACE ORDER DID NOTHING AT ALL.** No message, no scroll, no order. ⭐ The day step now says so, in the all-days-full words.
+6. ⚠️⚠️ **PRINTING.** The classes came off after two seconds even if a slow preview was still rendering — **a label could print on the default paper.** ⭐ Ten seconds now. The purchase order and expense history called the print bare: on a phone that cannot print they threw or did nothing — ⭐ every print press now says "This phone can't print — use Share instead." A parcel with no bakery address no longer prints a bare **FROM**.
+7. ⚠️ **AN UNDATED ORDER PRINTED "NaN undefined NaN"** under the invoice title. ⭐ No date prints no date.
+8. ⚠️ **A PAGE WHOSE ONLY ROW WAS A VOID** listed a receipt number under "Nothing was sold" with no word saying what it was. ⭐ The explanation now appears on both branches.
+9. ⚠️ **REMOVING AN "UN-BOUGHT" ROW LEFT THE PURCHASE MARKED TO BUY** — the next Buy added the packs again (0 → 8 kg → undo → ✕ → Buy = 16 kg). ⭐ That row is refused and points at Undo the purchase. ⚠️ And removing a bake's stock row now clears the bake record too, so "10 baked" cannot outlive the flour it never took.
+10. ⚠️ **A LOOSE PURCHASE LINE AMENDED IN KILOGRAMS SAVED AS "2g".** ⭐ It is labelled in the cooking unit, which is the unit the number is in.
+11. ⚠️ **THE CHINESE CUT-OFF SAID "EVENING" BEFORE A MORNING TIME** ("the evening before, before 9:30am"). ⭐ The period word follows the hour: 凌晨 / 上午 / 晚上.
+12. ⚠️ **BACKEND.** An order line above **100** no longer moves the published slot counts (999 still zeroed a whole day). The address lookup's own budget is 10.5 seconds, under the page's 12 — a place found at 11.9 s no longer arrives after the page has given up.
+
+**⚠️ Run the slots SQL again** (the one your shop uses — see the note in the handover) and **redeploy `shop-geocode`.** Nothing of yours is rewritten. 3,763 tests green.
 
 **19 Oct 2026 — engine v591, THE THIRD SWEEP, PART 3: WHAT A SCREEN READER GETS, AND THE TESTS THAT COULD NOT FAIL (NO DATABASE STEP).**
 

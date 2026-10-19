@@ -783,6 +783,55 @@ test("★★★ a cloud row merged under an open card keeps the record's OBJECT 
   } finally { restore(); }
 });
 
+test("★★★ a forgotten customer cannot come back on a newer row (v592)", async () => {
+  // ⚠️⚠️ MEASURED: the cleared fields lived only on the order rows, and the merge is newest-wins — ⚠️ **one
+  // Paid press on the other phone (which still held the row) put the name, number and address straight back
+  // on both.** ⭐ The redaction rides as its own record AND the merge refuses to restore what it erased.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.redactions = [{ id: "o1", at: "2026-10-01T00:00:00.000Z", key: "red1" }];
+    st.orders = [{ id: "o1", qty: 1, redactedAt: "2026-10-01T00:00:00.000Z", redactedKey: "red1" }];
+    seedToken(store);
+    seedJournal(store, { meta: { "orders:o1": "2026-09-01T00:00:00.000Z" } });
+    const restoreFetch = installFetch(async () => ({
+      ok: true, json: async () => [cloudRow("orders", "o1",
+        { id: "o1", qty: 2, customerName: "Ain", whatsapp: "60123456789", address: "12 Jalan Bunga" },
+        "2026-10-02T00:00:00.000Z")],
+    }));
+    try {
+      await sync.pull(st);
+      assert.equal(st.orders[0].qty, 2, "the newer edit itself must still arrive");
+      assert.equal(st.orders[0].customerName, undefined,
+        "★ the forgotten name came back with the newer row");
+      assert.equal(st.orders[0].whatsapp, undefined, "and the number");
+      assert.equal(st.orders[0].address, undefined, "and the address");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
+test("★★★ a redaction arriving from the other phone clears the row here (v592)", async () => {
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.redactions = [];
+    st.orders = [{ id: "o1", qty: 1, customerName: "Ain", whatsapp: "60123456789", address: "12 Jalan Bunga" }];
+    seedToken(store);
+    const restoreFetch = installFetch(async () => ({
+      ok: true, json: async () => [cloudRow("redactions", "o1",
+        { id: "o1", at: "2026-10-02T00:00:00.000Z", key: "red9" }, "2026-10-02T00:00:00.000Z")],
+    }));
+    try {
+      const r = await sync.pull(st);
+      assert.ok(r.changed, "the pull did not report that it forgot a customer");
+      assert.equal(st.orders[0].customerName, undefined,
+        "★ the other phone's redaction did not reach this order — **the name is still on this phone**");
+      assert.equal(st.orders[0].redactedAt, "2026-10-02T00:00:00.000Z");
+      assert.equal(st.orders[0].redactedKey, "red9");
+    } finally { restoreFetch(); }
+  } finally { restore(); }
+});
+
 test("★★★ a setting she deliberately put BACK to the shipped value is not undone (v587)", async () => {
   // ⚠️⚠️ MEASURED: the five "birth" settings were judged by CONTENT, so a phone that set her bake days back to
   // Mon/Wed/Fri had "no opinion" — ⚠️ **and the next pull restored the cloud's old days over her choice.** ⭐ Once

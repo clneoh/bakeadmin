@@ -180,9 +180,14 @@ export function renderReceiptRegister(root, state) {
           // ⚠️⚠️ THE CLASS COMES OFF ON `afterprint`, NOT IN A `finally` (v582). ⚠️ A browser that returns
           // from `window.print()` BEFORE it renders the sheet found the class already gone — ⚠️ **the register
           // printed BLANK, the v572 fault again on a different print.** ⭐ The same guard every other print
-          // uses: `afterprint`, with a two-second fallback so a browser that never fires it cannot leave a
+          // uses: `afterprint`, with a ten-second fallback so a browser that never fires it cannot leave a
           // body class behind and hide the app.
           button("Print this page", () => {
+            // ⚠️ A PHONE THAT CANNOT PRINT SAYS SO (v592) — the class is not added, so nothing is left behind.
+            if (!(typeof window !== "undefined" && typeof window.print === "function")) {
+              toast("This phone can't print — use Share instead.");
+              return;
+            }
             document.body.classList.add("receipt-print");
             const done = () => {
               document.body.classList.remove("receipt-print");
@@ -191,7 +196,7 @@ export function renderReceiptRegister(root, state) {
               }
               clearTimeout(timer);
             };
-            const timer = setTimeout(done, 2000);
+            const timer = setTimeout(done, 10000);
             if (typeof window !== "undefined" && window.addEventListener) {
               window.addEventListener("afterprint", done);
             }

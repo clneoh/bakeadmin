@@ -255,7 +255,9 @@ export function amendItem(state, item, { packs, packPrice } = {}) {
     const cookBase = Number(src.cookBase) || 1;
     out.addBase = count * cookBase;
     out.estCost = round2(count * price);
-    out.buyText = `${trimNum(count)}${src.unit || ""}`;
+    // ⚠️⚠️ THE COUNT IS IN THE COOKING UNIT, SO IT IS LABELLED WITH IT (v592). ⚠️ It was stamped with the
+    // RECIPE LINE's unit — ⚠️ **a flour cooking in kg, amended to 2 kg, printed "2g" on the saved list.**
+    out.buyText = `${trimNum(count)}${src.openUnit || src.unit || ""}`;
     if (out.addBase > 0) delete out.covered;
     return out;
   }

@@ -34,6 +34,16 @@ test("★★★ withCutoff writes her time into every language's sentence, and k
   assert.equal(withCutoff(HOME.en.n1Line, ""), HOME.en.n1Line);
 });
 
+test("★★★ the Chinese cut-off no longer says EVENING before a morning time (v592)", () => {
+  const zh = "烘焙日前一天晚上 <strong>6:00PM</strong> 前下单。";
+  const morning = withCutoff(zh, "09:30");
+  assert.ok(morning.includes("上午"), "★ a 9:30am cut-off still reads 晚上 (evening)");
+  assert.equal(morning.includes("晚上"), false, "the evening word survived a morning cut-off");
+  assert.ok(morning.includes("9:30am"), "the time itself did not reach the line");
+  assert.ok(withCutoff(zh, "18:00").includes("晚上"), "an evening cut-off still says evening");
+  assert.ok(withCutoff(zh, "03:00").includes("凌晨"), "a 3am cut-off says 凌晨, not 上午");
+});
+
 test("★★ every language's cut-off line carries the token the replacement looks for", () => {
   // ⚠️ A translator who writes the time another way would otherwise leave the homepage quietly wrong in
   // that language — a line that looks translated and states the wrong deadline.

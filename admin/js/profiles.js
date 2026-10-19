@@ -92,6 +92,10 @@ export function forgetCustomer(state, rowKey) {
   const at = new Date().toISOString();
 
   // 1 — the sales record stays; the person on it does not.
+  // ⚠️⚠️ AND EACH ROW GETS A SYNCED REDACTION OF ITS OWN (v592). ⚠️ The cleared fields alone lose to a newer
+  // order row on the next merge — ⚠️ **one Paid press on the other phone put the name, number and address back
+  // on both.** ⭐ One record per order id, applied on every load and pull (state.js `applyRedactions`).
+  if (!Array.isArray(state.redactions)) state.redactions = [];
   for (const o of rows) {
     o.redactedAt = at;
     o.redactedKey = key;
@@ -102,6 +106,8 @@ export function forgetCustomer(state, rowKey) {
     delete o.note;
     delete o.lineNote;
     delete o.refundNote;
+    state.redactions = state.redactions.filter((r) => !(r && r.id === o.id));
+    state.redactions.push({ id: o.id, at, key });
   }
 
   // 2 — their own record, their coupons, their hand-outs.

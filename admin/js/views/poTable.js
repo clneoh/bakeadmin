@@ -92,7 +92,7 @@ function printOneShop(row) {
     if (typeof window !== "undefined" && window.removeEventListener) window.removeEventListener("afterprint", done);
     clearTimeout(timer);
   };
-  const timer = setTimeout(done, 2000);
+  const timer = setTimeout(done, 10000);
   if (typeof window !== "undefined" && window.addEventListener) window.addEventListener("afterprint", done);
   if (typeof window !== "undefined" && typeof window.print === "function") window.print();
 }

@@ -361,8 +361,12 @@ export async function lookupAddress(
   if (!q) return { ok: false, why: "empty" };
 
   const queue = servicesFor();
+  // ⚠️⚠️ THE SERVER'S BUDGET STAYS UNDER THE CALLER'S (v592). ⚠️ At three services this was exactly 12,000 ms,
+  // which is the shop's whole patience — ⚠️ **so a place found at 11.9 s always arrived after the customer's
+  // AbortController had already fired, and the page reported a failure the function believed it had answered.**
+  // ⭐ 10,500 ms leaves the round trip room to land inside the caller's 12 seconds.
   const perAsk = timeoutMs == null
-    ? (queue.length > 2 ? Math.floor(12000 / queue.length) : 5000)
+    ? (queue.length > 2 ? Math.floor(10500 / queue.length) : 5000)
     : timeoutMs;
 
   let missed = false;

@@ -168,6 +168,45 @@ test("★★ a bake writes a row naming the PRODUCT and the day, with what actua
   assert.equal(log[0].ref, "2026-10-19", "the row cannot be tied back to the day it belongs to");
 });
 
+test("★★★ removing a bake's stock row leaves NO bake record claiming it (v592)", () => {
+  // ⚠️⚠️ MEASURED: the ✕ put the shelf back and lowered `took`, but the bake row kept `total`/`applied` —
+  // ⚠️ **re-saving the same total was a no-op and clearing to 0 left the shelf high: the screen claimed 10
+  // baked while that flour never came off.** ⭐ A row with nothing taken is removed the way `setBakedTotal`
+  // removes one.
+  const ing = flour(10000);
+  const p = { id: "p_b", name: "Loaf", active: true,
+    recipe: [{ ingredientId: "ing_f", qty: 1000, unit: "g" }] };
+  const st = baseState([ing], [p]);
+  st.bakedDays = [];
+  setBakedTotal(st, p, "2026-10-19", 10);
+  assert.equal(ing.onHand, 0, "precondition: ten pans took ten kilos");
+  const row = stockLogOf(ing).find((e) => e.why === "produced");
+  assert.ok(row, "the bake wrote no produced row");
+  undoStockRow(ing, row, st);
+  assert.equal(ing.onHand, 10000, "the shelf did not come back");
+  assert.equal((st.bakedDays || []).length, 0,
+    "★ the bake record still says 10 was baked while nothing has come off");
+
+  setBakedTotal(st, p, "2026-10-19", 0);
+  assert.equal(ing.onHand, 10000, "clearing a bake that no longer exists gave stock back again");
+  setBakedTotal(st, p, "2026-10-19", 10);
+  assert.equal(ing.onHand, 0, "re-saving the same total did not take stock again — **the two records disagree**");
+});
+
+test("★★★ removing an Un-bought row is refused — it belongs with the purchase (v592)", () => {
+  // ⚠️⚠️ MEASURED: the ✕ undid the stock half and left the purchase order marked to buy — ⚠️ **the next Buy
+  // added the packs again and wrote a second expense (0 → 8 kg → undo → ✕ → Buy = 16 kg).** ⭐ The row is
+  // refused; undoing the PURCHASE reverses both halves.
+  const ing = flour(8000);
+  const entry = logStock(ing, { delta: -8000, why: "unbought", what: "Un-bought — Mydin (9 Oct)" });
+  const plan = stockRowUndo(ing, entry);
+  assert.equal(plan.unbought, true, "★ an Un-bought row is treated as a movement of its own");
+  assert.equal(plan.moved, 0);
+  undoStockRow(ing, entry);
+  assert.equal(ing.onHand, 8000, "the shelf moved on a refused removal");
+  assert.ok(stockLogOf(ing).includes(entry), "the row was removed anyway");
+});
+
 test("★ correcting a bake upward and back down writes rows that cancel out", () => {
   const ing = flour(1000);
   const st = baseState([ing], [bread()]);

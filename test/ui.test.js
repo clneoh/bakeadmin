@@ -64,7 +64,7 @@ globalThis.document = {
   body: createEl("body"),
 };
 
-import { select, showPopup, confirmDialog, nameFields, el } from "../admin/js/ui.js";
+import { select, showPopup, confirmDialog, nameFields, printPage, el } from "../admin/js/ui.js";
 
 const STATUSES = [
   { value: "new", label: "New" },
@@ -462,4 +462,29 @@ test("★★★ a pop-up card traps Tab and restores focus too (v591)", () => {
   onKey(esc);
   assert.equal(layer.hidden, true);
   assert.equal(document.activeElement, opener, "★ closing the card did not give the keyboard back");
+});
+
+
+// ── ★★★ a Print press that cannot print says so (v592) ───────────────────────
+// ⚠️⚠️ MEASURED: the purchase order and expense history called `window.print()` bare — ⚠️ **on a browser
+// without printing the press threw, and with it silently did nothing.** ⭐ One guard, the journal's sentence.
+test("★★★ a Print press that cannot print says so instead of failing silently (v592)", () => {
+  const realWin = globalThis.window;
+  const realST = globalThis.setTimeout;
+  globalThis.setTimeout = () => 0;           // the toast's own 2.2 s timer must not hold the suite
+  try {
+    globalThis.window = {};
+    const before = document.body.children.length;
+    assert.equal(printPage(), false, "a phone without printing claimed it printed");
+    const made = document.body.children.slice(before);
+    assert.ok(made.some((n) => /can't print/.test(String(n.textContent))),
+      "★ the press failed silently — a dead Print button reads as a broken screen");
+  } finally { globalThis.window = realWin; globalThis.setTimeout = realST; }
+
+  let printed = 0;
+  globalThis.window = { print() { printed += 1; } };
+  try {
+    assert.equal(printPage(), true);
+    assert.equal(printed, 1, "a phone that CAN print did not");
+  } finally { globalThis.window = realWin; }
 });

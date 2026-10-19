@@ -308,10 +308,17 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
   }
 
   const said = [];
+  // ⚠️⚠️ A PERIOD WHOSE ONLY ROWS ARE VOIDS SAID "NOTHING WAS SOLD" AND LISTED THEM ANYWAY (v592). ⚠️ The
+  // explanation of a void lived only in the other branch — ⚠️ **so the paper showed a receipt number with no
+  // word saying what it was.** ⭐ One sentence, called from both branches.
+  const voidsWords = (n) => `${n} number${n === 1 ? " on this page belongs" : "s on this page belong"} to an order that has since been removed — the number was issued when the money was recorded and is never given back, so it stays spent. More → Money → Receipt register shows every number ever issued.`;
+  const voidsIn = (rows) => rows.filter((r) => r.void).length;
   if (!keep.length) {
     said.push(customerKey
       ? `This customer has nothing${kind === "all" ? " yet" : " in this period"}.`
       : kind === "all" ? "Nothing has been sold yet." : "Nothing was sold in this period.");
+    const voids = voidsIn(filing);
+    if (voids) said.push(voidsWords(voids));
   } else {
     // ⚠️⚠️ THE SENTENCE NAMED A SORT THE PAGE MIGHT NOT BE IN (v583): press a column and it still said
     // **"In invoice-number order"**. ⭐ It names the order the rows are actually in.
@@ -326,10 +333,8 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     // ★★ "none yet" IS ABOUT THE NUMBER, NOT ABOUT THE MONEY — and the page has to say so, or a paid
     // order with no serial reads as an unpaid one. **Her own screen showed four "none yet" rows with only
     // one of them still to collect**, which is exactly how that misreading starts.
-    const voids = filing.filter((r) => r.void).length;
-    if (voids) {
-      said.push(`${voids} number${voids === 1 ? " on this page belongs" : "s on this page belong"} to an order that has since been removed — the number was issued when the money was recorded and is never given back, so it stays spent. More → Money → Receipt register shows every number ever issued.`);
-    }
+    const voids = voidsIn(filing);
+    if (voids) said.push(voidsWords(voids));
     // ⚠️ AND WHEN THE REGISTER COULD NOT BE READ, THE PAGE SAYS SO. It cannot know whether a number
     // is missing without asking, and a filing page that is quietly short is worse than one that
     // admits it could not check — the same rule the Receipt register screen follows (v366).

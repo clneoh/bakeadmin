@@ -13,7 +13,7 @@
 
 import { longDate, todayISO, weekdayName, shortDate } from "../dates.js";
 import { explodeBomDates, explodePicks, ordersFingerprint, effectiveCapacity, dayChangeInfo, restockOnlyItems, unitsOfOrder } from "../bom.js";
-import { el, button, emptyState, toast, select, showPopup } from "../ui.js";
+import { el, button, emptyState, toast, select, showPopup, printPage } from "../ui.js";
 import { byId, save, newId } from "../state.js";
 import { priceItems, notPurchasedNames, fmtQtyText } from "../purchasing.js";
 import { orderedProducts } from "../productCategories.js";
@@ -386,7 +386,7 @@ function previewCard(state, chosen, bom, needsReview) {
       `Not on this list: ${notBought.join(", ")} — marked as not something you buy. Their cost still counts in the products that use them.`) : null,
     el("div", { class: "btn-row" },
       button("💾 Generate & Save", () => generate(state, chosen, bom, items, total), "primary"),
-      button("Print", () => window.print(), "soft")),
+      button("Print", () => printPage(), "soft")),
     el("p", { class: "po-snapshot-note" },
       multi
         ? "Generating saves ONE snapshot of these days to PO History — each becomes \"✓ saved\" and drops out of the default list."

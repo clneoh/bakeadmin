@@ -32,7 +32,16 @@ export const CUTOFF_TOKEN = "6:00PM";
 export function withCutoff(lineHtml, cutoff) {
   const clock = cutoffText(cutoff);
   if (!clock || !String(cutoff || "").trim()) return String(lineHtml || "");
-  return String(lineHtml || "").replaceAll(CUTOFF_TOKEN, clock);
+  let out = String(lineHtml || "").replaceAll(CUTOFF_TOKEN, clock);
+  // ⚠️⚠️ THE CHINESE LINE SAID "EVENING" WHATEVER THE TIME (v592). ⚠️ It reads `前一天晚上 6:00PM 前下单`,
+  // and only the TIME TOKEN was replaced — ⚠️ **a 9:30am cut-off printed "the evening of the day before,
+  // before 9:30am".** ⭐ The period word follows the hour; the English and Malay lines carry none.
+  const hh = Number(String(cutoff).split(":")[0]);
+  if (Number.isFinite(hh) && out.includes("晚上")) {
+    const word = hh < 5 ? "凌晨" : hh < 12 ? "上午" : "晚上";
+    if (word !== "晚上") out = out.replaceAll("晚上", word);
+  }
+  return out;
 }
 
 // Short weekday words, in the three languages the homepage speaks. ⚠️ JS getDay order: Sunday 0.

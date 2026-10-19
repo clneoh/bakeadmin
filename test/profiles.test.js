@@ -691,6 +691,22 @@ test("★★ forgetting an ordering customer keeps their history as ONE row, not
   assert.equal(theirs.whatsapp, "", "their number is still on the row");
 });
 
+test("★★★ forgetting writes one synced redaction per order row (v592)", () => {
+  // ⚠️⚠️ WITHOUT THIS RECORD THE REDACTION CANNOT TRAVEL: the cleared fields alone are a change to a row the
+  // other phone is about to replace — ⚠️ **one later edit brought the name back on both.** ⭐ One record per
+  // order id, applied on every load and pull.
+  const st = filled();
+  forgetCustomer(st, keyOf(st.orders[0]));
+  const rows = st.orders.slice(0, 2);
+  assert.ok(Array.isArray(st.redactions), "no redaction list was written");
+  assert.deepEqual(st.redactions.map((r) => r.id).sort(), rows.map((o) => o.id).sort(),
+    "★ the redaction list does not name every redacted row");
+  for (const r of st.redactions) {
+    assert.ok(r.at, "a redaction without a time can never win a merge");
+    assert.ok(r.key, "a redaction without the shared key fragments the person's history");
+  }
+});
+
 test("★★ forgetting clears every personal field, and touches NO money", () => {
   const st = filled();
   const before = customerList(st).find((r) => r.name === "Aunty Bee").totalSpend;

@@ -48,6 +48,17 @@ const line = (over = {}) => ({
   unitPrice: 15, status: "ready", ...over,
 });
 
+test("★★★ an order with no date prints NO date, never NaN (v592)", () => {
+  // ⚠️⚠️ MEASURED: `longDate("")` is "NaN undefined NaN", and the invoice passed `orderDateOf` straight into
+  // it — ⚠️ **an imported or hand-edited row with no date printed that under the title**, while the screen
+  // showed nothing.
+  const st = state();
+  const g = group([line({ orderDate: "", createdAt: "", deliveryDate: "" })]);
+  const inv = invoiceSheet(st, g);
+  assert.equal(inv.subtitle, "", "★ an undated order printed a subtitle");
+  assert.equal(journalSheet(inv).subtitle, "", "and the sheet the PDF reads carries it too");
+});
+
 test("★★★ the printed lines add up to the printed Total, even at half a cent a loaf", () => {
   // ⚠️⚠️ MEASURED (v551): two lines sold at RM0.005 each printed as "RM 0.01" and "RM 0.01" — a reader's
   // sum of RM0.02 — under **Total RM0.01**, because each line was rounded for printing while the Total was

@@ -82,9 +82,9 @@ begin
       end if;
       -- ⚠️⚠️ AN ABSURD LINE DOES NOT MOVE THE COUNTS (v565). ⭐ The public order form takes any
       -- non-negative integer, so a scripted POST with qty 1000000000 zeroed a whole bake day
-      -- for everyone. ⭐ A real line is a few dozen pans; above 999 the line is not an order and
+      -- for everyone. ⭐ A real line is a few dozen pans; above a hundred the line is not an order and
       -- the counts ignore it. ⚠️ The ORDER still saves — this is a count, not a gate.
-      if lqty < 1 or lqty > 999 or lname = '' then
+      if lqty < 1 or lqty > 100 or lname = '' then
         continue;
       end if;
       day_qty := day_qty + lqty;
@@ -112,7 +112,7 @@ begin
         else
           pqty := 0;
         end if;
-        if pqty < 1 or pqty > 999 or pname = '' then
+        if pqty < 1 or pqty > 100 or pname = '' then
           continue;
         end if;
         update public.product_availability

@@ -122,6 +122,37 @@ test("normalize consolidates duplicate delivery dates and re-points orders", () 
   assert.deepEqual(out.orders.map((o) => o.qty), [1, 2, 4], "no orders lost");
 });
 
+test("★★★ a date repair re-points the REMOVED shelf too (v592)", () => {
+  // ⚠️⚠️ MEASURED: the repair moved live orders to the surviving date id, but a removed order on the shelf kept
+  // the dead id — ⚠️ **put back, it belonged to no day: absent from its delivery day and that day could be
+  // sold over capacity.**
+  const out = normalize({
+    version: 1,
+    deliveryDates: [
+      { id: "del_a", date: "2026-09-04", notes: "" },
+      { id: "del_b", date: "2026-09-04", notes: "" },
+    ],
+    orders: [{ id: "o1", deliveryDateId: "del_a", productId: "p", qty: 1 }],
+    removedOrders: [{ id: "o9", deliveryDateId: "del_b", deliveryDate: "2026-09-04", productId: "p", qty: 2,
+      removedAt: "2026-09-05T00:00:00.000Z" }],
+  });
+  const shelfRow = out.removedOrders.find((o) => o.id === "o9");
+  assert.ok(shelfRow, "the shelf row is gone");
+  assert.equal(shelfRow.deliveryDateId, "del_a",
+    "★ a removed order still points at a day that no longer exists");
+});
+
+test("★★★ deleting every unit is not undone by the next load (v592)", () => {
+  // ⚠️⚠️ MEASURED: an empty `uoms` was read as "never seeded" and every unit came back on the next load,
+  // cancelling the removal files — ⚠️ **Delete was a press that undid itself.** ⭐ A list that exists is an
+  // answer, even when it is empty; `uomsRemoved` is what records the deletions.
+  const gone = ["g", "kg", "ml", "l", "min", "hr", "cm", "m", "pcs",
+    "loaf", "piece", "box", "jar", "bag", "tub", "tin", "pack", "dozen", "set", "slice"].map((id) => ({ id }));
+  const out = normalize({ version: 1, uoms: [], uomsRemoved: gone });
+  assert.equal((out.uoms || []).length, 0,
+    "★ the units came back on load — **the deletion was undone and its tombstone cancelled**");
+});
+
 test("normalize keeps a day's availability adjustments on its delivery date", () => {
   const out = normalize({
     version: 1,

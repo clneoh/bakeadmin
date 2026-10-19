@@ -17,7 +17,7 @@
 // Pure helpers run under Node for tests; fetch/localStorage are guarded.
 
 import { login as loginSupabase, cachedToken } from "./supabase.js";
-import { removeOrders, dropStaleShelfRows, save, STOCK_PRODUCTION, bakeId, defaultState } from "./state.js";
+import { removeOrders, dropStaleShelfRows, save, STOCK_PRODUCTION, bakeId, defaultState, applyRedactions, REDACTED_FIELDS } from "./state.js";
 import { mergeWeekCheck } from "./weekly.js";
 // The one answer to "is this a place" — see placeForSync below for why the courier
 // module's own rule is asked rather than a copy of it written here.
@@ -32,6 +32,9 @@ const LISTS = {
   // other, which is the whole point of keeping it. ⭐ And it is a SEPARATE record from the order, so the
   // tombstone written for the order does not touch this one.
   removedOrders: "removedOrders",
+  // ★★★ A "FORGET THIS CUSTOMER" MUST REACH THE OTHER PHONE AS ITS OWN FACT (v592). ⚠️ Held only on the
+  // order rows it is newest-wins — ⚠️ **one later Paid press on the other phone brought the name back.**
+  redactions: "redactions",
   // ⚠️ A VOID DECISION IS HERS, and it must reach the other phone — otherwise the same register reads
   // as four unexplained holes on one device and as four voided rows on the other.
   voidedReceipts: "voidedReceipts",
@@ -990,6 +993,13 @@ function mergeCloudRows(state, rows, b, nowIso = new Date().toISOString()) {
       const target = list[idx];
       if (target && typeof target === "object" && payload && typeof payload === "object") {
         for (const k of Object.keys(target)) if (!(k in payload)) delete target[k];
+        // ⚠️⚠️ A FORGOTTEN CUSTOMER STAYS FORGOTTEN UNDER A NEWER EDIT (v592). ⚠️ The redaction is applied
+        // after the merge as well, but the payload must not put the name back for even one repaint — and an
+        // order row merged this way is in memory the instant this line runs. ⭐ Personal fields are dropped
+        // from the incoming copy when the local row is already redacted and the cloud does not out-rank it.
+        if (target.redactedAt && String(payload.redactedAt || "") < String(target.redactedAt)) {
+          for (const k of REDACTED_FIELDS) delete payload[k];
+        }
         Object.assign(target, payload);
       } else {
         list[idx] = payload;
@@ -1018,15 +1028,19 @@ export function mergeRows(state, rows) {
   // ⚠️ **AND IF ANYTHING WAS DROPPED, THE STATE IS SAVED — which queues the removal so it goes UP**, or the
   // shared data would hand the same stale row back on every pull, for ever.
   const dropped = dropStaleShelfRows(state);
+  // ⚠️⚠️ AND A REDACTION THAT ARRIVED IN THIS PULL IS APPLIED NOW (v592). ⚠️ Without it the receipt proves
+  // the person was forgotten while the order row still carries their name on this phone — the merge turns a
+  // redacted row's fields into "absent", and the redaction record is what removes them.
+  const redacted = applyRedactions(state);
   // ★ AND A PULL THAT PUT RECORDS BACK HAS REPAIRED THE BOOK (v548). ⚠️ The "this phone could not read its
   // saved copy" note exists for the case where a damaged save came up empty and the cloud could NOT put it
   // back — ⭐ so the moment a pull actually restores something, the note clears. **It appears exactly when
   // the cloud did not save her, which is the only case that matters.**
   const healed = (changed || dropped > 0) && !!state.unreadableSave;
   if (healed) state.unreadableSave = null;
-  if (dropped || healed) save(state);
+  if (dropped || healed || redacted) save(state);
   writeSync(b);
-  return { state, changed: changed || dropped > 0 };
+  return { state, changed: changed || dropped > 0 || redacted > 0 };
 }
 
 // ── pull ──────────────────────────────────────────────────────────────────
@@ -1146,6 +1160,10 @@ export async function pull(state) {
 
   const first = !b.lastPullAt;
   const { changed } = mergeCloudRows(state, rows, b);
+  // ⚠️⚠️ AND A REDACTION THAT ARRIVED IN THIS READ IS APPLIED NOW (v592). ⚠️ `mergeRows` carries it for the
+  // other callers; a PULL goes straight to `mergeCloudRows`, so the same rule is applied at the one seam
+  // every read passes through.
+  const redacted = applyRedactions(state);
   b.lastPullAt = new Date().toISOString();
   // ⚠️⚠️ THE CURSOR ADVANCES ONLY ON A COMPLETE READ. ⭐ **A half-read book must not be remembered as "seen"**
   // — the next read would start after records this one never received.
@@ -1171,8 +1189,8 @@ export async function pull(state) {
   // On the first pull (or when rows changed), save so the save-hook queues any
   // records that only exist on this phone — that's the one-time migration that
   // uploads existing local data on first sign-in.
-  if (changed || first) save(state);
-  return { ok: true, changed: changed || first };
+  if (changed || first || redacted) save(state);
+  return { ok: true, changed: changed || first || redacted > 0 };
 }
 
 // ⭐ THE SIZE OF HER SHARED DATA, AS THE LAST READ FOUND IT — or null when this phone has never read it.

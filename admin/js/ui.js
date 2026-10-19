@@ -703,6 +703,18 @@ export async function guarded({ btn = null, hold, work, said, trouble }) {
   }
 }
 
+// ⚠️⚠️ A PRESS THAT CANNOT PRINT SAYS SO (v592). ⚠️ The journal had this guard; the purchase order and the
+// expense history called `window.print()` bare — ⚠️ **on a browser without printing the press threw, and with
+// it silently did nothing.** ⭐ One guard, the same sentence the journal uses.
+export function printPage() {
+  if (typeof window !== "undefined" && typeof window.print === "function") {
+    window.print();
+    return true;
+  }
+  toast("This phone can't print — use Share instead.");
+  return false;
+}
+
 export function toast(msg) {
   let t = document.querySelector(".toast");
   if (!t) {

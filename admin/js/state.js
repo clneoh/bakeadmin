@@ -184,6 +184,11 @@ export function defaultState() {
     // ★★ ORDERS THAT WERE REMOVED, KEPT SO THEY CAN BE PUT BACK (v444). See `removeOrders` — this is
     // what stops any removal, hers or the engine's, from being permanent.
     removedOrders: [],
+    // ★★★ AND A "FORGET THIS CUSTOMER" IS A FACT OF ITS OWN (v592). ⚠️⚠️ It used to live only on the order
+    // rows, and the merge is newest-wins — ⚠️ **so one newer edit from the other phone (a Paid press) put the
+    // name, number and address straight back on both.** ⭐ One redaction record per order id, merged like any
+    // other list and APPLIED on every load and pull, so the same person cannot come back by being edited.
+    redactions: [],
     // ★★ COUPONS SHE HAS TAKEN OFF AN ORDER BY HAND (v450). ⚠️ The credit itself is NOT touched — this is
     // a note that says "not on this one", so putting it back needs no repair.
     declinedCoupons: [],
@@ -648,7 +653,16 @@ function normalize(s) {
     // carrier behaves exactly as before, and the cloud merge can land the list on
     // it without the shape being assumed.
     parcelCouriers: Array.isArray(s.parcelCouriers) ? s.parcelCouriers : [],
-    uoms: (Array.isArray(s.uoms) && s.uoms.length) ? s.uoms : seedUoms(),
+    // ⚠️⚠️ AN EMPTY LIST IS AN ANSWER *WHEN THE REMOVALS EXPLAIN IT* (v592). ⚠️ `s.uoms.length ? … : seedUoms()`
+    // re-seeded every unit whenever the list was empty — ⚠️ **so deleting them all lasted until the next load,
+    // and the tombstones were cancelled.** ⚠️ But a damaged or pre-units save with an empty list and NO
+    // removals still needs its units. ⭐ `uomsRemoved` is what tells those two empty lists apart.
+    uoms: (() => {
+      const list = Array.isArray(s.uoms) ? s.uoms : null;
+      const gone = normalizeRemovedUnits(s.uomsRemoved);
+      if (list && (list.length || gone.length)) return list;
+      return seedUoms();
+    })(),
     uomsRemoved: normalizeRemovedUnits(s.uomsRemoved),
     unreadableSave: (s.unreadableSave && typeof s.unreadableSave === "object") ? s.unreadableSave : null,
     products: Array.isArray(s.products) ? s.products : [],
@@ -699,6 +713,7 @@ function normalize(s) {
       ? s.voidedReceipts.map((v) => (v && !v.id && Number.isFinite(Number(v && v.no))
         ? { ...v, id: voidIdOf(v.no) } : v))
       : [],
+    redactions: Array.isArray(s.redactions) ? s.redactions : [],
     declinedCoupons: Array.isArray(s.declinedCoupons) ? s.declinedCoupons : [],
     customers: Array.isArray(s.customers) ? s.customers : [],
     purchaseOrders: Array.isArray(s.purchaseOrders) ? s.purchaseOrders : [],
@@ -715,12 +730,14 @@ function normalize(s) {
     // reach a screen or the shop un-clamped.
     promoCodes: Array.isArray(s.promoCodes) ? s.promoCodes : [],
   };
-  const consolidated = consolidateDeliveryDates(out.deliveryDates, out.orders);
+  const consolidated = consolidateDeliveryDates(out.deliveryDates, out.orders, out.removedOrders);
   out.deliveryDates = consolidated.deliveryDates;
   out.orders = consolidated.orders;
-  const split = splitSharedDateIds(out.deliveryDates, out.orders);
+  out.removedOrders = consolidated.removedOrders;
+  const split = splitSharedDateIds(out.deliveryDates, out.orders, out.removedOrders);
   out.deliveryDates = split.deliveryDates;
   out.orders = split.orders;
+  out.removedOrders = split.removedOrders;
   ensureCountUnits(out);
   ensurePlanningUnits(out);
   backfillUnitRefs(out);
@@ -732,7 +749,37 @@ function normalize(s) {
   // load, keeping the LAST occurrence: ⚠️ **the one the sync would have published is the one kept**, so
   // what she counts and what reaches her other phone are the same record.
   for (const k of ID_LISTS) out[k] = dedupeById(out[k]);
+  // ⚠️ AND A REDACTION IS APPLIED AFTER EVERY LOAD (v592) — see `applyRedactions`.
+  applyRedactions(out);
   return out;
+}
+
+// The fields "Forget this customer" clears. One list, so the button and the re-application cannot drift.
+export const REDACTED_FIELDS = ["customerName", "whatsapp", "address", "customerPlace",
+  "note", "lineNote", "refundNote"];
+
+// Apply every synced redaction to the orders it names. ⭐ Returns how many rows it cleared.
+// ⚠️ A NEWER order row is still redacted: the redaction is a separate decision that outweighs an edit —
+// which is the whole point (v592). A redaction older than the row's OWN redaction loses to it.
+export function applyRedactions(state) {
+  const best = new Map();
+  for (const r of Array.isArray(state && state.redactions) ? state.redactions : []) {
+    if (!r || !r.id) continue;
+    const prev = best.get(r.id);
+    if (!prev || String(r.at || "") >= String(prev.at || "")) best.set(r.id, r);
+  }
+  if (!best.size) return 0;
+  let cleared = 0;
+  for (const o of (state && state.orders) || []) {
+    const r = o && best.get(o.id);
+    if (!r) continue;
+    if (o.redactedAt && String(o.redactedAt) >= String(r.at || "")) continue;
+    o.redactedAt = String(r.at || o.redactedAt || "");
+    if (r.key) o.redactedKey = String(r.key);
+    for (const k of REDACTED_FIELDS) delete o[k];
+    cleared += 1;
+  }
+  return cleared;
 }
 
 // The lists whose rows are keyed by an `id`, and therefore the ones a duplicate can split.
@@ -740,7 +787,7 @@ function normalize(s) {
 // shelf is newest-first — a different answer that belongs to that list alone.
 const ID_LISTS = ["ingredients", "suppliers", "parcelCouriers", "products", "productCategories",
   "deliveryDates", "bakedDays", "orders", "purchaseOrders", "expenses", "deposits", "credits",
-  "rewards", "occasions", "points", "pointAreas", "deliveryRoutes", "promoCodes", "uoms"];
+  "rewards", "occasions", "points", "pointAreas", "deliveryRoutes", "promoCodes", "uoms", "redactions"];
 
 // One row per id, the LAST one winning. ⭐ An ordinary list is returned as it was — the same array, not a
 // copy — so a load with nothing to fix touches nothing. A row with no id (an imported occasion, say) is
@@ -983,7 +1030,7 @@ export function productUnitOptions(state, product) {
 // before they synced, then the merge kept both) show up as two tabs and split
 // orders between them. Keep the first entry per date and re-point every order
 // to it. Nothing is deleted from the business data — orders are preserved.
-function consolidateDeliveryDates(deliveryDates, orders) {
+function consolidateDeliveryDates(deliveryDates, orders, removedOrders) {
   const byDate = new Map();
   const removed = new Map(); // removedId -> survivingId
   const out = [];
@@ -997,12 +1044,14 @@ function consolidateDeliveryDates(deliveryDates, orders) {
       out.push(d);
     }
   }
-  if (!removed.size) return { deliveryDates, orders };
+  if (!removed.size) return { deliveryDates, orders, removedOrders };
   const reId = (o) =>
     (o && o.deliveryDateId && removed.has(o.deliveryDateId))
       ? { ...o, deliveryDateId: removed.get(o.deliveryDateId) }
       : o;
-  return { deliveryDates: out, orders: orders.map(reId) };
+  // ⚠️⚠️ THE REMOVED SHELF IS RE-POINTED TOO (v592). ⚠️ It was not, so an order put back from the shelf kept
+  // a day id that no longer existed — ⚠️ **it vanished from its day and that day could be sold over capacity.**
+  return { deliveryDates: out, orders: orders.map(reId), removedOrders: (removedOrders || []).map(reId) };
 }
 
 // ★ THE ONE SHAPE THE MERGE ABOVE CANNOT SEE (v326). Two records for the SAME
@@ -1032,7 +1081,7 @@ function consolidateDeliveryDates(deliveryDates, orders) {
 // produces cannot be produced twice, because after it no id is shared.
 //
 // Nothing is deleted. Every day, every order and every price survives.
-function splitSharedDateIds(deliveryDates, orders) {
+function splitSharedDateIds(deliveryDates, orders, removedOrders) {
   const held = new Map(); // id -> the date of the record that keeps it
   const moved = []; // { oldId, date, id } for each record that had to move
   const out = (deliveryDates || []).map((d) => {
@@ -1046,12 +1095,14 @@ function splitSharedDateIds(deliveryDates, orders) {
     moved.push({ oldId: d.id, date: d.date, id });
     return { ...d, id };
   });
-  if (!moved.length) return { deliveryDates, orders };
+  if (!moved.length) return { deliveryDates, orders, removedOrders };
   const reId = (o) => {
     const hit = moved.find((m) => o && o.deliveryDateId === m.oldId && o.deliveryDate === m.date);
     return hit ? { ...o, deliveryDateId: hit.id } : o;
   };
-  return { deliveryDates: out, orders: (orders || []).map(reId) };
+  // ⚠️⚠️ AND THE SHELF (v592) — the same predicate: the row's own deliveryDate names which of the two days
+  // it belonged to.
+  return { deliveryDates: out, orders: (orders || []).map(reId), removedOrders: (removedOrders || []).map(reId) };
 }
 
 // ★★ THE ONE DOOR OUT, AND IT DOES NOT DESTROY (v444).

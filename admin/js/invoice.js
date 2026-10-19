@@ -153,7 +153,11 @@ export function invoiceSheet(state, group, { from = "", bakery = "", printed = "
     // `longDate`, and an order with no `orderDate` fell through to a full ISO timestamp — ⭐ **which prints
     // "NaN undefined NaN"** (measured). `orderDateOf` takes the date it has, in her clock, and answers "" when
     // there is none, so the line is either a real day or absent.
-    subtitle: longDate(orderDateOf(first)),
+    // ⚠️⚠️ AND AN ORDER WITH NO DATE PRINTS NO DATE (v592). ⚠️ `longDate("")` is **"NaN undefined NaN"**
+    // (measured) — the comment above claimed `orderDateOf` answered "", and it does, but the CALL was still
+    // made: ⚠️ **an imported or hand-edited row with no order date printed that under the title**, while the
+    // screen showed nothing. ⭐ The line is either a real day or absent.
+    subtitle: orderDateOf(first) ? longDate(orderDateOf(first)) : "",
     // ⚠️⚠️ AND WHO IT IS FOR, ON PAPER (v572). ⭐ The screen said "Aunty Bee · placed …" and the sheet said
     // nothing, so a printed invoice could only be matched to an order by its code. The address rides with it
     // for a courier order, because that is the document that goes in the parcel.

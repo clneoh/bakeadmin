@@ -218,6 +218,13 @@ export function stockRowUndo(ingredient, entry) {
   if (String(entry.why || "") === "produced" && Number(entry.delta) > 0) {
     return { was, now: was, moved: 0, blocked: 0, correction: true };
   }
+  // ⚠️⚠️ AND AN "UN-BOUGHT" ROW IS HALF OF A REVERSED PURCHASE (v592). ⚠️ The ✕ undid the stock half but left
+  // the purchase order marked as still to buy — ⚠️ **so the next Buy added the packs again and wrote a second
+  // expense: measured 0 → 8 kg → undo → ✕ → Buy = 16 kg.** ⭐ Undo the purchase (Purchase order history), which
+  // reverses both halves.
+  if (String(entry.why || "") === "unbought") {
+    return { was, now: was, moved: 0, blocked: 0, unbought: true };
+  }
   const raw = round2(was - (Number(entry.delta) || 0));
   if (raw < 0) return { was, now: was, moved: 0, blocked: round2(-raw) };
   return { was, now: raw, moved: round2(raw - was), blocked: 0 };
@@ -228,7 +235,7 @@ export function undoStockRow(ingredient, entry, state = null) {
   const plan = stockRowUndo(ingredient, entry);
   if (!plan) return null;
   // ⚠️ A REFUSAL CHANGES NOTHING AT ALL — the row stays on the card and the shelf does not move (v546).
-  if (plan.blocked || plan.repair || plan.correction) return plan;
+  if (plan.blocked || plan.repair || plan.correction || plan.unbought) return plan;
   ingredient.onHand = plan.now;
   stockLogOf(ingredient).splice(stockLogOf(ingredient).indexOf(entry), 1);
   // ⚠️⚠️ AND THE BAKE ROW FORGETS IT TOO (v570). ⭐ Taking a `produced` row off the card puts the shelf back —
@@ -246,6 +253,20 @@ export function undoStockRow(ingredient, entry, state = null) {
     const item = row && row.items && row.items[pid];
     if (item && item.took && typeof item.took[ingredient.id] === "number") {
       item.took[ingredient.id] = round2(Math.max(0, item.took[ingredient.id] + signed));
+      // ⚠️⚠️ AND WHEN THAT WAS THE LAST THING THE BAKE TOOK, THE BAKE ROW IS EMPTY (v592). ⚠️ `applied` and
+      // `total` were left saying "10 baked" while NO ingredient had come off — ⚠️ **re-saving 10 was a no-op
+      // and clearing to 0 left the shelf high; the screen kept claiming a bake the shelf knew nothing about.**
+      // ⭐ A row with nothing taken is a row of nothing, so it goes the same way `setBakedTotal` removes one.
+      const anyLeft = Object.values(item.took).some((v) => Number(v) > 0);
+      if (!anyLeft) {
+        item.applied = 0;
+        item.total = 0;
+        delete row.items[pid];
+        if (!Object.keys(row.items).length) {
+          const i = state.bakedDays.findIndex((r) => r === row);
+          if (i >= 0) state.bakedDays.splice(i, 1);
+        }
+      }
     }
   }
   return plan;

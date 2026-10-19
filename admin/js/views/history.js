@@ -11,7 +11,7 @@
 // "orders changed" rounds read it). Both are deliberately left alone by the amend below.
 
 import { longDate, todayISO, weekdayName } from "../dates.js";
-import { el, button, emptyState, showPopup, toast, confirmDialog } from "../ui.js";
+import { el, button, emptyState, showPopup, toast, confirmDialog, printPage } from "../ui.js";
 import { byId, fmtRM, newId, round2, save } from "../state.js";
 import { maybeSync } from "../supabase.js";
 import { poTableEl, totalOf } from "./poTable.js";
@@ -440,7 +440,7 @@ function renderDetail(root, state, po) {
     el("div", { class: "btn-row" },
       button("← Back", () => navigate("#/history"), "ghost"),
       canAmend ? button("Amend", () => amendPO(state, po, root), "soft") : null,
-      button("Print", () => window.print(), "soft"),
+      button("Print", () => printPage(), "soft"),
       // Regenerate stays available after a shop is bought, and that is deliberate rather than an
       // oversight: it builds a list from the need as it stands NOW, and the bought packs are already
       // on the shelf — so the regenerated list reads "already have" and buys only what is genuinely

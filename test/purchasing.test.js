@@ -219,6 +219,16 @@ test("amendItem on a loose line counts cooking units, not packs", () => {
   assert.equal(at.buyText, "9000g");
 });
 
+test("★★★ a loose line amended in kilograms is LABELLED kilograms (v592)", () => {
+  // ⚠️⚠️ MEASURED: the amended count is in the COOKING unit, but `buyText` was stamped with the RECIPE LINE's
+  // unit — ⚠️ **flour cooking in kg, amended to 2 kg, saved and printed as "2g" on the shopping list.**
+  const st = makeState([ingredient({ uomId: "kg", unit: "kg", costPerUnit: 0.006, supplierPrices: [] })]);
+  const it = priceItems(st, [bomItem({ totalQty: 500, unit: "g", costPerUnit: 0.006 })])[0];
+  assert.equal(it.openUnit, "kg", "precondition: the amount to buy is counted in the cooking unit");
+  const at = amendItem(st, it, { packs: 2, packPrice: 12 });
+  assert.equal(at.buyText, "2kg", "★ 2 kg was printed as 2g — **the right number under the wrong unit**");
+});
+
 test("amendItem refuses a garbage number rather than poisoning the line", () => {
   const [st, it] = priced();
   const junk = amendItem(st, it, { packs: Number.NaN, packPrice: "abc" });

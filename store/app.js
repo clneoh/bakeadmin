@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "591";
+export const SHOP_BUILD = "592";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -771,8 +771,14 @@ export function firstOpenSpec(dates, availMap = {}) {
 }
 
 export function buildMessage(cfg, order) {
+  // ⚠️⚠️ AN ITEM'S OWN NOTE GOES WITH THE ITEM (v592). ⚠️ The offline fallback dropped it: a customer who
+  // wrote "no nuts" on a line sent a message with no such words, while the cloud order kept them.
   const lines = order.lines
-    .map((l) => `• ${l.name} ×${l.qty} — RM${(l.qty * l.price).toFixed(2)}`)
+    .map((l) => {
+      const base = `• ${l.name} ×${l.qty} — RM${(l.qty * l.price).toFixed(2)}`;
+      const note = String(l.note || "").trim();
+      return note ? `${base}\n   📝 ${note}` : base;
+    })
     .join("\n");
   let msg = `New order · ${cfg.name} 🍞\n`;
   msg += `📅 ${order.date}\n`;
@@ -788,6 +794,14 @@ export function buildMessage(cfg, order) {
     // offline fallback (the path that sends this same message when the cloud cannot be read) lost it too.
     if (order.fulfillment !== "courier" && String(order.pointName || "").trim()) {
       msg += `\n📍 ${String(order.pointName).trim()}`;
+    }
+    // ⚠️⚠️ AND THE DOOR PIN THE CUSTOMER DROPPED (v592). ⚠️ A courier order pinned to a condo door sent a
+    // message with NO destination at all when the shop could not reach the cloud — the one path that must
+    // carry the whole order. ⭐ The point and a link to it, on its own line.
+    const lat = Number(order.place && order.place.lat);
+    const lng = Number(order.place && order.place.lng);
+    if (order.fulfillment === "courier" && Number.isFinite(lat) && Number.isFinite(lng)) {
+      msg += `\n📌 ${lat.toFixed(6)}, ${lng.toFixed(6)} — https://maps.google.com/?q=${lat},${lng}`;
     }
   }
   if (order.customer) msg += `\n👤 ${order.customer}`;
@@ -3744,9 +3758,14 @@ function clearFieldMarks() {
       refuseAtFirstMissing();
       return;
     }
-    // ⚠️ UNREACHABLE IN PRACTICE — a bake day is chosen FOR him on load (v434) — and kept anyway so that a
-    // day ever going missing cannot turn into a crash on `new Date("T00:00:00")` further down.
-    if (!selected) return;
+    // ⚠️⚠️ NO DAY TO ORDER FOR MUST BE SAID, NOT SWALLOWED (v592). ⚠️ With every upcoming day full or removed,
+    // `selected` is null — and this was a SILENT return: ⚠️ **a customer with a full basket pressed Place
+    // order and nothing at all happened — no message, no scroll, no order.** ⭐ The day step refuses, in the
+    // all-days-full words.
+    if (!selected) {
+      sayStepFirst("needDayTitle", "needDayBody", "step1", t("noOpenDates"));
+      return;
+    }
     // ★ AND HIS NAME IS ASKED FOR BEFORE HIS NUMBER, because the page asks them in that order (v452). It is
     // REQUIRED — she decided it: without it an order has no name on it, and she confirms every order by hand.
     const nameInput = document.getElementById("name-input");
