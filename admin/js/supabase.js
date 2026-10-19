@@ -1152,14 +1152,23 @@ export function unmatchedLinesNote(lines, cur = "RM") {
 // a fact that is only true of THIS phone's last poll. The queue is re-read every 30 seconds, so
 // memory is the honest place for it.
 let stuckIncoming = [];
+// ⚠️⚠️ AND WHETHER THE READ HIT ITS CEILING (v582). ⚠️ The queue is read 200 rows at a time, newest first,
+// and 200 unimportable rows fill it — ⚠️ **so rows behind them were not read, and nothing said so.** ⭐ The
+// cap is now known and reported beside the rows it held back.
+let incomingCap = false;
 
 export function stuckOrders() {
   return stuckIncoming;
 }
 
+export function incomingCapReached() {
+  return incomingCap;
+}
+
 // For a test seam, the way `forgetPublishedCards` is.
 export function forgetStuckOrders() {
   stuckIncoming = [];
+  incomingCap = false;
 }
 
 // Why a row could not be read, in words she can act on. ⚠️ NEVER a code and never a shrug — the one
@@ -1254,8 +1263,12 @@ export async function pullIncoming(state) {
     // configured, no token, the queue unreachable — leaves it EXACTLY as it was, because on those
     // paths the queue's state is UNKNOWN. Clearing it would be a claim that nothing is waiting,
     // made on a request that never came back. (The same rule the promo label's open count follows.)
+    // ⚠️ A FULL LAST PAGE MEANS THERE MAY BE MORE (v582). The cap is a fact this phone knows, so it says
+    // it rather than letting a customer's order sit behind the window unread and unmentioned.
+    const capped = rows.length >= PAGE * MAX_PAGES;
     stuckIncoming = stuck;
-    return { ok: true, imported, stuck };
+    incomingCap = capped && stuck.length > 0;
+    return { ok: true, imported, stuck, capped };
   } catch {
     return { ok: false, imported: [] };
   }

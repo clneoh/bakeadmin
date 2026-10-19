@@ -726,6 +726,43 @@ function normalize(s) {
   backfillUnitRefs(out);
   linkProductUnits(out);
   upgradeProductionPlan(out.settings.production, ((s.settings || {}).production) || {});
+  // ⚠️⚠️ TWO RECORDS WITH ONE ID ARE ONE RECORD THAT TRAVELS AND TWO THAT COUNT (v582). ⭐ Every list is
+  // checked to be an ARRAY and nothing checked that its ids were unique — ⚠️ **so a duplicated row counted
+  // twice on this phone while the sync, which keys by id, sent only the last one.** ⭐ Deduped here, on
+  // load, keeping the LAST occurrence: ⚠️ **the one the sync would have published is the one kept**, so
+  // what she counts and what reaches her other phone are the same record.
+  for (const k of ID_LISTS) out[k] = dedupeById(out[k]);
+  return out;
+}
+
+// The lists whose rows are keyed by an `id`, and therefore the ones a duplicate can split.
+// ⚠️ `removedOrders` is NOT here: it already has its own dedupe, and it keeps the FIRST row because the
+// shelf is newest-first — a different answer that belongs to that list alone.
+const ID_LISTS = ["ingredients", "suppliers", "parcelCouriers", "products", "productCategories",
+  "deliveryDates", "bakedDays", "orders", "purchaseOrders", "expenses", "deposits", "credits",
+  "rewards", "occasions", "points", "pointAreas", "deliveryRoutes", "promoCodes", "uoms"];
+
+// One row per id, the LAST one winning. ⭐ An ordinary list is returned as it was — the same array, not a
+// copy — so a load with nothing to fix touches nothing. A row with no id (an imported occasion, say) is
+// left exactly as it is, because it cannot be the other half of a duplicate.
+function dedupeById(list) {
+  if (!Array.isArray(list)) return list;
+  let keyed = 0;
+  const seen = new Set();
+  for (const r of list) {
+    if (r && typeof r === "object" && r.id != null) { keyed++; seen.add(String(r.id)); }
+  }
+  if (keyed === 0 || seen.size === keyed) return list;
+  const out = [];
+  const kept = new Set();
+  for (let i = list.length - 1; i >= 0; i--) {
+    const r = list[i];
+    if (!r || typeof r !== "object" || r.id == null) { out.unshift(r); continue; }
+    const k = String(r.id);
+    if (kept.has(k)) continue;
+    kept.add(k);
+    out.unshift(r);
+  }
   return out;
 }
 

@@ -812,3 +812,23 @@ test("★★★ the kept damaged copy can be MEASURED and DELETED, and the warni
     if (real === undefined) delete globalThis.localStorage; else globalThis.localStorage = real;
   }
 });
+
+test("★★★ two records with one id are ONE record on load (v582)", () => {
+  // ⚠️⚠️ Every list was checked to be an array and NOTHING checked that its ids were unique — ⚠️ **so a
+  // duplicated row counted twice on this phone while the sync, keying by id, sent only the last one.**
+  const raw = defaultState();
+  raw.products = [
+    { id: "p1", name: "First", price: 1 },
+    { id: "p2", name: "Other", price: 2 },
+    { id: "p1", name: "Second", price: 3 },
+  ];
+  const out = normalize(raw);
+  assert.equal(out.products.length, 2, "★ a duplicated id still counts twice on this phone");
+  assert.equal(out.products.find((p) => p.id === "p1").name, "Second",
+    "★ the kept row is not the one the sync would publish (the last)");
+  // And an ordinary list is not rebuilt at all — the same array comes back.
+  const clean = defaultState();
+  clean.products = [{ id: "a", name: "A", price: 1 }, { id: "b", name: "B", price: 1 }];
+  const same = normalize(clean);
+  assert.equal(same.products.length, 2);
+});

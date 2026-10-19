@@ -17,10 +17,15 @@ function createEl(tag) {
     tagName: String(tag || "").toUpperCase(), nodeType: 1, children: [], attrs: {}, dataset: {},
     className: "", style: {}, value: "", checked: false, disabled: false, hidden: false,
     scrollTop: 0, _listeners: {},
+    // ⚠️ SHIM, NOT A STUB (v582): the print class is the whole mechanism under test, so a classList
+    // that forgot every add would prove nothing about it. `className` follows, as the real DOM's does.
     classList: {
-      add() {}, remove() {}, toggle() {},
-      contains() { return false; },
+      add(...cs) { for (const c of cs) { node._cls.add(String(c)); } node.className = [...node._cls].join(" "); },
+      remove(...cs) { for (const c of cs) { node._cls.delete(String(c)); } node.className = [...node._cls].join(" "); },
+      toggle(c, on) { if (on === undefined ? !node._cls.has(c) : on) this.add(c); else this.remove(c); },
+      contains(c) { return node._cls.has(String(c)); },
     },
+    _cls: new Set(),
     appendChild(c) { if (c != null) this.children.push(c); return c; },
     append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
     replaceChildren(...cs) { this.children = []; for (const c of cs) if (c != null) this.children.push(c); },
@@ -48,7 +53,15 @@ globalThis.document = {
   querySelectorAll: () => [],
   body: createEl("body"),
 };
-globalThis.window = {};
+// ⚠️ A PRINT SPY, because the press must be provable as a PRINT and the class has to be able to come off
+// on `afterprint` — the mechanism the v582 fix is built on.
+const printed = [];
+globalThis.window = {
+  _listeners: {},
+  addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
+  removeEventListener(t, f) { this._listeners[t] = (this._listeners[t] || []).filter((x) => x !== f); },
+  print() { printed.push(true); },
+};
 // ⚠️ The view navigates with `location.hash` directly (the choice history.js documents), so the
 // address has to exist for a press to be provable at all.
 globalThis.location = { hash: "" };
@@ -322,4 +335,35 @@ test("the screen offers no press that could change a number", async () => {
     `the register carries a link that is not an order door: ${JSON.stringify(links.map((a) => a.attrs.href))}`);
   assert.equal(links.every((a) => /^#\/orders\?order=/.test(String(a.attrs.href))), true,
     "an order number links somewhere other than the order it names");
+});
+
+test("★★★ the register keeps its print class until after the print, and its screen instruction stays off the paper (v582)", async () => {
+  // ⚠️⚠️ THE FAULT: the class came off in a `finally` straight after `window.print()` — ⚠️ **on a browser
+  // that returns before it renders the sheet, the register printed BLANK.** ⭐ And "Press an Order number
+  // to open that order" was printed on the paper, where it means nothing.
+  const st = state();
+  globalThis.fetch = async () => ({ ok: true, json: async () => [row(1, "C2FDA5")] });
+  const root = createEl("div");
+  renderReceiptRegister(root, st);
+  await settle();
+
+  const press = all(root).find((n) => n.tagName === "BUTTON" && txt(n).trim() === "Print this page");
+  assert.ok(press, "the register has no print press at all");
+  press._listeners.click.forEach((f) => f());
+  assert.equal(printed.length, 1, "the press did not ask the browser to print");
+  assert.equal(document.body.classList.contains("receipt-print"), true,
+    "★ the class was already gone when print() returned — the register prints blank");
+  assert.equal((window._listeners.afterprint || []).length, 1,
+    "★ nothing listens for afterprint, so the class can only be removed too early");
+
+  window._listeners.afterprint.forEach((f) => f());
+  assert.equal(document.body.classList.contains("receipt-print"), false,
+    "the print class was left behind on the app after printing");
+
+  // ⭐ And the screen-only instruction wears no-print, so the paper never says it.
+  const instruction = all(root).find((n) => n.tagName === "P"
+    && /Press an Order number to open that order/.test(n.textContent || ""));
+  assert.ok(instruction, "the screen lost its instruction about the order numbers");
+  assert.match(String(instruction.className), /no-print/,
+    "★ an instruction for the screen is printed on the paper");
 });

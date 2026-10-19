@@ -68,6 +68,13 @@ export function explodePicks(state, picks) {
       warnings.push(`${product.name} has no recipe, so its ${order.qty} pcs are not costed.`);
       continue;
     }
+    // ⚠️⚠️ AN EMPTY RECIPE IS THE SAME ANSWER, AND IT SAID NOTHING (v582): `[]` passed the check above,
+    // counted its units, and exploded to no lines at all — ⚠️ **so a shopping list could be saved with
+    // nothing on it and the app called it a list.** ⭐ A recipe with no line on it has nothing to buy.
+    if (!product.recipe.some((l) => l && (Number(l.qty) || 0) > 0 && (l.ingredientId || l.productId))) {
+      warnings.push(`${product.name} has an empty recipe, so its ${order.qty} pcs add nothing to the list.`);
+      continue;
+    }
     totalUnits += order.qty;
     const cycleWarnings = [];
     const perUnit = demandMap(state, product.id, memo, new Set(), cycleWarnings);

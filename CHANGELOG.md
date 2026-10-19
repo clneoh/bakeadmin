@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v581)
+# Jienluv2bake — change history (v54 → v582)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v582, THE CAPS AND THE PAPER THAT SAID NOTHING (no database step).**
+
+**Your words:** __"go ahead with silent caps and printing"__ — group 5 of the complete audit.
+
+**1. ⚠️⚠️ THE RECEIPT REGISTER COULD PRINT BLANK.** The print marking came off the instant the print was asked for — ⚠️ **and a browser that answers before it draws the sheet found the marking already gone, so the one record that proves your receipt numbers have no gaps came out BLANK.** ⭐ The marking now stays until the print has finished (with a two-second fallback), the same guard the labels and journals already use.
+
+**2. ⚠️ AN INSTRUCTION FOR THE SCREEN WAS PRINTED ON THE PAPER.** The register's page said **"Press an Order number to open that order"** — ⚠️ **which means nothing on a sheet an auditor reads.** ⭐ It stays on the screen and is left off the paper.
+
+**3. ⚠️ A SHOPPING LIST COULD BE SAVED WITH NOTHING ON IT.** ⚠️ A product with an **empty recipe** was offered by "Write a list by hand"; picking it counted as a product, exploded to no lines at all, ⚠️ **and the app saved an RM0.00 list with nothing on it, saying "List saved to history".** ⭐ It is no longer offered, the preview warns **"has an empty recipe, so its 3 pcs add nothing to the list"**, and the Save press refuses with the reason.
+
+**4. ⚠️ TWO RECORDS WITH ONE ID COUNTED TWICE HERE AND TRAVELLED AS ONE.** Every list was checked to be a list; ⚠️ **nothing checked that its ids were unique — so a duplicated row counted twice on this phone while the sync, which keys by id, sent only the last one.** ⭐ A duplicated id is now collapsed when the book loads, keeping the row the sync would have published, so what you count and what reaches your other phone are the same record.
+
+**5. ⚠️ THE ORDER QUEUE HAD A 200-ROW WINDOW AND NEVER SAID SO.** ⚠️ **Two hundred orders that could not be read filled it, and a real customer's order behind them was never read — while the screen said "nothing is lost".** ⭐ When a read hits the ceiling the screen now says it: **"This phone reads the 200 newest waiting orders at a time, and there may be more behind these."**
+
+**6. ⚠️ THE "WRITE A LIST BY HAND" CARD PRINTED THE WORD "null".** ⚠️ **Seen on the real screen while checking this version:** an empty card showed **"null"** under its product picker, because three of its slots are empty until something is picked. ⭐ It says nothing now until there is something to say.
+
+**7. ⚠️ ONE PRINTING FAULT IS DELIBERATELY LEFT FOR YOUR PRINTER SESSION:** a label has no 150 mm height limit, so a very long Mailing label can flow onto a second label. ⚠️ **The obvious fix — clipping it — would cut the end of a delivery address off a parcel, which is worse than a second label.** It needs one real print on your paper to settle, and you said the printer arrives this week. It is the first thing we will do then.
+
+**8. Nothing of yours was rewritten, and there is no database step. ⭐ 3,655 tests green; every fix above has a test that fails without it.**
+
+---
 
 **19 Oct 2026 — engine v581, WHAT A CUSTOMER IS TOLD (no database step).**
 

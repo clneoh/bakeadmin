@@ -20,7 +20,7 @@ import { orderedProducts } from "../productCategories.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
-import { claimReceipt, maybePublishTracking, maybeSync, publishTracking, refundReceipt, stuckOrders, unrefundReceipt } from "../supabase.js";
+import { claimReceipt, incomingCapReached, maybePublishTracking, maybeSync, publishTracking, refundReceipt, stuckOrders, unrefundReceipt } from "../supabase.js";
 import { receiptLineOfGroup, receiptNoOf, receiptNoOfGroup, receiptStatusOfGroup } from "../receipts.js";
 import { couponDeclined, couponOnAny } from "../referrals.js";
 import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue, refundableCharge, paymentShift } from "../courier.js";
@@ -774,6 +774,11 @@ function stuckOrdersEl() {
       one ? " and could not be read — " : " and could not be read:"),
     ...stuck.slice(0, 3).map((s) => el("p", {}, `· ${s.reason}`)),
     stuck.length > 3 ? el("p", {}, `· and ${stuck.length - 3} more`) : null,
+    // ⚠️⚠️ AND THE WINDOW SAYS IT IS A WINDOW (v582). ⚠️ The queue is read 200 rows at a time, so a real
+    // order can be BEHIND the rows listed above — ⭐ it must not wait invisibly.
+    incomingCapReached()
+      ? el("p", {}, "This phone reads the 200 newest waiting orders at a time, and there may be more behind these. As the ones above come in, the next are read.")
+      : null,
     el("p", {}, "Nothing is lost: it stays in the queue and is tried again every 30 seconds. Add what it names under Products and it will come in on its own."));
 }
 

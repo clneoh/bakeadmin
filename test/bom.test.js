@@ -275,6 +275,18 @@ test("costOf, recipeLineCosts and the BOM all use the pack-derived rate", () => 
   assert.equal(salt.estCost, 0.08, "10 g × RM 0.008, rounded to cents");
 });
 
+test("★★★ an EMPTY recipe says so instead of adding nothing to the list (v582)", () => {
+  // ⚠️⚠️ `[]` passed the "no recipe array" check, counted its units, and exploded to no lines — ⚠️ **so a
+  // shopping list could be saved with nothing on it and the app called it a list.**
+  const st = fixtureState();
+  st.products.push({ id: "prd_empty", name: "Empty loaf", unit: "loaf", active: true, recipe: [] });
+  st.orders = [{ id: "ord_e", deliveryDateId: "del_a", productId: "prd_empty", qty: 3 }];
+  const bom = explodeBom(st, "del_a");
+  assert.equal(bom.items.length, 0);
+  assert.ok(bom.warnings.some((w) => /Empty loaf has an empty recipe/.test(w)),
+    "★ an empty-recipe product silently contributed nothing, with no line saying why");
+});
+
 test("isPoolablePack: only a single-line, own-cap-less, active-limited base counts", () => {
   const st = fixtureState();
   const family = st.products.find((p) => p.id === "prd_p");

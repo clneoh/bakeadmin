@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateUpcomingDates } from "../admin/js/dates.js";
-import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable, stuckOrders, forgetStuckOrders, whyUnimportable, isPendingPhoto, reviewPhotoKey, publishReviewWithPhoto, takeDownReviewWithPhoto, deletePublicReviewPhoto, pendingPhotoUrl, fetchReviews } from "../admin/js/supabase.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable, stuckOrders, forgetStuckOrders, incomingCapReached, whyUnimportable, isPendingPhoto, reviewPhotoKey, publishReviewWithPhoto, takeDownReviewWithPhoto, deletePublicReviewPhoto, pendingPhotoUrl, fetchReviews } from "../admin/js/supabase.js";
 import { groupOrders, orderCode } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
@@ -709,6 +709,34 @@ test("★ an order the intake could not read is REMEMBERED, and a later good rea
     globalThis.fetch = intakeFetch([]);
     await pullIncoming(st);
     assert.equal(stuckOrders().length, 0, "and it clears when the queue is clear");
+  } finally { globalThis.fetch = realFetch; forgetStuckOrders(); }
+});
+
+test("★★★ a queue read that hit its 200-row ceiling says so (v582)", async () => {
+  // ⚠️⚠️ 200 unimportable rows fill the window newest-first, ⚠️ **so a real customer's order behind them was
+  // never read — and nothing said the window had a ceiling at all.**
+  forgetStuckOrders();
+  const st = intakeState();
+  const realFetch = globalThis.fetch;
+  const stuckRow = (i) => ({ id: `stuck-${i}`,
+    data: JSON.stringify({ customer: "X", date: "2026-10-09", lines: [{ name: "Not a product", qty: 1 }] }) });
+  try {
+    // Every page full: 4 × 50.
+    globalThis.fetch = async (url, opts) => {
+      if (String(url).includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+      if (opts && (opts.method === "PATCH" || opts.method === "DELETE")) return { ok: true, json: async () => [{}] };
+      const offset = Number((String(url).match(/[?&]offset=(\d+)/) || [])[1] || 0);
+      return { ok: true, json: async () => Array.from({ length: 50 }, (_, i) => stuckRow(offset + i)) };
+    };
+    const r = await pullIncoming(st);
+    assert.equal(r.capped, true, "★ the read hit its ceiling and did not say so");
+    assert.equal(incomingCapReached(), true, "★ the screen has no way to know the window was full");
+
+    // A queue that fits is not reported as capped, and the flag clears.
+    globalThis.fetch = intakeFetch([stuckRow(0)]);
+    const r2 = await pullIncoming(st);
+    assert.equal(r2.capped, false, "★ a queue that fits is reported as capped");
+    assert.equal(incomingCapReached(), false, "★ a warning that cannot clear is worse than none");
   } finally { globalThis.fetch = realFetch; forgetStuckOrders(); }
 });
 

@@ -429,7 +429,11 @@ function emptyPreview(state, chosen, needsReview) {
 function openManualPO(state, root) {
   // ★★ IN HER ORDER (v418) — see `orderedProducts`. The picker used to list the raw array, so a
   // reorder made with the handle never reached it.
-  const products = orderedProducts(state, (state.products || []).filter((p) => p && p.active !== false && Array.isArray(p.recipe)));
+  // ⚠️ AND AN EMPTY RECIPE IS NOT OFFERED (v582): it explodes to no lines, ⚠️ **so picking it produced a
+  // list with nothing on it that still said "List saved to history".**
+  const products = orderedProducts(state, (state.products || []).filter((p) => p && p.active !== false
+    && Array.isArray(p.recipe)
+    && p.recipe.some((l) => l && (Number(l.qty) || 0) > 0 && (l.ingredientId || l.productId))));
   if (!products.length) return toast("Add a product with a recipe first");
   let picks = []; // [{ productId, qty }]
 
@@ -495,7 +499,10 @@ function openManualPO(state, root) {
         }, "Add a product…")
       : el("p", { class: "card-sub", style: "margin:0" }, "Every product is on the list.");
 
-    body.replaceChildren(
+    // ⚠️⚠️ `replaceChildren(null)` PRINTS THE WORD "null" (v582, seen live). ⚠️ The rules above keep three
+    // slots that are null until something is picked — ⚠️ **so the empty card showed "null" under the product
+    // picker.** ⭐ The children are filtered here, the way `el()` already filters its own.
+    body.replaceChildren(...[
       el("p", { class: "card-sub", style: "margin:0 0 10px" },
         "Pick the products and how many — the ingredients come out of your recipes, the same way a bake "
         + "day's list does. ⚠️ Nothing here is tied to a bake day, so saving it never marks a day as shopped. "
@@ -532,7 +539,8 @@ function openManualPO(state, root) {
           + "bake day, and it never marks one as shopped.")),
       el("div", { class: "popup-actions" },
         button("Cancel", () => closeManual(), "ghost"),
-        picks.length ? button("Save list", () => saveManual(state, bom, items, total, root, writtenOn), "primary") : null));
+        picks.length ? button("Save list", () => saveManual(state, bom, items, total, root, writtenOn), "primary") : null),
+    ].filter((x) => x != null));
   };
 
 
@@ -571,8 +579,15 @@ export function manualPO(bom, items, total, writtenOn) {
   };
 }
 
-function saveManual(state, bom, items, total, root, writtenOn) {
-  if (!bom.totalUnits) return toast("Pick at least one product");
+export function saveManual(state, bom, items, total, root, writtenOn) {
+  // ⚠️⚠️ A LIST WITH NOTHING TO BUY IS NOT A LIST (v582). ⚠️ `totalUnits` counts the PRODUCTS picked, so a
+  // product whose recipe is empty passed this guard, saved an RM0.00 list with no lines, and said "List
+  // saved to history". ⭐ The guard is the thing she would actually buy.
+  if (!items.length) {
+    return toast(!bom.totalUnits
+      ? "Pick at least one product"
+      : "Nothing to buy on this list — the recipe has no ingredients you buy");
+  }
   state.purchaseOrders.unshift(manualPO(bom, items, total, writtenOn));
   save(state);
   toast("List saved to history");
