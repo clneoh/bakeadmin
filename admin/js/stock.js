@@ -225,6 +225,12 @@ export function stockRowUndo(ingredient, entry) {
   if (String(entry.why || "") === "unbought") {
     return { was, now: was, moved: 0, blocked: 0, unbought: true };
   }
+  // ⚠️⚠️ AND A "BOUGHT" ROW BELONGS TO ITS PURCHASE (v595). ⚠️ Removing it took the stock off but left the
+  // purchase marked Bought and its expense on the books — ⚠️ **a later Undo of that purchase then reversed the
+  // same packs twice, writing off stock she already had (measured 5 kg → 0).** ⭐ Undo the purchase instead.
+  if (String(entry.why || "") === "bought") {
+    return { was, now: was, moved: 0, blocked: 0, bought: true };
+  }
   const raw = round2(was - (Number(entry.delta) || 0));
   if (raw < 0) return { was, now: was, moved: 0, blocked: round2(-raw) };
   return { was, now: raw, moved: round2(raw - was), blocked: 0 };
@@ -235,7 +241,7 @@ export function undoStockRow(ingredient, entry, state = null) {
   const plan = stockRowUndo(ingredient, entry);
   if (!plan) return null;
   // ⚠️ A REFUSAL CHANGES NOTHING AT ALL — the row stays on the card and the shelf does not move (v546).
-  if (plan.blocked || plan.repair || plan.correction || plan.unbought) return plan;
+  if (plan.blocked || plan.repair || plan.correction || plan.unbought || plan.bought) return plan;
   ingredient.onHand = plan.now;
   stockLogOf(ingredient).splice(stockLogOf(ingredient).indexOf(entry), 1);
   // ⚠️⚠️ AND THE BAKE ROW FORGETS IT TOO (v570). ⭐ Taking a `produced` row off the card puts the shelf back —

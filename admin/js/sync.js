@@ -757,6 +757,15 @@ export function repairRecordIds(state) {
 }
 
 export function markDirty(state, nowIso = new Date().toISOString()) {
+  // ⚠️⚠️⚠️ A BOOK THAT COULD NOT BE READ NEVER SPEAKS (v595). ⚠️ `loadState` hands back the SEED when the saved
+  // copy is damaged, and the seed has cloud sharing ON — ⚠️ **so the first save queued a TOMBSTONE for every
+  // record in the journal's snapshot and a default settings row over hers: the cloud was emptied and then the
+  // other phone.** ⭐ While `unreadableSave` is set, this function writes NOTHING: a pull may still restore the
+  // book (and clears the flag), and only then do changes start travelling again.
+  if (state && state.unreadableSave) {
+    const b = readSync();
+    return { state, pending: b.pending, changed: false, held: true };
+  }
   // ⭐ REPAIR FIRST, ALWAYS — so an un-keyable record is never queued, and the sweep that drops one has
   // nothing left to drop. See `repairRecordIds` for why this is the class and not a list.
   repairRecordIds(state);
@@ -1111,7 +1120,11 @@ export async function pull(state) {
   const FULL_PULL_EVERY_MS = 15 * 60 * 1000;
   const lastFullAt = Date.parse(String(b.lastFullPullAt || ""));
   const dueForFull = !(Number.isFinite(lastFullAt) && Date.now() - lastFullAt < FULL_PULL_EVERY_MS);
-  const useCursor = !b.seqUnsupported && b.lastSeq != null && Number.isFinite(Number(b.lastSeq)) && !dueForFull;
+  // ⚠️⚠️ A DAMAGED SAVE FORCES A FULL READ (v595). ⭐ A cursor read returns only what CHANGED — merging that
+  // over an empty book would leave the rest missing, and the save that follows would tombstone every record
+  // it did not see. ⭐ After a damaged save the whole book is read before anything is written again.
+  const useCursor = !b.seqUnsupported && b.lastSeq != null && Number.isFinite(Number(b.lastSeq)) && !dueForFull
+    && !(state && state.unreadableSave);
   const select = "select=kind,id,data,updated_at,_deleted,seq";
   let read = await readAllRows(
     c.url, useCursor ? `${select}&seq=gt.${encodeURIComponent(String(b.lastSeq))}` : select,
@@ -1159,7 +1172,12 @@ export async function pull(state) {
   for (const k of Object.keys(fresh.snapshot)) b.snapshot[k] = fresh.snapshot[k];
 
   const first = !b.lastPullAt;
+  // ⚠️⚠️ AND A COMPLETE READ IS WHAT CLEARS "THIS PHONE COULD NOT READ ITS SAVED COPY" (v595). ⭐ Only a FULL
+  // read can account for the whole book; a partial one would clear the flag and let the next save speak for
+  // records it never saw.
+  const wasUnreadable = !!(state && state.unreadableSave);
   const { changed } = mergeCloudRows(state, rows, b);
+  if (wasUnreadable && read.complete) state.unreadableSave = null;
   // ⚠️⚠️ AND A REDACTION THAT ARRIVED IN THIS READ IS APPLIED NOW (v592). ⚠️ `mergeRows` carries it for the
   // other callers; a PULL goes straight to `mergeCloudRows`, so the same rule is applied at the one seam
   // every read passes through.
@@ -1189,8 +1207,8 @@ export async function pull(state) {
   // On the first pull (or when rows changed), save so the save-hook queues any
   // records that only exist on this phone — that's the one-time migration that
   // uploads existing local data on first sign-in.
-  if (changed || first || redacted) save(state);
-  return { ok: true, changed: changed || first || redacted > 0 };
+  if (changed || first || redacted || wasUnreadable) save(state);
+  return { ok: true, changed: changed || first || redacted > 0 || wasUnreadable };
 }
 
 // ⭐ THE SIZE OF HER SHARED DATA, AS THE LAST READ FOUND IT — or null when this phone has never read it.
@@ -1226,6 +1244,11 @@ export function lastCloudCount() {
 export async function flush(state) {
   const c = cloudCfg(state);
   if (!c.on) return { ok: false, pushed: 0, reason: "Shared data is off" };
+  // ⚠️⚠️ AND IT NEVER PUSHES FROM A BOOK IT COULD NOT READ (v595) — see `markDirty`. ⭐ Reading is allowed; a
+  // read can restore her book. Writing is not.
+  if (state && state.unreadableSave) {
+    return { ok: false, pushed: 0, reason: "This phone could not read its saved copy — nothing was sent." };
+  }
 
   const b = readSync();
   const pending = Object.values(b.pending);

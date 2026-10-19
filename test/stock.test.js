@@ -193,6 +193,20 @@ test("★★★ removing a bake's stock row leaves NO bake record claiming it (v
   assert.equal(ing.onHand, 0, "re-saving the same total did not take stock again — **the two records disagree**");
 });
 
+test("★★★ removing a BOUGHT row is refused too — the purchase owns it (v595)", () => {
+  // ⚠️⚠️ MEASURED: the ✕ took the stock off but left the purchase marked Bought, so a later Undo of that
+  // purchase reversed the same packs a second time — ⚠️ **flour she already had was written off (5 kg → 0).**
+  const ing = flour(13000);
+  logStock(ing, { delta: 8000, why: "bought", what: "Bought — Mydin" });
+  const entry = stockLogOf(ing)[0];
+  const plan = stockRowUndo(ing, entry);
+  assert.equal(plan.bought, true, "★ a purchase row is treated as a movement of its own");
+  assert.equal(plan.moved, 0);
+  undoStockRow(ing, entry);
+  assert.equal(ing.onHand, 13000, "the shelf moved on a refused removal");
+  assert.ok(stockLogOf(ing).includes(entry), "the row was removed anyway");
+});
+
 test("★★★ removing an Un-bought row is refused — it belongs with the purchase (v592)", () => {
   // ⚠️⚠️ MEASURED: the ✕ undid the stock half and left the purchase order marked to buy — ⚠️ **the next Buy
   // added the packs again and wrote a second expense (0 → 8 kg → undo → ✕ → Buy = 16 kg).** ⭐ The row is
@@ -294,7 +308,8 @@ test("★★⚠️ removing a card line puts its movement back — the row and t
   // act. Reversing only the list would leave her shelf holding packs she had just deleted the record
   // of; reversing only the shelf would leave a card whose rows no longer explain the figure above them.
   const ing = flour(7500);
-  logStock(ing, { at: "2026-10-08", delta: 8000, why: "bought", what: "Bought — Mydin" });
+  // ⚠️ An ordinary movement, not a purchase: a "bought" row is refused for its own reason (v595).
+  logStock(ing, { at: "2026-10-08", delta: 8000, why: "stocktake", what: "Stocktake — the shelf read 15.5 kg" });
   logStock(ing, { at: "2026-10-09", delta: -500, why: "baked", what: "Baked — Sourdough ×2" });
   const bake = stockLogOf(ing)[0]; // newest first, so this is the bake
 
@@ -305,7 +320,7 @@ test("★★⚠️ removing a card line puts its movement back — the row and t
   undoStockRow(ing, bake);
   assert.equal(ing.onHand, 8000, "the shelf did not move with the row");
   assert.equal(stockLogOf(ing).length, 1, "the row was not taken off the card");
-  assert.equal(stockLogOf(ing)[0].why, "bought", "the wrong row came off");
+  assert.equal(stockLogOf(ing)[0].why, "stocktake", "the wrong row came off");
 });
 
 // ★★★ v546 — SHE CHANGED THIS RULE, AND THE OLD ONE LEFT THE JOURNAL NOT ADDING UP.
@@ -319,7 +334,8 @@ test("★★⚠️ removing a card line puts its movement back — the row and t
 // so it is REFUSED, nothing changes, and the way through is a stocktake.
 test("★★★ a removal the shelf cannot give back is REFUSED, and nothing moves", () => {
   const ing = flour(7500);
-  logStock(ing, { at: "2026-10-08", delta: 8000, why: "bought", what: "Bought — Mydin" });
+  // ⚠️ An ordinary movement, not a purchase: a "bought" row is refused for its own reason (v595).
+  logStock(ing, { at: "2026-10-08", delta: 8000, why: "stocktake", what: "Stocktake — the shelf read 15.5 kg" });
   const plan = stockRowUndo(ing, stockLogOf(ing)[0]);
   assert.equal(plan.now, 7500, "★ the plan offered a figure her shelf can never hold — and worse, it offered to "
     + "take a movement back that the shelf cannot cover");
@@ -658,7 +674,7 @@ test("★★★ the correction line Check my system writes CANNOT be undone into
   assert.equal(stockLogOf(ing)[0], correction, "★ the correction line was taken off the card anyway");
 
   const salt = { id: "ing_s", name: "Sea salt", unit: "g", uomId: "g", onHand: 500,
-    stockLog: [{ delta: 500, why: "bought" }] };
+    stockLog: [{ delta: 500, why: "stocktake" }] };
   const normal = stockRowUndo(salt, stockLogOf(salt)[0]);
   assert.equal(normal.repair, undefined);
   assert.equal(normal.now, 0);

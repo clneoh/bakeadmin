@@ -88,6 +88,8 @@ export function defaultState() {
         policy: "",   // cancellation / refund wording shown on the shop (English)
         policyZh: "", // its 中文 box (auto-translated, editable)
         policyMs: "", // its Bahasa Malaysia box (auto-translated, editable)
+        // ⚠️ WHICH PRODUCT THE HOMEPAGE CARD PRICES (v593) — a product id, or "" for the old rule.
+        homeProductId: "",
         products: [], // [{ name, price, unit }]
       },
       referrals: { // bring-a-friend scheme; synced so both phones agree
@@ -714,7 +716,12 @@ function normalize(s) {
         ? { ...v, id: voidIdOf(v.no) } : v))
       : [],
     redactions: Array.isArray(s.redactions) ? s.redactions : [],
-    declinedCoupons: Array.isArray(s.declinedCoupons) ? s.declinedCoupons : [],
+    // ⚠️⚠️ A RECORD NEEDS AN ID TO TRAVEL (v595). ⚠️ This list held raw id STRINGS, and the sync keys records
+    // by `id` — ⚠️ **so a coupon declined on one phone never reached the other, and the two showed different
+    // Totals.** ⭐ One object per declined code, migrated from the old strings on load.
+    declinedCoupons: (Array.isArray(s.declinedCoupons) ? s.declinedCoupons : [])
+      .map((x) => (x && typeof x === "object" ? x : { id: String(x || "") }))
+      .filter((x) => String(x.id || "").trim()),
     customers: Array.isArray(s.customers) ? s.customers : [],
     purchaseOrders: Array.isArray(s.purchaseOrders) ? s.purchaseOrders : [],
     expenses: Array.isArray(s.expenses) ? s.expenses : [],
@@ -770,7 +777,10 @@ export function applyRedactions(state) {
   }
   if (!best.size) return 0;
   let cleared = 0;
-  for (const o of (state && state.orders) || []) {
+  // ⚠️⚠️ AND THE REMOVED SHELF (v595). ⚠️ It was not redacted: ⚠️ **a forgotten customer's cancelled order kept
+  // their name in the Removed list, and "Put it back" restored the whole person.** ⭐ Both lists are hers.
+  const rows = [...((state && state.orders) || []), ...((state && state.removedOrders) || [])];
+  for (const o of rows) {
     const r = o && best.get(o.id);
     if (!r) continue;
     if (o.redactedAt && String(o.redactedAt) >= String(r.at || "")) continue;
@@ -940,13 +950,17 @@ export function removedUnitNames(state) {
 
 export function ensureCountUnits(state) {
   const have = new Map();
+  // ⚠️⚠️ AND BY ID (v595). ⚠️ The seed was keyed by NAME only, so renaming "dozen" to "doz" left the id
+  // `uom_dozen` present and the name absent — ⚠️ **the next load seeded "dozen" back beside it, and the
+  // dedupe kept the seed, so the rename was undone.** ⭐ An id that exists is this unit, whatever it is called.
+  const ids = new Set((state.uoms || []).map((u) => String(u.id || "")));
   for (const u of state.uoms || []) have.set(String(u.name || "").toLowerCase(), u);
   // ⚠️ A UNIT SHE DELETED STAYS DELETED (v547). Without this the seed put it straight back on the
   // next load, so "Delete" was a press that undid itself. ⭐ And a unit she later adds with the same
   // name is respected, because `have` is asked first — this list only suppresses the RE-SEED.
   const gone = removedUnitNames(state);
   for (const n of BAKERY_COUNT) {
-    if (have.has(n) || gone.has(n)) continue;
+    if (have.has(n) || gone.has(n) || ids.has(`uom_${n}`)) continue;
     const u = { id: `uom_${n}`, name: n, family: "count", toBase: 1 };
     state.uoms.push(u);
     have.set(n, u);
@@ -959,11 +973,12 @@ export function ensureCountUnits(state) {
 // touches a unit that already exists under the same name, whatever its family.
 export function ensurePlanningUnits(state) {
   const have = new Map();
+  const ids = new Set((state.uoms || []).map((u) => String(u.id || "")));
   for (const u of state.uoms || []) have.set(String(u.name || "").toLowerCase(), u);
   // ⚠️ The same rule as `ensureCountUnits` (v547): a unit she deleted is not put back.
   const gone = removedUnitNames(state);
   for (const [name, family, toBase] of TIME_LENGTH) {
-    if (have.has(name) || gone.has(name)) continue;
+    if (have.has(name) || gone.has(name) || ids.has(`uom_${name}`)) continue;
     const u = { id: `uom_${name}`, name, family, toBase };
     state.uoms.push(u);
     have.set(name, u);
@@ -1312,6 +1327,10 @@ function cleanStorefront(sf) {
     policy: String(src.policy ?? d.policy),
     policyZh: String(src.policyZh ?? d.policyZh),
     policyMs: String(src.policyMs ?? d.policyMs),
+    // ⚠️⚠️ THE HOMEPAGE PRODUCT SHE PICKED (v595). ⚠️ It was written by Settings but NOT in this whitelist —
+    // ⚠️ **every app open, Import and Restore silently discarded it**, and the next publish put the homepage
+    // back on the first name containing focaccia.
+    homeProductId: String(src.homeProductId || "").trim(),
     products,
   };
 }

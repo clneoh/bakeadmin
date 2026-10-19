@@ -223,6 +223,13 @@ Deno.serve(async (req) => {
       // charged trip. ⭐ `unknown` is what removes that press.
       return json({ ok: false, ...(out.unknown ? { unknown: true } : {}), reason: out.reason });
     }
+    // ⚠️⚠️ A 2xx WITH NO TRIP BACK IS UNKNOWN, NOT SUCCESS (v595). ⚠️ A 204 or a lost body was answered as
+    // `{ok:true, order:null}` and the app turned that into a plain refusal — ⚠️ **Book stayed live under a trip
+    // that was created and charged.**
+    if (out.data == null) {
+      return json({ ok: false, unknown: true,
+        reason: "The courier accepted the booking but sent no trip back — check your courier app before booking again." });
+    }
     return json({ ok: true, order: out.data });
   }
 

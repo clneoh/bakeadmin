@@ -783,6 +783,29 @@ test("★★★ a cloud row merged under an open card keeps the record's OBJECT 
   } finally { restore(); }
 });
 
+test("★★★ a book that could not be read writes NOTHING — no tombstones, no rows (v595)", async () => {
+  // ⚠️⚠️ THE WORST PATH IN THE APP: `loadState` hands back the SEED when the saved copy is damaged, and the seed
+  // has sharing ON — ⚠️ **so the first save queued a tombstone for every record in the journal's snapshot and a
+  // default settings row over hers: the cloud was emptied, then the other phone.** ⭐ While `unreadableSave` is
+  // set, `markDirty` and `flush` write nothing; a complete pull may still restore the book.
+  const { store, restore } = installStorage();
+  try {
+    const st = cloudOn(baseState());
+    st.unreadableSave = { kept: "bakeadmin.v1.unreadable", at: "2026-10-19T00:00:00.000Z" };
+    seedJournal(store, { snapshot: { "orders:o1": '{"id":"o1"}', "products:p1": '{"id":"p1"}' } });
+    const before = store.get("bakeadmin.sync");
+    const out = sync.markDirty(st);
+    assert.equal(out.held, true, "markDirty did not hold the writes");
+    assert.equal(out.changed, false, "markDirty reported a change from a book it could not read");
+    assert.equal(store.get("bakeadmin.sync"), before,
+      "★ the journal changed — **a tombstone was queued for a record this phone could not see**");
+    // And nothing can be SENT either.
+    const f = await sync.flush(st);
+    assert.equal(f.ok, false);
+    assert.equal(f.pushed, 0, "★ a damaged book pushed to the shared cloud");
+  } finally { restore(); }
+});
+
 test("★★★ a forgotten customer cannot come back on a newer row (v592)", async () => {
   // ⚠️⚠️ MEASURED: the cleared fields lived only on the order rows, and the merge is newest-wins — ⚠️ **one
   // Paid press on the other phone (which still held the row) put the name, number and address straight back

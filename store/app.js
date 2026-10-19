@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "594";
+export const SHOP_BUILD = "595";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1987,9 +1987,11 @@ function clearFieldMarks() {
   let prodAvail = null;  // { 'YYYY-MM-DD': { product: slots_left } } — for the item stamps
   let dayRows = null;    // published delivery-date rows — the real dates win
   let dates = upcomingDates(CONFIG);
-  // A product's date rules (closes X days before delivery / a from–to window)
-  // compare each delivery date to today, so its reference is fixed at load.
-  const todayKey = dateKey(new Date());
+  // A product's date rules (closes X days before delivery / a from–to window) compare each delivery date to
+  // today. ⚠️⚠️ AND "TODAY" IS RE-READ ON EVERY REPAINT (v595): ⚠️ it was fixed at load while the page redraws
+  // at midnight — ⚠️ **a close-days rule kept counting from yesterday, and bread needing four days' notice was
+  // sold at 00:10.** ⭐ `rerender` sets it before resolving the dates.
+  let todayKey = dateKey(new Date());
 
   // ── Promo code ────────────────────────────────────────────────────────────
   // The standing offer line above the menu, and the code box beside the referral
@@ -3444,6 +3446,7 @@ function clearFieldMarks() {
   // exactly the kind of half-covered thing that is hard to notice.
   let drawnDay = "";
   const rerender = () => {
+    todayKey = dateKey(new Date());
     dates = resolveDates(upcomingDates(CONFIG), dayRows, dateKey(new Date()))
       .filter((d) => isOpen(CONFIG, d));
     // Fix the cart first so the calendar/menu repaint with honest quantities: an
@@ -4547,7 +4550,15 @@ export async function trackOrder(code, phone = "") {
       body: JSON.stringify({ p_code: clean, p_phone: digits }),
       cache: "no-store",
     });
-    const rows = res.ok ? await res.json() : null;
+    // ⚠️⚠️ A FAILED LOOK-UP IS NOT "NO SUCH ORDER" (v595). ⚠️ A 404 (SQL not run), a 500 or a 429 all read as
+    // "We couldn't find order #X with that phone number" — ⚠️ **the customer was blamed and retried for ever.** ⭐
+    // The shop says the service is unavailable, as it already does when the request throws.
+    if (!res.ok) {
+      lastTrack = { kind: "unavailable", code: clean };
+      paintTrack();
+      return;
+    }
+    const rows = await res.json().catch(() => null);
     const row = Array.isArray(rows) && rows[0];
     lastTrack = row ? { kind: "row", code: clean, row } : { kind: "notfound", code: clean };
     paintTrack();
@@ -4990,7 +5001,9 @@ function askSwitch({ title, body, yes, no }, onGo) {
   document.addEventListener("keydown", onKey);
   keep.addEventListener("click", onKeep);
   go.addEventListener("click", onGoPress);
-  if (go.focus) go.focus();
+  // ⚠️⚠️ THE SAFE ANSWER KEEPS THE KEYBOARD (v595). ⚠️ This line focused the DESTRUCTIVE "Change" button,
+  // overriding the safe focus above — ⚠️ **Enter/Space straight after the question cleared the customer's
+  // address and place.** ⭐ The keep button was focused on open; nothing else takes it.
 }
 
 // Wire the Self collect / Courier picker. The choice is stored on the wrapper node so the

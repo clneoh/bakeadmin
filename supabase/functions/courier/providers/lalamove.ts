@@ -191,7 +191,9 @@ export async function llmRequest(
     return { ok: false, status: 0, data: null,
       // ⭐ THE FLAG, NOT ONLY THE WORDS (v587): the screens lock their Book press on `unknown`, and a sentence
       // alone does not lock anything.
-      ...(timedOut ? { unknown: true } : {}),
+      // ⚠️⚠️ AND ANY FETCH FAILURE IS UNKNOWN FOR A BOOKING (v595) — a reset after the POST left says nothing
+      // about whether the trip was created. The flag is ignored by the read calls.
+      unknown: true,
       reason: timedOut
         ? "Lalamove did not answer within 20 seconds — the trip is UNKNOWN, not refused"
         : `Could not reach Lalamove — ${(err as Error)?.message || "the request failed"}` };

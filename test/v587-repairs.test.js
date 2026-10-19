@@ -16,8 +16,10 @@ test("★★★ an UNKNOWN booking is passed from the vendor through the functio
   // ⚠️⚠️ MEASURED: the v585 timeouts turned a hung vendor into an ordinary refusal — ⚠️ **the Book press stayed
   // live under a trip that might already be booked, and a second press could charge twice.**
   const provider = read("supabase/functions/courier/providers/lalamove.ts");
-  assert.match(provider, /timedOut \? \{ unknown: true \} : \{\}/,
-    "★ a timed-out Lalamove call does not carry `unknown` — the words alone lock no button");
+  // ⚠️ v595 widened this: ANY failed send is unknown for a booking (a reset after the POST left says nothing
+  // about whether the trip was created). ⭐ The flag, not the words, is what locks the Book press.
+  assert.match(provider, /unknown: true,\n\s+reason: timedOut/,
+    "★ a failed Lalamove send does not carry `unknown` — the words alone lock no button");
   const fn = read("supabase/functions/courier/index.ts");
   assert.match(fn, /\.\.\.\(out\.unknown \? \{ unknown: true \} : \{\}\)/,
     "★ the courier function drops the vendor's `unknown` before answering the app");

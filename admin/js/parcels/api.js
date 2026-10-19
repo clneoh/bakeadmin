@@ -57,7 +57,10 @@ export async function callParcel(state, { action, payload = {}, timeoutMs = 3500
     try { body = await res.json(); } catch { body = null; }
     if (!res.ok) {
       const said = body && typeof body === "object" ? (body.reason || body.error) : "";
-      return { ok: false, reason: String(said || `The parcel service answered with an error (HTTP ${res.status}).`) };
+      // ⚠️⚠️ AND A PLATFORM 5xx IS UNKNOWN (v595): the function may have booked and charged before its answer
+      // was lost, so the Book press must lock exactly as it does on a timeout.
+      return { ok: false, ...(res.status >= 500 ? { unknown: true } : {}),
+        reason: String(said || `The parcel service answered with an error (HTTP ${res.status}).`) };
     }
     if (!body || typeof body !== "object") {
       return { ok: false, reason: "The parcel service answered with something that could not be read." };

@@ -84,6 +84,14 @@ async function ask(cfg: Config, action: string, params: Record<string, unknown>)
       signal: controller.signal,
     });
     const text = await res.text();
+    // ⚠️⚠️ A GATEWAY 5xx IS NOT A BUSINESS ANSWER (v595). ⚠️ Its JSON error body was read as "no order", a plain
+    // refusal under a booking that may already be accepted and charged. ⭐ 5xx = UNKNOWN; a 4xx body is a real
+    // answer and is read below.
+    if (res.status >= 500) {
+      console.error("[parcel] HTTP", res.status, "from", action);
+      return { ok: false, unknown: true,
+        reason: `EasyParcel answered HTTP ${res.status} — whether the booking was accepted is unknown.` };
+    }
     let parsed: unknown = null;
     try { parsed = JSON.parse(text); } catch { parsed = null; }
     if (parsed === null) {

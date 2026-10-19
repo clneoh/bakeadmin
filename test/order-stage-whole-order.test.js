@@ -254,6 +254,42 @@ test("★★★ the refund card opens with the figure the edit dialog named (v58
     "★ the card opened without the figure the dialog named — **she must retype the number she was just told**");
 });
 
+test("★★★ an edit that refunds freezes the amount that was PAID, not the edited amount (v595)", async () => {
+  // ⚠️⚠️ MEASURED: `paidWasRM` was read inside the refund card's callback, which fires AFTER `applyEdits()` —
+  // ⚠️ **so it froze RM15, the EDITED amount, and a past month was rewritten** — the exact fault v589 claimed
+  // to end. ⭐ This walks the real flow: Edit → Save → Save it → Refund.
+  const st = state({ orders: [row({ id: "ord_aaaaaaaaaaaa", status: "paid", paidReceived: true,
+    paidMethod: "Cash", qty: 2 })] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_A.id }));
+  press(root, "Edit");
+  const popup = doc.getElementById("popup-layer");
+  const qty = all(popup).find((n) => n.tagName === "INPUT" && n.attrs && n.attrs.type === "number"
+    && n.attrs.step === "1");
+  assert.ok(qty, "the Edit card drew no quantity box");
+  qty.value = "1";
+  qty._listeners.input[0].call(qty);            // edit DOWN: 2 → 1
+  press(popup, "Save changes");
+
+  const layer = doc.getElementById("confirm-layer");
+  const saveIt = all(layer).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Save it");
+  assert.ok(saveIt, "the money-in question did not appear");
+  saveIt._listeners.click.forEach((f) => f());
+
+  const refundIt = all(layer).find((n) => n.tagName === "BUTTON" && /^Refund RM/.test(String(n.textContent).trim()));
+  assert.ok(refundIt, "the refund question did not appear after the edit");
+  refundIt._listeners.click.forEach((f) => f());
+
+  const card = doc.getElementById("popup-layer");
+  const go = all(card).find((n) => n.tagName === "BUTTON" && String(n.textContent).trim() === "Refund");
+  assert.ok(go, "the refund card drew no Refund press");
+  for (const f of go._listeners.click) await f();
+
+  assert.equal(st.orders[0].refundAmountRM, 16, "the refund itself was not recorded");
+  assert.equal(st.orders[0].paidWasRM, 32,
+    "★ the frozen sale is the EDITED amount — **a past month is rewritten and the refund is counted twice**");
+});
+
 test("★★★ the day's purse line is NET of the refunds that came back that day (v590)", () => {
   // ⚠️⚠️ MEASURED: two RM15 sales and one RM15 refunded the same day read "Cash RM30" on the line she
   // checks her purse against, while her tin held RM15. ⭐ Each refund is taken off the account it came back

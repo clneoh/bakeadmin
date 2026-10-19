@@ -101,7 +101,13 @@ function itemsLine(state, group) {
 
 // What one order is on this document: the invoice's own figure, less what went back.
 export function orderInvoice(state, group) {
-  return round2(Math.max(0, customerTotal(state, group).total - refundOf(state, group)));
+  const first = (group && group.orders && group.orders[0]) || {};
+  const total = customerTotal(state, group).total;
+  // ⚠️⚠️ AN EDIT'S REFUND IS ALREADY IN THE LINES (v595). ⚠️ Subtracting it again drove the remaining sale to
+  // zero — ⚠️ **the September filing page dropped a RM15 order as "refunded in full", while the order's own
+  // invoice still totalled RM15.** ⭐ The current total IS the sale; only an ordinary refund comes off.
+  if (first.refundFromEdit && Number(first.paidWasRM) > 0) return round2(Math.max(0, total));
+  return round2(Math.max(0, total - refundOf(state, group)));
 }
 
 // The whole document, as the object `journalSheet` wants.

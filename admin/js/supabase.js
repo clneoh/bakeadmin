@@ -11,7 +11,7 @@ import { publishOccasions } from "./occasion_catalog.js";
 import { flattenTree, primaryCategoryId, productsInCategory } from "./productCategories.js";
 import { isThumb, lineNoteOf } from "../../storefront-fields.js";
 import { costOf, effectiveCapacity, effectiveLimit, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
-import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, stampOrderLine, duplicateOrderCodes, waNumber, groupOrders } from "./state.js";
+import { byId, fmtRM, newId, orderCode, orderLineName, round2, save, saveFailure, stampOrderLine, duplicateOrderCodes, waNumber, groupOrders } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { customerTotal } from "./courier.js";
 // ⚠️ ONE WORDING FOR HOW AN ORDER REACHES THE CUSTOMER (v569) — the messages already read these; the card
@@ -1288,6 +1288,11 @@ export async function pullIncoming(state) {
       // `status=new`, so nothing retried and no screen recorded the loss.** ⭐ Each row is made durable
       // before its source is removed.
       save(state);
+      // ⚠️⚠️ AND A SAVE THAT FAILED KEEPS ITS SOURCE (v595). ⚠️ `save` swallows a full phone, so the order could
+      // exist only in memory while the queue row was DELETED — ⚠️ **the customer's order would then exist
+      // nowhere.** ⭐ The row is left `imported` (not re-queued, which would duplicate it) and the order stays
+      // for the next successful save.
+      if (saveFailure()) continue;
       // The claim already prevents a second import; delete is just cleanup.
       await fetch(`${c.url}/rest/v1/incoming_orders?id=eq.${row.id}`, {
         method: "DELETE",

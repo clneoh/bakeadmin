@@ -306,8 +306,11 @@ export function confirmDialog(message, onYes, { danger = false, yesLabel = "Conf
   },
     el("p", { class: "confirm-text", id: textId }, message),
     el("div", { class: "confirm-actions" },
-      button(noLabel, () => { close(); if (onNo) onNo(); }, "ghost"),
-      button(yesLabel, () => { close(); onYes(); }, danger ? "danger" : "primary")));
+      // ⚠️⚠️ THE ACTION RUNS BEFORE FOCUS IS HANDED BACK (v595). ⚠️ `close()` restored it first, and a delete's
+      // re-render then removed that control — ⚠️ **focus fell to `<body>`, the very fault v591 set out to fix.**
+      // ⭐ Close and act, then restore only what is still on the page.
+      button(noLabel, () => { close({ restore: false }); try { if (onNo) onNo(); } finally { restoreOpener(); } }, "ghost"),
+      button(yesLabel, () => { close({ restore: false }); try { onYes(); } finally { restoreOpener(); } }, danger ? "danger" : "primary")));
   // ⚠️ THE CONTROL THAT OPENED THE QUESTION GETS THE KEYBOARD BACK WHEN IT CLOSES (v591).
   const opener = (typeof document !== "undefined" && document.activeElement) || null;
   layer.replaceChildren(card);
@@ -319,11 +322,14 @@ export function confirmDialog(message, onYes, { danger = false, yesLabel = "Conf
   };
   card.addEventListener("keydown", onKey);
   try { card.focus({ preventScroll: true }); } catch { /* no focus in a shim */ }
-  function close() {
+  function restoreOpener() {
+    try { if (opener && opener.focus && opener.isConnected !== false) opener.focus({ preventScroll: true }); } catch { /* gone */ }
+  }
+  function close({ restore = true } = {}) {
     card.removeEventListener("keydown", onKey);
     layer.hidden = true;
     layer.replaceChildren();
-    try { if (opener && opener.focus && opener.isConnected !== false) opener.focus({ preventScroll: true }); } catch { /* gone */ }
+    if (restore) restoreOpener();
   }
 }
 

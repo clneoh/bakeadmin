@@ -181,6 +181,22 @@ function priced() {
   return [st, priceItems(st, [bomItem({ ingredientId: "ing_f", totalQty: 6800, unit: "g" })])[0]];
 }
 
+test("★★★ float noise does not buy an extra pack (v595)", () => {
+  // ⚠️⚠️ MEASURED after v590 stopped rounding recipe quantities: 0.1 kg + 0.2 kg = 0.30000000000000004 kg =
+  // 300.00000000000006 g, so a 300 g pack read as SHORT and a second pack was bought. ⭐ The need is snapped
+  // to a millionth of a base unit before the ceil.
+  const st = makeState([ingredient({
+    supplierPrices: [{ supplierId: "s_mydin", qty: 300, uomId: "g", price: 9 }],
+  })]);
+  const need = (0.1 + 0.2) * 1000;        // 300.00000000000006 g
+  const buy = priceItems(st, [bomItem({ ingredientId: "ing_f", totalQty: need, unit: "g" })])[0];
+  assert.equal(buy.packs, 1, "★ 300.00000000000006 g bought TWO 300 g packs");
+  // And a shelf holding exactly one pack is not short.
+  st.ingredients[0].onHand = 300;
+  const covered = priceItems(st, [bomItem({ ingredientId: "ing_f", totalQty: need, unit: "g" })])[0];
+  assert.equal(covered.covered, true, "★ a shelf holding exactly 300 g was treated as short");
+});
+
 test("amendItem re-prices a line from the shelf and everything derived follows it", () => {
   const [st, it] = priced();
   const at = amendItem(st, it, { packs: 3, packPrice: 27.5 });

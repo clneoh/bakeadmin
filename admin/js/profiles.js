@@ -84,7 +84,11 @@ export function removeProfile(state, rowKey) {
 // coupon that is already coming off an order would RAISE that order's Total, which is the fault v367
 // was built to prevent.
 export function forgetCustomer(state, rowKey) {
-  const rows = (state.orders || []).filter((o) => o && keyOf(o) === rowKey);
+  // ⚠️⚠️ AND THE REMOVED SHELF (v595). ⚠️ It held the same person's cancelled orders, so their name, number and
+  // address stayed in the Removed list and "Put it back" restored the whole order. ⭐ Both lists are hers.
+  const live = (state.orders || []).filter((o) => o && keyOf(o) === rowKey);
+  const shelf = (state.removedOrders || []).filter((o) => o && keyOf(o) === rowKey);
+  const rows = [...live, ...shelf];
   const first = rows[0] || {};
   const name = String(first.customerName || "").trim();
   const who = waNumber(first.whatsapp);

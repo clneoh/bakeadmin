@@ -1,8 +1,29 @@
-# Jienluv2bake — change history (v54 → v594)
+# Jienluv2bake — change history (v54 → v595)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v595, THE FOURTH SWEEP, PART 1: WHAT COULD EMPTY THE CLOUD, AND WHAT THE MONEY SAID (⚠️ REDEPLOY courier AND parcel).**
+
+**Your words:** __"go ahead with the fourth sweep"__. The fourth sweep found 60+ faults across the eight areas; this version fixes everything that could destroy records or show a wrong money figure.
+
+1. ⚠️⚠️⚠️ **A DAMAGED SAVE COULD EMPTY YOUR WHOLE CLOUD BOOK.** When the phone could not read its saved copy, the app started from a blank book with sharing ON — **and the next save queued a deletion for every record it had ever synced: her cloud, then the other phone.** ⭐ While the phone knows its copy was damaged it now **writes nothing at all**; a full read is forced on the next sync, and only a complete read lets writing start again.
+2. ⚠️⚠️ **"FORGET THIS CUSTOMER" MISSED THE REMOVED LIST.** A cancelled order on that shelf kept their name, number and address, and **"Put it back" restored the whole person.** ⭐ The shelf is redacted too, with its own record.
+3. ⚠️⚠️ **AN IMPORTED STOREFRONT ORDER COULD BE DELETED FROM THE QUEUE WHILE THE PHONE WAS FULL.** The save swallowed the full-phone error and the cloud copy was deleted anyway — **the order existed nowhere.** ⭐ The queue row is kept when the save failed.
+4. ⚠️ **A DECLINED FRIEND'S COUPON NEVER REACHED THE OTHER PHONE** (the list held bare text, and sync can only carry records with an id). ⭐ One keyed record per declined code, old ones migrated on load.
+5. ⚠️ **THE HOMEPAGE PRODUCT YOU PICKED WAS DISCARDED ON EVERY APP OPEN**, and **renaming a seeded unit was undone on the next load.** ⭐ Both survive now.
+6. ⚠️⚠️ **AN EDIT'S REFUND FROZE THE EDITED AMOUNT, NOT THE AMOUNT PAID.** The amount was read after the edit had saved — **a past month was rewritten and the refund counted twice.** ⭐ It is captured before the edit, and the filing page no longer subtracts an edit's refund twice.
+7. ⚠️ **A FURTHER EDIT AFTER AN EDIT-REFUND ASKED NOTHING**, so an extra the customer owed was silently accepted; and **a second refund erased the first one's record.** ⭐ The baseline is what the order is worth now, and further refunds go through the Refund press.
+8. ⚠️ **THE EDIT CARD'S "takes RM7 out of your accounts" HINT** compared bread against bread-plus-courier; it now says the same figure the question will.
+9. ⚠️⚠️ **REMOVING A "BOUGHT" ROW FROM A STOCK CARD LEFT THE PURCHASE MARKED BOUGHT** — a later Undo of that purchase reversed the same packs again (measured: 5 kg became 0). ⭐ That row is refused and points at Undo the purchase.
+10. ⚠️ **FLOAT NOISE BOUGHT AN EXTRA PACK** — 0.1 kg + 0.2 kg = 300.00000000000006 g, so a 300 g pack read as short and a shelf holding exactly 300 g read as short too. ⭐ The need is snapped to a millionth of a base unit.
+11. ⚠️⚠️ **A FAILED TRACKING LOOK-UP WAS BLAMED ON THE CUSTOMER** — a 500 or a 429 said "we couldn't find that order with that phone number". ⭐ It says the service is unavailable.
+12. ⚠️⚠️ **THE SHOP'S "TODAY" WAS FROZEN AT PAGE LOAD**, although the page redraws at midnight — a four-day-notice product stayed orderable at 00:10. ⭐ Today is re-read on every repaint.
+13. ⚠️⚠️ **THE CHANGE-METHOD QUESTION FOCUSED THE DESTRUCTIVE BUTTON** — Enter straight after it cleared the customer's address and place. ⭐ The safe answer keeps the keyboard, and a dialog's action now runs before focus is handed back.
+14. ⚠️ **COURIER AND PARCEL REPLIES THAT LEFT THE OUTCOME UNKNOWN ARE NOW UNKNOWN IN EVERY PATH**: an empty 2xx body, a dropped connection, a gateway 5xx. ⭐ The Book press locks instead of inviting a second charge.
+
+**No database step this part. ⚠️ Redeploy the edge functions `courier` and `parcel`.** Nothing of yours is rewritten. 3,782 tests green.
 
 **19 Oct 2026 — engine v594, A CHOSEN PILL SAYS SO (NO DATABASE STEP).**
 

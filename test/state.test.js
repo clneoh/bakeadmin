@@ -11,6 +11,30 @@ import { planBackwards } from "../admin/js/bakeday.js";
 const HASH_1234 = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 0.01, `${msg} (got ${a})`);
 
+test("★★★ the homepage product she picked survives a load (v595)", () => {
+  // ⚠️⚠️ MEASURED: it was written by Settings but NOT in cleanStorefront's whitelist — ⚠️ **every open, Import
+  // and Restore silently discarded it**, and the next publish reverted the homepage card.
+  const out = normalize({ version: 1, settings: { storefront: { homeProductId: "prd_abc" } } });
+  assert.equal(out.settings.storefront.homeProductId, "prd_abc",
+    "★ the choice was dropped on load — the homepage falls back to the first focaccia");
+});
+
+test("★★★ renaming a seeded unit survives a load (v595)", () => {
+  // ⚠️⚠️ The seed was keyed by NAME only, so "doz" looked missing and "dozen" was seeded back beside it; the
+  // duplicate id was then deduped in the seed's favour.
+  const out = normalize({ version: 1,
+    uoms: [{ id: "uom_dozen", name: "doz", family: "count", toBase: 1 }] });
+  const dozen = out.uoms.filter((u) => u.id === "uom_dozen");
+  assert.equal(dozen.length, 1, "the rename was duplicated");
+  assert.equal(dozen[0].name, "doz", "★ the rename was undone by the next load");
+});
+
+test("★★★ a declined coupon on a phone is migrated to a keyed record (v595)", () => {
+  // ⚠️ Raw id strings cannot be keyed by sync, so a decline on one phone never reached the other.
+  const out = normalize({ version: 1, declinedCoupons: ["crc_1", { id: "crc_2" }] });
+  assert.deepEqual(out.declinedCoupons.map((c) => c.id), ["crc_1", "crc_2"]);
+});
+
 test("normalize fills the default storefront when missing", () => {
   const out = normalize({ version: 1, settings: {} });
   assert.deepEqual(out.settings.storefront, defaultState().settings.storefront);

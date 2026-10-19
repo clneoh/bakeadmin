@@ -2,7 +2,7 @@
 
 import { addDays, deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus, costOf, dayCapacityParts, dayRuleRows, orderedOnDay, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
-import { dayMoney, groupValue, isCollected, isRefunded, orderNet, refundsBetween } from "../money.js";
+import { dayMoney, groupValue, isCollected, isRefunded, orderNet, orderTakings, refundsBetween } from "../money.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
 import { DOW, WINDOW_WEEKS, deliveryWindow, occColour, occForDate, rollingWeeks,
@@ -1698,8 +1698,10 @@ function couponControlEls(state, first, group, repaint) {
 
   const put = (on) => {
     const id = String(hit.id);
-    state.declinedCoupons = (state.declinedCoupons || []).filter((x) => String(x) !== id);
-    if (on) state.declinedCoupons.push(id);
+    // ⚠️⚠️ ONE RECORD PER DECLINED CODE (v595) — a raw id string cannot be keyed by sync, so a decline on one
+    // phone never reached the other and the two showed different Totals.
+    state.declinedCoupons = (state.declinedCoupons || []).filter((x) => String((x && x.id) || x) !== id);
+    if (on) state.declinedCoupons.push({ id, at: new Date().toISOString() });
     save(state);
     maybeSync(state);
     repaint();
@@ -2741,15 +2743,18 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // does not change, and nothing used to say so** — the difference left her books in silence.
     // ⭐ And her rule for taking something away is the one she gave me for bake days and delivery:
     // **it asks first.**
-    const paidWas = isCollected(group) ? orderNet(state, group) : 0;
-    const nowTotal = Math.max(0, itemsTotal + here - off - coupon.amount);
-    const short = round2(paidWas - nowTotal);
     // ⚠️⚠️ THE COMPARISON IS GOODS AGAINST GOODS (v589). ⚠️ `paidWas` is `orderNet` — the customer's money
     // for the bread, with the courier charge kept out because it was never her takings — while `nowTotal`
     // included the charge. ⚠️ **So editing ANY paid order with a customer-borne courier charge falsely asked
     // "has the extra RM8 been paid too?", and "Not yet" un-paid the order.** ⭐ `draftNow` is the goods-only
     // figure; the receipt above still shows the whole total.
     draftNow = Math.max(0, round2(itemsTotal - off - coupon.amount));
+    // ⚠️⚠️ AND THE HINT SPEAKS THE SAME FIGURE THE QUESTION WILL (v595). ⚠️ It compared the goods-only paid
+    // amount with `nowTotal` INCLUDING the courier charge — ⚠️ **RM7 in the hint and RM15 in the question, two
+    // money figures on one flow.** ⭐ One draft figure, goods only.
+    const paidWas = isCollected(group) ? orderNet(state, group) : 0;
+    const nowTotal = draftNow;
+    const short = round2(paidWas - nowTotal);
     paidShortEl.replaceChildren(...(paidWas > 0 && short > 0
       ? [el("p", { class: "hint paid-short" },
           `⚠️ THE MONEY IS IN — this order was paid ${fmtRM(paidWas, cfgCur)}. As it stands it comes to `
@@ -2846,7 +2851,16 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
   // **taking something away asks first.** ⚠️ The money leaves her accounts the moment this saves,
   // and nothing in her hand moves — so the question says the figure, and says what to do next.
   const saveEdits = () => {
-    const paidWas = isCollected(group) ? orderNet(state, group) : 0;
+    // ⚠️⚠️ AN EDIT'S OWN REFUND IS ALREADY IN THE LINES (v595). ⚠️ `orderNet` then reads frozen − refund = 0,
+    // so a later edit UP asked nothing and the extra was silently accepted. ⭐ The baseline is what the order
+    // is worth now; an ordinary refund still comes off, because it did not change the lines.
+    const wasEditedRefund = !!(first && first.refundFromEdit && Number(first.paidWasRM) > 0);
+    const paidWas = isCollected(group)
+      ? (wasEditedRefund ? orderTakings(state, group) : orderNet(state, group)) : 0;
+    // ⚠️ AND THE SALE AS IT WAS PAID IS CAPTURED BEFORE ANY EDIT RUNS (v595). ⚠️ It used to be read inside the
+    // refund card's callback, which fires AFTER `applyEdits()` — ⚠️ **so `paidWasRM` froze the EDITED amount
+    // (RM15) and a past month was rewritten**, the exact fault v589 meant to end.
+    const freezeAt = wasEditedRefund ? Number(first.paidWasRM) : orderTakings(state, group);
     const short = round2(paidWas - draftNow);
     // ⚠️⚠️ AND THE OTHER DIRECTION: THE ORDER CAN NOW COME TO MORE (v577). ⭐ Only the shortfall was asked
     // about, so an order edited UP while it was paid **counted the whole new total as money received** —
@@ -2867,6 +2881,10 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
         });
     }
     if (paidWas > 0 && draftNow != null && short > 0) {
+      // ⚠️⚠️ A SECOND REFUND WOULD OVERWRITE THE FIRST (v595). ⚠️ An order carries ONE refund amount and date;
+      // ⚠️ **editing down again erased the earlier refund from Money, Profit and the register.** ⭐ Further money
+      // back goes through the Refund press, which is built for it.
+      if (isRefunded(group)) return applyEdits();
       return confirmDialog(
         `THE MONEY IS IN — this order was paid ${fmtRM(paidWas, cfgCur)} and now comes to `
         + `${fmtRM(draftNow, cfgCur)}. Saving takes ${fmtRM(short, cfgCur)} out of your accounts — `
@@ -2887,8 +2905,8 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
             // opened at 0, so she retyped the number it had told her. §3·9.
             () => refundOrder(state, group, first, {
               root, dateId, fromEdit: true, amount: short,
-              // ⚠️ THE SALE AS IT WAS PAID, BEFORE THE EDIT (v589) — see `orderTakings` in money.js.
-              paidWas: orderTakings(state, group),
+              // ⚠️ THE SALE AS IT WAS PAID, captured BEFORE the edit (v595) — see `freezeAt` above.
+              paidWas: freezeAt,
             }),
             { yesLabel: `Refund ${fmtRM(short, cfgCur)}` });
         },

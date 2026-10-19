@@ -256,7 +256,8 @@ export function validCredits(state, whatsapp, today = todayISO()) {
 // repair and nothing about the friend's coupon is lost.
 export function couponDeclined(state, id) {
   const want = String(id || "");
-  return !!want && (state.declinedCoupons || []).some((x) => String(x) === want);
+  // ⚠️ A RECORD IS AN OBJECT NOW (v595) — the old lists held raw ids, and those still read.
+  return !!want && (state.declinedCoupons || []).some((x) => String((x && x.id) || x) === want);
 }
 
 export function couponOn(state, orders) {

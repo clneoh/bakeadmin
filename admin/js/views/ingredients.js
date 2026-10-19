@@ -683,6 +683,9 @@ function stockRowDelete(state, ing, entry, refresh) {
   if (plan.repair) {
     return toast("That line is the correction the check wrote so the card adds up — it is not a movement of your shelf, so it cannot be taken back off it. If the card is wrong, run Check my system again.");
   }
+  if (plan.bought) {
+    return toast("That line is a purchase. Undo the purchase in Purchase order history — that takes the stock and the money back together. Removing this line alone would leave the order marked Bought, and a later Undo would reverse the same packs twice.");
+  }
   if (plan.unbought) {
     return toast("That line undid a purchase, so it belongs with the purchase order. Undo the purchase in Purchase order history — that puts the stock and the money back together. Removing this line alone would leave the order still marked bought, and the next Buy would add the packs again.");
   }
