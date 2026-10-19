@@ -2,7 +2,7 @@
 
 import { addDays, deliveryStatus, fmtPlaced, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus, costOf, dayCapacityParts, dayRuleRows, orderedOnDay, parseDayDelta, productRemaining, saveDayAdjustments } from "../bom.js";
-import { dayMoney, groupValue, isCollected, isRefunded, orderNet, orderTakings, refundsBetween } from "../money.js";
+import { dayMoney, groupValue, isCollected, isRefunded, moneyBetween, orderNet, orderTakings, refundsBetween } from "../money.js";
 import { el, button, select, fillMeter, emptyState, confirmDialog, toast, showPopup } from "../ui.js";
 import { dateField } from "../datepicker.js";
 import { DOW, WINDOW_WEEKS, deliveryWindow, occColour, occForDate, rollingWeeks,
@@ -714,6 +714,9 @@ export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses
       return el("button", {
         class: `${cls} tappable`,
         dataset: { date: iso },
+        // ⚠️ THE DAY'S DATE, ITS CAPACITY AND WHETHER IT IS THE ONE SHOWING (v597).
+        "aria-label": longDate(iso) + (full ? ", full" : "") + `, ${cap.total}/${cap.capacity}`,
+        "aria-pressed": dateId === active ? "true" : "false",
         // Naming the day comes BEFORE opening it, as it always has; the repaint
         // before handing over is what takes the "not a delivery day" answer away,
         // so the grid never relies on the caller to tidy up after it.
@@ -1823,16 +1826,22 @@ function lineCostControls(line, on, recipeCost, cur) {
 // until the day has an order, and a day where nobody has paid yet shows only the
 // "to collect" count.
 function moneyLine(state, dateId) {
-  const m = dayMoney(state, dateId);
-  if (!m.count) return null;
   const cur = state.settings.currency || "RM";
+  const rec0 = byId(state.deliveryDates, dateId);
+  if (!rec0) return null;
+  // ⚠️⚠️ THE DAY'S MONEY IS COUNTED BY THE DAY IT LANDED (v597). ⚠️ This line used `dayMoney`, which groups by
+  // DELIVERY day, while the Money screen credits a sale to the day it was PAID — ⚠️ **an order delivered on the
+  // 18th but paid on the 16th read RM15 here and RM0 on Money for the same date, the line she reconciles her
+  // tin against.** ⭐ One rule on both screens: `moneyBetween` for the money, `dayMoney` only for what is owed.
+  const m = moneyBetween(state, rec0.date, rec0.date);
+  const owed = dayMoney(state, dateId);
+  if (!m.count && !owed.count) return null;
   // ⚠️⚠️ THE DAY'S PURSE LINE IS NET OF REFUNDS (v590). ⚠️ `tally` keeps a refunded sale's takings (v578:
   // the refund is money OUT on the day it went back) — but this line subtracted nothing, so ⚠️ **a day with
   // two RM15 sales and one RM15 refunded read "Cash RM30" while her tin held RM15**, on the very line she
   // checks her purse against at the end of a run. ⭐ Each refund is taken off the account it came back from,
   // and the total is named so the arithmetic is visible.
-  const rec = byId(state.deliveryDates, dateId);
-  const refunds = rec ? refundsBetween(state, rec.date, rec.date) : null;
+  const refunds = refundsBetween(state, rec0.date, rec0.date);
   const back = refunds || { cash: 0, tng: 0, total: 0, byMethod: new Map() };
   const bits = [];
   const netCash = round2(m.cash - (back.cash || 0));
@@ -1858,7 +1867,7 @@ function moneyLine(state, dateId) {
   }
   if (m.unmarked) bits.push(`${fmtRM(m.unmarked, cur)} paid, no method`);
   if (back.total) bits.push(`${fmtRM(back.total, cur)} refunded`);
-  if (m.toCollectCount) bits.push(`${m.toCollectCount} to collect`);
+  if (owed.toCollectCount) bits.push(`${owed.toCollectCount} to collect`);
   return bits.length ? el("p", { class: "card-sub money-line" }, bits.join(" · ")) : null;
 }
 
@@ -2145,6 +2154,9 @@ function orderForm(state, dateId, root, selectDate) {
           it.price = priceForProduct(state, it.productId);
           renderRows();
         }, "Product…");
+    // ⚠️⚠️ A NAMED BOX, NOT "Items" (v597). ⚠️ With no own label, `nameFields` gave this picker the row's group
+    // label — ⚠️ **a screen reader said "Items, pop-up button".**
+    prodSel.setAttribute("aria-label", "Product");
       // ★★★ THE QTY CAN BE TYPED, NOT ONLY PRESSED (v458). Her words: __"for qty field i should be allow
       // to key in qty also instead of just press the + & -"__ — ⭐ **because twenty loaves is twenty
       // presses.**
@@ -2176,7 +2188,7 @@ function orderForm(state, dateId, root, selectDate) {
       // never decide what she may write down from a phone call — the standing rule
       // that no setting may block or hide a sale she takes by hand.
       const lineNoteBox = it.productId
-        ? el("input", { class: "input line-note", type: "text",
+        ? el("input", { class: "input line-note", type: "text", "aria-label": "Note for this item",
             maxlength: String(LINE_NOTE_MAX),
             placeholder: "Note for this item (optional) — e.g. no nuts",
             value: it.note || "",
@@ -2190,9 +2202,9 @@ function orderForm(state, dateId, root, selectDate) {
         prodSel,
         el("div", { class: "add-item-ctl" },
           el("div", { class: "stepper" },
-            el("button", { onclick: () => { it.qty = Math.max(1, it.qty - 1); qtyBox.value = String(it.qty); paintTotal(); } }, "−"),
+            el("button", { "aria-label": "One less", onclick: () => { it.qty = Math.max(1, it.qty - 1); qtyBox.value = String(it.qty); paintTotal(); } }, "−"),
             qtyBox,
-            el("button", { onclick: () => { it.qty = it.qty + 1; qtyBox.value = String(it.qty); paintTotal(); } }, "＋")),
+            el("button", { "aria-label": "One more", onclick: () => { it.qty = it.qty + 1; qtyBox.value = String(it.qty); paintTotal(); } }, "＋")),
           linePriceBox(it, paintTotal),
           el("button", { class: "inbox-del", "aria-label": "Remove item",
             onclick: () => { items.splice(i, 1); renderRows(); } }, "✕")),
@@ -2785,6 +2797,9 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
         line.cost = rc > 0 ? rc : null;
         refresh();
       }, "Product…");
+    // ⚠️⚠️ A NAMED BOX, NOT "Items" (v597). ⚠️ With no own label, `nameFields` gave this picker the row's group
+    // label — ⚠️ **a screen reader said "Items, pop-up button".**
+    prodSel.setAttribute("aria-label", "Product");
     // ★★★ AND THE SAME HERE (v458) — one qty behaves the same wherever it appears, which is this app's
     // rule for two rows that look alike. ⚠️ **A box she can type into on the New-order card and only
     // press here would be the "dead control" fault in a new suit.**
@@ -2809,7 +2824,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // editable here even after she turns the switch off, and she must be able to add
     // one she took over the phone whatever the shop asks.
     const lineNoteBox = line.productId
-      ? el("input", { class: "input line-note", type: "text",
+      ? el("input", { class: "input line-note", type: "text", "aria-label": "Note for this item",
           maxlength: String(LINE_NOTE_MAX),
           placeholder: "Note for this item (optional) — e.g. no nuts",
           value: line.lineNote || "",
@@ -2825,9 +2840,9 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       prodSel,
       el("div", { class: "add-item-ctl" },
         el("div", { class: "stepper" },
-          el("button", { onclick: () => { line.qty = Math.max(1, line.qty - 1); qtyBox.value = String(line.qty); paintTotal(); } }, "−"),
+          el("button", { "aria-label": "One less", onclick: () => { line.qty = Math.max(1, line.qty - 1); qtyBox.value = String(line.qty); paintTotal(); } }, "−"),
           qtyBox,
-          el("button", { onclick: () => { line.qty = line.qty + 1; qtyBox.value = String(line.qty); paintTotal(); } }, "＋")),
+          el("button", { "aria-label": "One more", onclick: () => { line.qty = line.qty + 1; qtyBox.value = String(line.qty); paintTotal(); } }, "＋")),
         linePriceBox(line, paintTotal),
         el("button", { class: "inbox-del", "aria-label": "Remove item",
           onclick: () => { lines.splice(i, 1); refresh(); } }, "✕")),
@@ -5497,9 +5512,11 @@ export function refundOrder(state, group, first, { root, dateId, fromEdit = fals
   let boxEl = null;
   let sumEl = null;
 
-  const tickedTotal = () => round2(
+  // ⚠️ AND IT NEVER TICKS A SEN OVER THE CAP (v597): each line is scaled and rounded on its own, so three
+  // lines of RM1 on a RM2 cap could total RM2.01 and the app then refused its own figure. ⭐ The cap wins.
+  const tickedTotal = () => Math.min(cap, round2(
     lines.reduce((s, l) => s + share((ticks.get(l.id) || 0) * (l.price == null ? 0 : l.price)), 0)
-    + (courierWanted ? share(charge) : 0));
+    + (courierWanted ? share(charge) : 0)));
 
   // The box follows the ticks until she types in it, and after that it is hers — which is the whole
   // of what she picked: tick what came back to get the number right, then change it if she wants.

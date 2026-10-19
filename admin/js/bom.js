@@ -75,7 +75,9 @@ export function explodePicks(state, picks) {
       warnings.push(`${product.name} has an empty recipe, so its ${order.qty} pcs add nothing to the list.`);
       continue;
     }
-    totalUnits += order.qty;
+    // ⚠️ A PACK'S PIECES COUNT TOWARD THE DAY (v597) — the same rule as `unitsOfOrder`, so the PO's own
+    // preview cannot say "4 units planned" for sixteen pieces.
+    totalUnits += unitsOfOrder(state, order);
     const cycleWarnings = [];
     const perUnit = demandMap(state, product.id, memo, new Set(), cycleWarnings);
     if (cycleWarnings.length) {

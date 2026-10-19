@@ -355,7 +355,7 @@ function reviewCard(row) {
 
   const nameEl = document.createElement("div");
   nameEl.className = "review-card-name";
-  nameEl.textContent = String(row.name || "Anonymous");
+  nameEl.textContent = String(row.name || tHome("rvAnon"));
   card.appendChild(nameEl);
 
   const meta = document.createElement("div");
@@ -435,7 +435,13 @@ function buildCarousel(rows) {
     loadPhoto(slides[i]);
     loadPhoto(slides[carouselStep(n, i, 1)]);
     track.style.transform = `translateX(-${i * 100}%)`;
-    dotEls.forEach((d, j) => d.classList.toggle("is-on", j === i));
+    // ⚠️⚠️ ONLY THE SLIDE ON SCREEN IS READ (v597). ⚠️ Every review stayed in the accessibility tree, so a
+    // screen reader read all eight consecutively and the "1 / 8" line meant nothing.
+    slides.forEach((sl, j) => sl.setAttribute("aria-hidden", j === i ? "false" : "true"));
+    dotEls.forEach((d, j) => {
+      d.classList.toggle("is-on", j === i);
+      d.setAttribute("aria-pressed", j === i ? "true" : "false");
+    });
     live.textContent = `${i + 1} / ${n}`;
   }
   function go(target) {

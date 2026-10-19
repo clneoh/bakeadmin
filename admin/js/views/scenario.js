@@ -2946,13 +2946,13 @@ function boardControls(r, sc, state, on, run) {
       el("div", { class: "tl-ctl-group" },
         el("span", { class: "tl-ctl-lab" }, "Scale"),
         el("button", {
-          type: "button", class: "tl-step",
+          type: "button", class: "tl-step", "aria-label": "A wider view — more of the day on the screen",
           disabled: at <= 0,
           onclick: () => step(-1),
         }, "−"),
         el("span", { class: "tl-step-name" }, scaleName),
         el("button", {
-          type: "button", class: "tl-step",
+          type: "button", class: "tl-step", "aria-label": "A closer view — the minutes, larger",
           disabled: at >= PX_PER_MIN_CHOICES.length - 1,
           onclick: () => step(1),
         }, "+"))));

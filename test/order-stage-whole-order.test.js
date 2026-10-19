@@ -290,6 +290,30 @@ test("★★★ an edit that refunds freezes the amount that was PAID, not the e
     "★ the frozen sale is the EDITED amount — **a past month is rewritten and the refund is counted twice**");
 });
 
+test("★★★ the day's purse line counts money BY THE DAY IT LANDED (v597)", () => {
+  // ⚠️⚠️ MEASURED: the header grouped by DELIVERY day while the Money screen credits a sale to the day it was
+  // PAID — ⚠️ **an order delivered on the 18th but paid on the 16th read RM15 here and RM0 on Money.**
+  const paidEarly = new Date("2026-09-10T09:00:00").toISOString();
+  const st = state({ orders: [
+    row({ id: "ord_aaaaaaaaaaaa", status: "delivered", paidReceived: true, paidMethod: "Cash",
+      paidAt: paidEarly }),
+  ] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_A.id }));
+  const line = all(root).find((n) => String(n.className).includes("money-line"));
+  const said = line ? String(line.textContent) : "";
+  assert.equal(/Cash RM/.test(said), false,
+    "★ money paid on the 10th is counted again on the 12th's purse line — **the two screens disagree**");
+
+  // Paid ON the delivery day, it shows exactly as before.
+  st.orders[0].paidAt = new Date("2026-09-12T09:00:00").toISOString();
+  const root2 = createEl("div");
+  renderOrders(root2, st, new URLSearchParams({ date: DAY_A.id }));
+  const line2 = all(root2).find((n) => String(n.className).includes("money-line"));
+  assert.match(String(line2 && line2.textContent), /Cash RM 16\.00/,
+    "money that landed that day left the line");
+});
+
 test("★★★ the day's purse line is NET of the refunds that came back that day (v590)", () => {
   // ⚠️⚠️ MEASURED: two RM15 sales and one RM15 refunded the same day read "Cash RM30" on the line she
   // checks her purse against, while her tin held RM15. ⭐ Each refund is taken off the account it came back

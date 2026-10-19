@@ -38,7 +38,7 @@ export function withCutoff(lineHtml, cutoff) {
   // before 9:30am".** ⭐ The period word follows the hour; the English and Malay lines carry none.
   const hh = Number(String(cutoff).split(":")[0]);
   if (Number.isFinite(hh) && out.includes("晚上")) {
-    const word = hh < 5 ? "凌晨" : hh < 12 ? "上午" : "晚上";
+    const word = hh < 5 ? "凌晨" : hh < 12 ? "上午" : hh < 18 ? "下午" : "晚上";
     if (word !== "晚上") out = out.replaceAll("晚上", word);
   }
   return out;

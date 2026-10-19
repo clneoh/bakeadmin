@@ -54,8 +54,14 @@ function gridEl(shown, { selected, today, onPick, occasions }) {
     // own bubble (see valSpan) rather than one drawn above the day. `past` is
     // passed as false: a date field records days that have already been, and a
     // holiday an order was taken on is just as worth reading back.
-    return el("button", { class: `${cls} tappable`,
-      onclick: () => { nameDay(occasions, iso, false); onPick(iso); } }, dayNum);
+    // ⚠️⚠️ A DAY IS NAMED BY ITS DATE, NOT ONLY ITS NUMBER (v597) — "14, button" told a screen-reader user
+    // nothing, and the chosen day was said by a class alone.
+    return el("button", {
+      class: `${cls} tappable`,
+      "aria-label": longDate(iso),
+      "aria-pressed": iso === selected ? "true" : "false",
+      onclick: () => { nameDay(occasions, iso, false); onPick(iso); },
+    }, dayNum);
   });
   return el("div", { class: "cal-grid" },
     ...DOW.map((d) => el("span", { class: "cal-dow" }, d)),

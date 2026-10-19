@@ -161,7 +161,7 @@ function trapTab(e, root) {
 // ⚠️⚠️ A GLYPH IS NOT A NAME (v593). ⚠️ "‹", "›" and "✕" were announced by their CHARACTER names, so a
 // screen reader said "‹, button" and voice control could not say "next month". ⭐ Every glyph press is named
 // here, once, so every one written tomorrow is named too; call sites that know more say more.
-const GLYPH_NAMES = { "‹": "Previous", "›": "Next", "✕": "Remove", "×": "Remove", "＋": "Add", "+": "Add" };
+const GLYPH_NAMES = { "‹": "Previous", "›": "Next", "✕": "Remove", "×": "Remove", "＋": "One more", "+": "One more", "−": "One less", "-": "One less" };
 
 export function button(text, onClick, cls = "") {
   const node = el("button", { class: `btn ${cls}`.trim(), onclick: onClick }, text);

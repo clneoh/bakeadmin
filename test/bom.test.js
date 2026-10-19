@@ -100,7 +100,9 @@ test("BOM explosion mixes a set with singles into one shopping list", () => {
     { id: "ord_3", deliveryDateId: "del_a", productId: "prd_s", qty: 1 }, // unrelated product
   ];
   const bom = explodeBom(st, "del_a");
-  assert.equal(bom.totalUnits, 4, "each order line counts once, set or single");
+  // ⚠️ v597: a set counts its PIECES toward the day, the same rule the calendar and the shop use — one
+  // family set is four pieces, so 2 + 4 + 1.
+  assert.equal(bom.totalUnits, 7, "a set's pieces are not counted toward the day");
   const flour = bom.items.find((i) => i.ingredientId === "ing_f");
   assert.equal(flour.totalQty, 2 * 500 + 1 * 2000 + 1 * 250); // 3250
   const setLine = bom.items.find((i) => i.ingredientId === "ing_f").lines

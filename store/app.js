@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "596";
+export const SHOP_BUILD = "597";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -2639,13 +2639,13 @@ function clearFieldMarks() {
           catch { /* a box with no text range, or a test shim */ }
         }
       };
-      const dec = el("button", { class: "step-btn", onclick: () => {
+      const dec = el("button", { class: "step-btn", "aria-label": t("qtyLess"), onclick: () => {
         const q = Math.max(0, (cart.get(p.name) || 0) - 1);
         if (q === 0) cart.delete(p.name); else cart.set(p.name, q);
         qtyBox.value = String(q);
         redraw();
       } }, "−");
-      const inc = el("button", { class: "step-btn", onclick: () => {
+      const inc = el("button", { class: "step-btn", "aria-label": t("qtyMore"), onclick: () => {
         // ★★★ STEP 1 BEFORE STEP 2 IS ALLOWED (v453) — HER OWN MODEL, WHICH I BUILT THE WRONG SHAPE OF
         // FIRST TIME. Her words: __"complet step1 before step2 is allow, and so forth"__ — then, asked how
         // a locked step should read: __"dont allow and a message inform about why"__.
@@ -3075,6 +3075,8 @@ function clearFieldMarks() {
     if (!selected) selected = open.length ? dateKey(open[0].date) : null;
 
     if (!specs.length) {
+      // ⚠️ AND A STALE DAY IS NOT FOCUSED LATER (v597) — the key is cleared wherever the grid cannot draw it.
+      focusIso = null;
       dateWrap.replaceChildren(el("p", { class: "muted" }, t("noDates")));
       return;
     }

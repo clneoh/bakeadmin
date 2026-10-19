@@ -1,8 +1,25 @@
-# Jienluv2bake — change history (v54 → v596)
+# Jienluv2bake — change history (v54 → v597)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v597, THE FOURTH SWEEP: THE TAIL (NO DATABASE STEP).**
+
+**Your words:** __"go ahead with the tail"__. The last of the fourth sweep.
+
+1. ⚠️⚠️ **THE ORDER DAY'S MONEY LINE COUNTED BY DELIVERY DAY, Money BY THE DAY THE MONEY LANDED.** An order delivered on the 18th but paid by TNG on the 16th read **RM15 on the day's line and RM0 on Money** — the line you check your phone against. ⭐ Both count by the day it landed now; what is still owed stays with its delivery day.
+2. ⚠️ **THE REFUND TICKER COULD TICK A SEN OVER THE CAP** on a discounted multi-line order and then refuse your own press. ⭐ It never totals more than the customer paid.
+3. ⚠️ **THE PURCHASE ORDER'S PREVIEW COUNTED A PACK AS ONE** while the day itself counted its pieces — "4 units planned" for sixteen. ⭐ The preview uses the same pieces.
+4. ⚠️ **PAGE 2 OF A LONG PDF** carried the title but not the period or customer it belongs to; and **the printed filing note told an auditor to open More → Money**. ⭐ The reference is repeated and the app routes are gone from paper.
+5. ⚠️ **QUANTITY STEPPERS WERE READ AS CHARACTERS** ("minus, button"), and the item rows' product picker and note box were both announced as **"Items"** — the group's label, not their own. ⭐ Every stepper is named, and each control carries its own name.
+6. ⚠️ **THE BACKOFFICE CALENDARS NAMED DAYS BY THEIR NUMBER ONLY** ("14, button") and marked the chosen day by colour alone. ⭐ Each day says its date and whether it is the one showing.
+7. ⚠️ **BOTH REVIEW CAROUSELS LEFT EVERY SLIDE ON THE SCREEN READER'S PAGE**, so all reviews were read in a row. ⭐ Only the review on screen is read, and the dots say which one it is.
+8. ⚠️ **AN UNNAMED REVIEWER WAS ALWAYS CALLED "Anonymous", in every language.** ⭐ The word follows the page: Anonymous, its Chinese word on the Chinese page, and Tanpa nama on the Malay one.
+9. ⚠️ **THE CHINESE CUT-OFF SAID "EVENING" FOR 12:00–17:59.** ⭐ It says afternoon now.
+10. ⚠️ **A TAP ON A DAY THE GRID COULD NOT REDRAW** left a stale focus key behind. ⭐ Cleared.
+
+**No database step. No edge function redeploy.** Nothing of yours is rewritten. 3,800 tests green.
 
 **19 Oct 2026 — engine v596, THE FOURTH SWEEP, PART 2: THE DATABASE, THE PAPER AND THE SHOP (⚠️ RE-RUN shared_pool_slots.sql).**
 

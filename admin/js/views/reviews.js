@@ -133,11 +133,13 @@ function reviewCarousel(rows, startId, actions, state) {
   const holder = el("div", { class: "r-slider" });
   const stage = el("div", { class: "r-stage" });
   const track = el("div", { class: "r-track" });
+  const slideEls = [];
   rows.forEach((row, idx) => {
     const slide = el("div", { class: "r-slide" });
     slide.setAttribute("aria-roledescription", "slide");
     slide.appendChild(reviewCard(rows, row, idx, actions, state));
     track.appendChild(slide);
+    slideEls.push(slide);
   });
   stage.appendChild(track);
 
@@ -168,6 +170,8 @@ function reviewCarousel(rows, startId, actions, state) {
   let cur = Math.max(0, rows.findIndex((x) => x.id === startId));
   function move() {
     track.style.transform = `translateX(-${cur * 100}%)`;
+    // ⚠️ ONLY THE REVIEW ON SCREEN IS READ (v597) — the off-screen slides stayed in the tree.
+    slideEls.forEach((sl, j) => { if (sl && typeof sl.setAttribute === "function") sl.setAttribute("aria-hidden", j === cur ? "false" : "true"); });
     // ⚠️ WHICH REVIEW IS SHOWING IS SAID, NOT ONLY COLOURED (v593) — a screen reader heard "Review 2 of 4,
     // button" for every dot with no way to tell the one on screen.
     dotEls.forEach((d, j) => {

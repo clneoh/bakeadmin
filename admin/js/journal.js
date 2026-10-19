@@ -349,6 +349,9 @@ function sheetPages(s, cur) {
     y = A4.h - PDF_MARGIN;
     if (continued) {
       drawWrapped(`${s.title} (continued)`, { font: "F2", size: 11, color: MUTED, lead: 14 });
+      // ⚠️⚠️ AND THE DOCUMENT'S OWN REFERENCE COMES WITH IT (v597) — a second page used to carry the title
+      // but not the period/customer line the subtitle holds.
+      if (s.subtitle) drawWrapped(s.subtitle, { size: 9, color: MUTED, lead: 12 });
       y -= 8;
       rule(0.5);
       y -= 16;

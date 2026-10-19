@@ -317,7 +317,7 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
   // ⚠️⚠️ A PERIOD WHOSE ONLY ROWS ARE VOIDS SAID "NOTHING WAS SOLD" AND LISTED THEM ANYWAY (v592). ⚠️ The
   // explanation of a void lived only in the other branch — ⚠️ **so the paper showed a receipt number with no
   // word saying what it was.** ⭐ One sentence, called from both branches.
-  const voidsWords = (n) => `${n} number${n === 1 ? " on this page belongs" : "s on this page belong"} to an order that has since been removed — the number was issued when the money was recorded and is never given back, so it stays spent. More → Money → Receipt register shows every number ever issued.`;
+  const voidsWords = (n) => `${n} number${n === 1 ? " on this page belongs" : "s on this page belong"} to an order that has since been removed — the number was issued when the money was recorded and is never given back, so it stays spent. Your Receipt register holds every number ever issued.`;
   const voidsIn = (rows) => rows.filter((r) => r.void).length;
   if (!keep.length) {
     said.push(customerKey
@@ -345,10 +345,10 @@ export function consolidatedSheet(state, { kind = "month", anchor = "", customer
     // is missing without asking, and a filing page that is quietly short is worse than one that
     // admits it could not check — the same rule the Receipt register screen follows (v366).
     if (register === null) {
-      said.push("The receipt register could not be read, so any number belonging to an order that has been removed is NOT shown here. Open this page again with the internet on.");
+      said.push("The receipt register could not be read, so any number belonging to an order that has been removed is NOT shown here. This page needs the internet to show them.");
     }
     if (unnumberedPaid) {
-      said.push(`${unnumberedPaid} of these ${unnumberedPaid === 1 ? "has" : "have"} no invoice number yet but ${unnumberedPaid === 1 ? "is" : "are"} already PAID — they came before the numbering started. Open each order's Invoice and it takes the next number.`);
+      said.push(`${unnumberedPaid} of these ${unnumberedPaid === 1 ? "has" : "have"} no invoice number yet but ${unnumberedPaid === 1 ? "is" : "are"} already PAID — they came before the numbering started. Opening that order's invoice takes the next number.`);
     }
   }
   if (refundedOut) {
