@@ -1,8 +1,38 @@
-# Jienluv2bake — change history (v54 → v606)
+# Jienluv2bake — change history (v54 → v609)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**20 Oct 2026 — engine v609, THE FREEDOM TO SELL OR BAKE, UNOFFICIALLY (NO DATABASE STEP).**
+
+**Your words:** __"there should be freedom to sell and bake if the baker decide to, but not an official one. And no announcement."__
+
+1. ⭐ **A day that is not a bake day now reads as two freedoms:** *"You can say what you baked or sell now — neither makes it an official bake day, and nothing is announced — or add it in More → Bake days."* The official route is the optional third, not the opening instruction.
+2. ⚠️ **The baked box on a private day no longer treats it as a bake day** — it still tells her that recording a bake there changes nothing the shop offers.
+3. ⭐ Everything else is unchanged: the private sale's day is not listed or labelled, the shop never sees it, and the sale counts on the day it happened.
+
+**No database step and no function deploy.** 3,850 tests green.
+
+**20 Oct 2026 — engine v608, THE PRIVATE SALE DAY IS NOT ANNOUNCED (NO DATABASE STEP).**
+
+**Your words:** __"i dont want to announce a special bake day or sale day."__
+
+1. ⚠️⚠️ **A PRIVATE SALE'S DAY IS NO LONGER LISTED ANYWHERE IT WOULD READ AS A BAKE DAY** — not on the Orders calendar, the Bake days screen, Home's upcoming deliveries, or the purchase order. The shop was already never offered it.
+2. ⚠️ **AND IT NO LONGER NAMES ITSELF.** The card used to say "Sale day · not offered on the shop"; that label is gone. The day is only the container for the one sale, reachable from the order itself.
+3. ⭐ **The sale is unchanged:** the same order, receipt, stock and books, counted on the day it was sold.
+
+**No database step and no function deploy.** 3,849 tests green.
+
+**20 Oct 2026 — engine v607, ONE SALE DOOR ON A BAKE DAY (NO DATABASE STEP).**
+
+**Your words:** __"do you still need sell one now button?"__ — and the answer was no.
+
+1. ⚠️ **THE "SELL ONE NOW" BUTTON IS REMOVED.** It only opened the ＋ New order card already on the day. **One sale door on a bake day: the card itself.**
+2. ⭐ **"SELL NOW" REMAINS ON A DAY WITH NO CARD (v606)** — that is where it adds something, because there is no other way in.
+3. ⚠️ Selling is unchanged: the same card, the same receipt, the same books.
+
+**No database step and no function deploy.** 3,845 tests green.
 
 **19 Oct 2026 — engine v606, A HAND SALE ON ANY DAY (NO DATABASE STEP).**
 
@@ -10,7 +40,9 @@ always tell which build a phone is running.
 
 1. ⭐ **A day the shop does not offer now answers a tap with "sell now", beside "say what you baked".** It records the sale on the day it happened and opens the New order card on that day, ready for a customer.
 2. ⚠️⚠️ **THE DAY IT MAKES IS A SALE-ONLY DAY.** It lives in your backoffice, your orders and your books — and **the shop never offers it**, so a hand sale cannot put a day you are not baking on the customer's calendar. If you later add that date as a real bake day, the real day wins and the sale-only flag is cleared.
-3. ⚠️ On a sale-only day the card says **"Sale day · not offered on the shop"**, shows the unit count instead of a shop capacity, and does not offer "Set day's availability" — there is nothing for the shop to sell.
+3. ⚠️ On a sale-only day the card shows the unit count instead of a shop capacity, and does not offer "Set day's availability" — there is nothing for the shop to sell.
+
+**20 Oct 2026 — corrected in v608:** **the private day is not announced at all.** It is no longer listed on the Orders calendar, the Bake days screen, Home's upcoming deliveries or the purchase order, and its card no longer says "Sale day" or anything else about what kind of day it is. It exists only as the container for that one sale, reachable from the order itself.
 4. ⭐ **Selling still goes through the one order writer** — the same card, the same receipt, the same books.
 
 **No database step and no function deploy.** 3,845 tests green.
@@ -24,6 +56,8 @@ always tell which build a phone is running.
 3. ⚠️ **The press does not reset a draft you are already working on.** If the card is open, it only moves the keyboard.
 
 **No database step and no function deploy.** 3,842 tests green.
+
+**20 Oct 2026 — corrected in v607:** the "Sell one now" button was removed. The ＋ New order card is already on every bake day and makes the identical sale, so the button was a third control saying what the card says. **"sell now" stays where it is needed — on a day that has no card at all (v606).**
 
 **19 Oct 2026 — engine v604, CHECK MY SYSTEM WATCHES REFUNDS TOO (NO DATABASE STEP).**
 

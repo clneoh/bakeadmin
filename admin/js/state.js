@@ -770,6 +770,14 @@ function normalize(s) {
   return out;
 }
 
+// ⭐⭐ THE DAYS SHE ACTUALLY BAKES (v608). A SALE-ONLY day (v606) is a container for a hand sale on a
+// private date — ⚠️ **it must never be listed as a bake day, offered for production or counted in a
+// purchase order.** ⭐ One filter, so every bake-day surface asks the same question.
+export function bakeDays(state) {
+  return (Array.isArray(state && state.deliveryDates) ? state.deliveryDates : [])
+    .filter((d) => d && !d.recordOnly);
+}
+
 // ⭐⭐ MAKE EVERY LINE OF ONE ORDER AGREE, WITHOUT EVER COPYING UP (v600).
 // ⚠️ Every money reader goes through the FIRST row (`isCollected`, `promoOn`, `money.js`), so a sibling that
 // disagrees is a half-written copy, not a second opinion. Two rules, and the direction matters:

@@ -15,7 +15,7 @@ import { availSummary, sellOpen } from "../../../availability.js";
 // same pair the shop applies, from the one module both sides read, so a note can
 // never be longer on this side than the box that collected it allowed.
 import { lineNoteOf, LINE_NOTE_MAX } from "../../../storefront-fields.js";
-import { byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, orderLinePrice, removeOrders, removedKeepWords, restoreRemovedOrder, round2, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
+import { bakeDays, byId, fmtRM, groupOrders, moveOrderGroup, newId, orderCode, orderLineName, orderLinePrice, removeOrders, removedKeepWords, restoreRemovedOrder, round2, save, stampOrderLine, updateOrderBadge, waNumber } from "../state.js";
 import { orderedProducts } from "../productCategories.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
@@ -634,12 +634,16 @@ export function deliveryCal({ state, days, getActiveId, view, onPick, noteMisses
     // ⭐ "nothing can be ordered on it" was true of the SHOP and false of her counter — ⚠️ **a loaf sold
     // from yesterday's bake still needs an order.** ⭐ The day it creates is a SALE-ONLY day: in her
     // backoffice and her books, never on the shop's calendar.
+    // ⚠️⚠️ TWO FREEDOMS, AND ONE OPTIONAL OFFICIAL DOOR (v609). Her words: __"there should be freedom to sell and
+    // bake if the baker decide to, but not an official one. And no announcement."__ ⭐ So the two private acts
+    // come FIRST and say they change nothing official; ⚠️ **"Add it in More → Bake days" is the optional third,
+    // not the opening instruction.**
     return el("p", { class: "cal-miss" },
-      `${shortDate(missedIso)} is not a bake day — the shop does not offer it. Add it in More → Bake days, or `,
+      `${shortDate(missedIso)} is not a bake day. You can `,
       button("say what you baked", () => openBakedPopup(state, missedIso, paint), "ghost small"),
-      onSellDay ? ", or " : "",
+      onSellDay ? " or " : "",
       onSellDay ? button("sell now", () => onSellDay(missedIso), "ghost small") : null,
-      ".");
+      " — neither makes it an official bake day, and nothing is announced — or add it in More → Bake days.");
   }
 
   function paint() {
@@ -1301,19 +1305,20 @@ function dateContent(state, date, root, selectDate) {
   // tapped); here the day is already the one on screen, so the name just sits
   // next to it. Nothing is drawn on an unmarked day.
   const occ = occForDate(state.occasions, date.date);
-  // ⭐⭐ A SECOND DOOR TO THE SAME SALE CARD (v605). Her words: __"we are allow to bake now, why not
-  // allow it to sell as well?"__ ⚠️ **Selling already exists here — it is the ＋ New order card below —
-  // so this adds no second writer.** ⭐ It opens THAT card, on THIS day, on the self-collect default, and
-  // puts the cursor in the customer box. The shop and the backoffice still make one kind of sale.
+  // ⚠️ v605 PUT "SELL ONE NOW" HERE AND v607 TAKES IT BACK OUT. ⚠️ The ＋ New order card is already on this
+  // screen and makes the identical sale, so the button was a third control saying what the card says —
+  // ⭐ **"sell now" remains where it is needed: on a day that has no card at all (v606).** `sellNow` is
+  // still the opener that day uses to land on its card.
   let sellNow = null;
-  const canSell = productOptions(state, date.id).length > 0;
   const header = el("div", { class: "card" },
     el("div", { class: "card-row" },
       el("div", {},
         el("p", { class: "card-title" }, dateLabel),
         el("p", { class: "card-sub" },
-          // ⚠️ A SALE-ONLY DAY SAYS WHAT IT IS (v606) — it is not a delivery day, and its cut-off is nobody's.
-          date.recordOnly ? "Sale day · not offered on the shop"
+          // ⚠️⚠️ AND A PRIVATE SALE'S DAY SAYS NOTHING AT ALL (v608). ⚠️ "Sale day · not offered on the shop"
+          // announced a special day she did not want announced — ⚠️ **the day is only the container for the
+          // order, and it is not on any calendar.** ⭐ No sub-line, no cut-off, no label.
+          date.recordOnly ? ""
             : st.past ? "Past delivery"
               : st.closed ? `Orders closed at ${state.settings.cutoff} yesterday`
                 : `Open · cut-off in ${st.countdown}`),
@@ -1343,10 +1348,7 @@ function dateContent(state, date, root, selectDate) {
         button("Baked — how many?", () =>
           openBakedPopup(state, date.date, () => renderAll(root, state, new URLSearchParams({ date: date.id }))), "ghost"))
       : null,
-    canSell
-      ? el("div", { class: "btn-row", style: "margin-top:8px" },
-        button("Sell one now", () => { if (sellNow) sellNow(); }, "soft"))
-      : null);
+    null);
 
   const form = orderForm(state, date.id, root, selectDate, (open) => { sellNow = open; });
   // ⭐ THE PRESS THAT MADE THE DAY OPENS ITS SALE CARD ONCE (v606) — not a second press on the new screen.
@@ -1514,7 +1516,9 @@ export function openBakedPopup(state, dayIso, refresh) {
     return toast("No products yet. Add one under More → Products first.");
   }
   const ordered = orderedOnDay(state, iso);
-  const isBakeDay = (state.deliveryDates || []).some((d) => d && d.date === iso);
+  // ⚠️ A PRIVATE SALE'S DAY IS NOT A BAKE DAY HERE EITHER (v609) — ⭐ so the popup still tells her that
+  // recording a bake on it changes nothing the shop offers.
+  const isBakeDay = bakeDays(state).some((d) => d && d.date === iso);
   // ⚠️ A day that has already gone is the ONE day a box may be filled in from the day's orders — see the box
   // below. ⭐ `todayISO()` is the same clock the calendar uses (`const today = todayISO()` in renderOrders),
   // so the grid and this pop-up can never disagree about which day has gone.
@@ -2536,7 +2540,9 @@ function saleDayFor(state, iso) {
 // and the New-order card's, so the two can never disagree about which days exist
 // or what order they come in.
 function deliveryDayList(state) {
-  return [...state.deliveryDates]
+  // ⚠️ A SALE-ONLY DAY IS NOT A DAY SHE PICKS (v608) — it is the container for one private sale, never a
+  // bake day to offer, move an order onto or add an order to.
+  return [...bakeDays(state)]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((d) => ({ id: d.id, date: d.date }));
 }

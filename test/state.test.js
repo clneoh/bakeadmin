@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalize, defaultState, removeOrders, loadState, save, updateOrderBadge, groupOrders, orderCode, ordersOnDate, waNumber, ensureSupabase, productUnitOptions, productUsesUnit, sameNameIngredient, duplicateIngredientPlan, equaliseOrderLines } from "../admin/js/state.js";
+import { normalize, defaultState, removeOrders, loadState, save, updateOrderBadge, groupOrders, orderCode, ordersOnDate, waNumber, ensureSupabase, productUnitOptions, productUsesUnit, sameNameIngredient, duplicateIngredientPlan, equaliseOrderLines, bakeDays } from "../admin/js/state.js";
 import { lockEnabled } from "../admin/js/pin.js";
 import { planOf } from "../admin/js/production.js";
 import { planBackwards } from "../admin/js/bakeday.js";
@@ -963,4 +963,15 @@ test("★★★ a real bake day outranks a sale-only row on the same date (v606)
   assert.equal(out.deliveryDates.length, 1, "the two rows for one date were not consolidated");
   assert.equal(out.deliveryDates[0].recordOnly, undefined,
     "★ a sale-only row kept the day off the shop after a real bake day was added");
+});
+
+test("★★★ a private sale day is never one of her bake days (v608)", () => {
+  // ⚠️ A sale-only day is the CONTAINER for one hand sale on a private date. ⚠️ **It must never appear in a
+  // bake-day list, a production plan or a purchase order** — that would announce a day she did not open.
+  const st = { deliveryDates: [
+    { id: "d1", date: "2026-10-21" },
+    { id: "d2", date: "2026-10-22", recordOnly: true },
+  ] };
+  assert.deepEqual(bakeDays(st).map((d) => d.date), ["2026-10-21"],
+    "★ a private sale day was listed among her bake days");
 });

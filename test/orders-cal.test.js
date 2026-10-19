@@ -186,7 +186,7 @@ test("a day the bakery does not deliver answers the tap: the date, and where to 
   fire(dayCell(cal, 20)); // Sunday 20 Sep — not one of the bakery's delivery days
   assert.ok(noteIn(), "the calendar answers a tap it cannot act on");
   assert.equal(noteIn().children[0].text,
-    "Sun, 20 Sep is not a bake day — the shop does not offer it. Add it in More → Bake days, or ");
+    "Sun, 20 Sep is not a bake day. You can ");
   assert.deepEqual(picked, [], "nothing is opened — there is no day there to open");
 
   // A day that IS delivered is what she meant, so the answer to the other tap goes
@@ -207,7 +207,7 @@ test("a marked day off the delivery week names itself AND says why no order goes
   assert.equal(tip.hidden, false, "the day still says its name");
   assert.equal(tip.children[0].text, "Malaysia Day");
   assert.equal(cal.el.children.find((c) => c.className === "cal-miss").children[0].text,
-    "Wed, 16 Sep is not a bake day — the shop does not offer it. Add it in More → Bake days, or ",
+    "Wed, 16 Sep is not a bake day. You can ",
     "and the calendar says what the name alone left her guessing at");
   STATE.occasions = [];
 });

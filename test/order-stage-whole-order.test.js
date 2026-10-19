@@ -613,32 +613,32 @@ test("★★★ the edit pop-up shows the WHOLE sale, so every line it changes i
     "★ the other day's line could not be changed — it was not really on the draft");
 });
 
-test("★★★ 'Sell one now' opens the SAME New order card on this day (v605)", () => {
-  // ⭐ Her words: __"we are allow to bake now, why not allow it to sell as well?"__ ⚠️ Selling already
-  // existed on this day — the ＋ New order card below — so the press must OPEN THAT CARD, not make a second
-  // writer. ⭐ The test reads the card by its own head and body, because the courier half is a fold too.
+test("★★★ the bake-day card has ONE sale door, and it is the New order card (v607)", () => {
+  // ⚠️ v605 added a "Sell one now" button that only opened the card already below it. ⚠️ **A third control
+  // saying what the card says** — she asked whether it was still needed, and the answer was no. ⭐ The
+  // capability must remain: the sale card is on the day, and a day with NO card keeps its own "sell now"
+  // (v606, driven in orders-cal.test.js).
   const st = state({ orders: [] });
   const root = createEl("div");
   renderOrders(root, st, new URLSearchParams({ date: DAY_A.id }));
-  const cardOf = () => all(root).find((n) => n.tagName === "DIV"
-    && String(n.className || "").split(/\s+/).includes("card")
-    && (n.children || []).some((c) => c.tagName === "BUTTON"
-      && String(c.className || "").split(/\s+/).includes("fold-head")
-      && String(c.textContent).includes("New order")));
-  const bodyOf = () => (cardOf().children || []).find((c) => String(c.className || "").split(/\s+/).includes("fold-body"));
-  const headOf = () => (cardOf().children || []).find((c) => String(c.className || "").split(/\s+/).includes("fold-head"));
-  assert.ok(cardOf(), "the New order card is not on the day");
-  // ⚠️ The card is module-open across renders (a rebuild keeps it open while she works). Shut it through
-  // its own head so this test starts from the state it means to measure.
-  if (!bodyOf().hidden) headOf()._listeners.click.forEach((f) => f());
-  assert.equal(bodyOf().hidden, true, "precondition: the card starts shut");
-  const sameCard = cardOf();
-  const sameBody = bodyOf();
+  const sell = all(root).find((n) => n.tagName === "BUTTON"
+    && String((n.children[0] && n.children[0].text) || "") === "Sell one now");
+  assert.equal(sell, undefined,
+    "★ the v605 shortcut is back — a second control for the same sale");
+  const head = all(root).find((n) => n.tagName === "BUTTON"
+    && String(n.className || "").split(/\s+/).includes("fold-head")
+    && String(n.textContent).includes("New order"));
+  assert.ok(head, "★ the one sale door left is gone — a bake day can no longer take a sale");
+});
 
-  press(root, "Sell one now");
-  assert.equal(cardOf(), sameCard, "★ the press built a SECOND sale card — two writers for one kind of sale");
-  assert.equal(bodyOf(), sameBody, "★ the press built a second body");
-  assert.equal(bodyOf().hidden, false, "★ the sell press left the order card shut — the button does nothing");
-  assert.equal(all(root).some((n) => n.tagName === "SELECT" && n.value === "collect"), true,
-    "★ the sale card did not open on the self-collect default");
+test("★★★ a private sale's day is not announced as a sale day or a bake day (v608)", () => {
+  // ⚠️ Her words: __"i dont want to announce a special bake day or sale day."__ ⭐ The day is only the
+  // container for the order; the card says the date and nothing about what kind of day it is.
+  const st = state({ orders: [], deliveryDates: [{ id: DAY_A.id, date: DAY_A.date, recordOnly: true }] });
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: DAY_A.id }));
+  const words = all(root).map((n) => String(n.textContent || "")).join(" ");
+  assert.equal(/Sale day|not offered on the shop/i.test(words), false,
+    "★ the private day announced itself on screen");
+  assert.equal(/not a bake day/i.test(words), false, "★ the private day was described as a bake day");
 });
