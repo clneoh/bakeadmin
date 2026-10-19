@@ -18,7 +18,9 @@ always tell which build a phone is running.
 6. ⚠️ **With "Enable live availability" switched OFF, the app still asked Supabase for the published shop details at every boot** — the URL and key ship in code, and that read never looked at the switch. ⭐ Off now means no call at all.
 7. ⚠️ **Five guards could not fail.** Home's past-date test knew only one way to write the cut; Clear-all still matched a commented-out line; the "no sync calls" test did not count the app's own sync table; the order-removal guard missed `state["orders"]`; the Malay wording test checked only that the wrong word was *absent*, never that **bakeri** was there. ⭐ All five now catch the fault they name, proved by putting each fault back.
 
-**No database step. Nothing of yours is rewritten** — no order, price, stock row or setting is touched by this version.
+**No database step for the app. Nothing of yours is rewritten** — no order, price, stock row or setting is touched by this version.
+
+**Same day, from Supabase's own advisors (run `supabase/advisor_fixes.sql` once).** Two advisor findings were real and are now fixed: the two order-alert trigger functions could be called directly by anyone (they are triggers, not buttons — the public call is revoked), and the alert-errors table had no primary key (the live table was an older shape; it now has one). The app works without this file; running it once closes both. ⚠️ **And one setting was ON that must stay OFF: Authentication → Sign In / Providers → "Allow new users to sign up".** With it on, anyone holding the shop's public key could create an account and, once signed in, read your orders, receipts and backups. It is now OFF. Every other advisor warning is your app's design and is written down, with its reason, at the bottom of `supabase/advisor_fixes.sql`.
 
 **19 Oct 2026 — engine v587, WHAT THE SECOND SWEEP FOUND: MONEY AND RECORDS (⚠️ RUN receipts.sql AGAIN; REDEPLOY courier, parcel AND wish-mail).**
 
