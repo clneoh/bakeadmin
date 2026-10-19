@@ -334,6 +334,9 @@ test("⚠️ a shop whose lines the shelf already covered plans no movement at a
 });
 
 test("★ the log is capped, newest first, and the OLDEST rows fall off", () => {
+  // ⚠️⚠️ THE CAP IS A LITERAL, NOT A READ-BACK (v584). ⚠️ This test compared the log with `STOCK_LOG_CAP`
+  // itself, ⚠️ **so changing the constant from 50 to 5 shrank her stock history and the suite stayed green.**
+  assert.equal(STOCK_LOG_CAP, 50, `★ the stock card keeps ${STOCK_LOG_CAP} rows, not the 50 it has kept`);
   const ing = flour(0);
   for (let i = 0; i < STOCK_LOG_CAP + 10; i++) {
     logStock(ing, { at: `2026-01-${String((i % 28) + 1).padStart(2, "0")}`, delta: 1, why: "bought",

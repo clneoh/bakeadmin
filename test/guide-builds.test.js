@@ -111,10 +111,12 @@ test("★★★ her Chinese is IN the changelog PDF — not a gap where her word
   // language rather than as a word of hers. ⭐ Measured the hard way: this check first went red on it alone,
   // and the fault was the check, not the PDF.
   const runs = [...new Set(md.match(/[一-鿿]{2,}/g) || [])].filter((r) => r !== "中文");
-  if (!runs.length) {
-    t.skip("the changelog carries no Chinese today");
-    return;
-  }
+  // ⚠️⚠️ "NO CHINESE TODAY" WAS A SKIP, AND THAT WAS THE HOLE (v584): ⚠️ **strip every Chinese character from
+  // the changelog and this guard skipped instead of failing** — ⚠️ **a document that had lost her own words
+  // was certified.** ⭐ The changelog carries years of her wording; none at all is a fault, not a quiet day.
+  assert.ok(runs.length,
+    "★ the changelog carries no Chinese at all — her own wording decisions have been stripped from the "
+    + "document that records them");
 
   const out = OUTPUTS["marketing/build_changelog.py"];
   const before = existsSync(here(out)) ? readFileSync(here(out)) : null;
@@ -140,12 +142,15 @@ test("★★★ her Chinese is IN the changelog PDF — not a gap where her word
 });
 
 test("the PDF builders actually RUN (a valid file can still kill the build)", { skip }, (t) => {
+  // ⚠️⚠️ `catch { return; }` INSIDE A TEST IS A PASS (v584). ⚠️ With `python3` off PATH this reported
+  // **ok — the PDF builders actually RUN**, ⚠️ **certifying builders on a machine that never ran them.** ⭐ A
+  // skipped test says so; a returned one lies.
   try { execFileSync("python3", ["-c", "print(1)"], { stdio: "pipe" }); }
-  catch { return; }
+  catch { t.skip("python3 is not on PATH here"); return; }
   // ⚠️ `fpdf` is what the builders draw with; without it this cannot tell a broken guide from a missing
   // package, and a guard that goes red for the wrong reason is a guard that gets ignored.
   try { execFileSync("python3", ["-c", "import fpdf"], { stdio: "pipe" }); }
-  catch { return; }
+  catch { t.skip("fpdf is not installed here"); return; }
 
   for (const f of BUILDERS) {
     if (!present(f)) continue;

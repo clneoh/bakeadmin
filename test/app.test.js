@@ -21,10 +21,10 @@ function createEl(tag) {
     // scrolling page from one outside it, and **a test about the page's own scroll could not be written.**
     // ⭐ The real DOM sets it, and the shop's own shim has set it since v459 for exactly this reason.
     appendChild(c) { if (c != null) { c.parentElement = this; this.children.push(c); } return c; },
-    append(...cs) { for (const c of cs) if (c != null) this.children.push(c); },
+    append(...cs) { for (const c of cs) this.children.push(c == null ? { nodeType: 3, text: "null" } : c); },
     replaceChildren(...cs) {
       this.children = [];
-      for (const c of cs) if (c != null) this.children.push(c);
+      for (const c of cs) this.children.push(c == null ? { nodeType: 3, text: "null" } : c);
       // ★★★ AND EMPTYING THE VIEW DROPS THE PAGE'S SCROLL, WHICH IS WHAT A BROWSER DOES (v520).
       // ⚠️⚠️ WITHOUT THIS THE SHIM CANNOT SEE THE FAULT AT ALL: it has no layout, so the window's scroll
       // simply stays where it was and **a test asserting "she kept her place" passes whether the app puts
@@ -140,7 +140,13 @@ function restore() {
 }
 
 // Keep real fetch (Node's) from hitting the network if a scenario logs in.
+// ★★★ AND EVERY REQUEST IS COUNTED (v584). ⚠️⚠️ This stub answered every URL and nothing recorded what was
+// asked — ⚠️ **so a fetch added at module scope, or a sync that ran with sharing off, left the "no sync calls"
+// test green.** ⭐ The list is read by the boot tests below.
+let fetched = [];
+const SYNC_END = /rest\/v1\/(orders|settings|incoming_orders|backup_snapshots|product_availability|availability)/;
 globalThis.fetch = async (url) => {
+  fetched.push(String(url));
   if (String(url).includes("/auth/v1/token")) {
     return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
   }
@@ -151,8 +157,12 @@ test("cloud off: app boots straight to the dashboard, no gate, no sync calls", a
   freshDOM();
   installStorage({ "bakeadmin.v1": stateJSON() });
   try {
+    fetched = [];
     await import("../admin/js/app.js?case=off");
 
+    const syncCalls = fetched.filter((u) => SYNC_END.test(u));
+    assert.deepEqual(syncCalls, [],
+      "★ a phone with sharing OFF called a sync endpoint — **the no-sync-calls this test names was never counted**");
     const view = document.getElementById("view");
     assert.ok(view.children.length > 0, "dashboard rendered into #view");
     assert.equal(document.getElementById("view-title-text").textContent, "Jienluv2bake");
@@ -477,12 +487,27 @@ test("★★ a phone that is BEHIND reloads itself before the lock, so one PIN g
     "the lock was drawn before the reload, which is the whole thing this is meant to avoid");
   assert.equal(r.sess.get("bakeadmin.updateTried"), "999",
     "the build it tried was not recorded, so the next boot would reload again for ever");
+  // ⚠️⚠️ AND WHAT IT ACTUALLY ASKED (v584). ⚠️ The stub answered the version module to ANY URL, and nothing
+  // counted the asks — ⚠️ **so a fetch added at module scope, or a check pointed at the wrong address, stayed
+  // green.** ⭐ It asks for exactly one thing: this site's own version.js.
+  const versionAsks = r.asked.filter((u) => u.includes("version.js"));
+  assert.ok(versionAsks.length >= 1, "the boot never asked for the version file at all");
+  for (const u of versionAsks) {
+    assert.match(u, /\/admin\/js\/version\.js\?probe=\d+$/,
+      `★ the update check asked for "${u}", which is not this site's version file`);
+  }
   restore();
 });
 
 test("★ and a phone that is CURRENT boots straight to the lock, with no reload", async () => {
   const r = await bootWith({ deployedVersion: "382" });
   assert.equal(r.reloads, 0, "a current phone flashed a reload for nothing");
+  const versionAsks = r.asked.filter((u) => u.includes("version.js"));
+  assert.ok(versionAsks.length >= 1, "a current phone never asked for the version file");
+  for (const u of versionAsks) {
+    assert.match(u, /\/admin\/js\/version\.js\?probe=\d+$/,
+      `★ an update request went to "${u}", which is not the version file`);
+  }
   restore();
 });
 
@@ -579,6 +604,33 @@ test("★★★ the day is re-checked whenever the page is come back to — and 
     + "\"today\" on the grid");
   assert.match(shop, /if \(changed \|\| daysChanged \|\| movedDay\) rerender\(\);/,
     "the shop asks the question and then does not act on it, which is worse than not asking");
+});
+
+test("★★★ and the day check DOES the thing: a moved day redraws, the same day does not (v584)", async () => {
+  // ⚠️⚠️ THE SOURCE ASSERTIONS ABOVE PIN THE WIRING; THIS ONE PINS THE BEHAVIOUR. ⚠️ Without it, the whole
+  // of `dayMoved` could return `false` for ever and every spelling above would still match.
+  freshDOM();
+  installStorage({ "bakeadmin.v1": stateJSON() });
+  const RealDate = globalThis.Date;
+  try {
+    const app = await import("../admin/js/app.js?case=daymove");
+    assert.equal(app.dayMoved(), false, "the screen was not drawn for today");
+
+    // Move the clock one day on, without a reload.
+    const shift = 24 * 60 * 60 * 1000;
+    const base = RealDate.now();
+    class Ahead extends RealDate {
+      constructor(...a) { if (a.length) super(...a); else super(base + shift); }
+      static now() { return base + shift; }
+    }
+    globalThis.Date = Ahead;
+    assert.equal(app.dayMoved(), true,
+      "★ the day moved and the screen did NOT redraw — **her report: the app date not updated until I reload**");
+    assert.equal(app.dayMoved(), false, "the same day was redrawn twice");
+  } finally {
+    globalThis.Date = RealDate;
+    restore();
+  }
 });
 
 // ── v520: a repaint must not move her ────────────────────────────────────────

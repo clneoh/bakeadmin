@@ -57,11 +57,39 @@ function namedImports(src) {
   return found;
 }
 
+// ★★★ THE CODE, NOT THE PROSE (v584). ⚠️⚠️ `declares()` matched a name inside a COMMENT — ⚠️ **commenting out
+// `export function orderCode` left this file GREEN while the module graph could not link**, which is the very
+// blank screen it exists to prevent. ⭐ Comments are removed first: a line that begins a block comment is
+// skipped to its close, and a line whose own text starts with `//`, `*` or `/*` is code no more.
+function liveSource(src) {
+  const out = [];
+  let inBlock = false;
+  for (const line of String(src || "").split("\n")) {
+    const t = line.trim();
+    if (inBlock) {
+      if (t.includes("*/")) inBlock = false;
+      out.push("");
+      continue;
+    }
+    if (t.startsWith("/*")) {
+      if (!t.includes("*/")) inBlock = true;
+      out.push("");
+      continue;
+    }
+    if (t.startsWith("//") || t.startsWith("*")) { out.push(""); continue; }
+    // A trailing block comment on an otherwise real line: drop from `/*` on, unless it closes on the same
+    // line (then only the comment goes).
+    out.push(line.replace(/\/\*.*?\*\//g, "").replace(/\s\/\/\s.*$/, ""));
+  }
+  return out.join("\n");
+}
+
 function declares(src, name) {
+  const code = liveSource(src);
   const esc = name.replace(/[$]/g, "\\$");
-  return new RegExp(`export\\s+(?:async\\s+)?(?:function|class|const|let|var)\\s+${esc}\\b`).test(src)
-    || new RegExp(`export\\s*\\{[^}]*\\b${esc}\\b`).test(src)
-    || new RegExp(`export\\s+\\*\\s+from`).test(src);
+  return new RegExp(`export\\s+(?:async\\s+)?(?:function|class|const|let|var)\\s+${esc}\\b`).test(code)
+    || new RegExp(`export\\s*\\{[^}]*\\b${esc}\\b`).test(code)
+    || new RegExp(`export\\s+\\*\\s+from`).test(code);
 }
 
 test("★★★ every named import in this repo resolves to a real export", () => {
@@ -88,7 +116,7 @@ test("★★★ and no module declares the same top-level name twice", () => {
   // not run since.
   const dupes = [];
   for (const file of everyModule()) {
-    const lines = readFileSync(file, "utf8").split("\n");
+    const lines = liveSource(readFileSync(file, "utf8")).split("\n");
     const seen = new Map();
     lines.forEach((line, i) => {
       const m = /^(?:export\s+)?(?:async\s+)?(?:function|class)\s+([A-Za-z_$][\w$]*)/

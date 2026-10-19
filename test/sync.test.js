@@ -2712,3 +2712,23 @@ test("★★★ clearing this phone's data forgets the journal, so no tombstone 
     assert.equal(sync.pendingCount(), 0);
   } finally { restore(); }
 });
+
+test("★★★ a burst of refreshes is ONE refresh, 1.5 s after the last (v584)", (t) => {
+  // ⚠️⚠️ THIS HAD NO TEST AT ALL. ⚠️ A debounce that fired twice (a clobbering repaint) or never (a phone that
+  // stops seeing her other phone's changes) would have been found by her.
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const calls = [];
+  const run = (st) => calls.push(st && st.id);
+  const st = { id: "s" };
+  sync.scheduleRefresh(st, run);
+  t.mock.timers.tick(1000);
+  sync.scheduleRefresh(st, run);   // another change inside the window
+  t.mock.timers.tick(1000);
+  sync.scheduleRefresh(st, run);   // and another
+  t.mock.timers.tick(1499);
+  assert.equal(calls.length, 0, "★ the burst fired before it had settled — a repaint mid-edit");
+  t.mock.timers.tick(1);
+  assert.deepEqual(calls, ["s"], "★ the burst produced more than one refresh");
+  t.mock.timers.tick(10000);
+  assert.equal(calls.length, 1, "★ the refresh repeated itself after the burst");
+});

@@ -121,13 +121,13 @@ function createEl(tag) {
       contains(c) { return String(node.className).split(/\s+/).includes(c); },
     },
     appendChild(c) { if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parentNode = this; } return c; },
-    append(...cs) { for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parentNode = this; } },
+    append(...cs) { for (const c of cs) { const n = c == null ? { nodeType: 3, text: "null" } : c; this.children.push(n); if (n.nodeType === 1) n.parentNode = this; } },
     replaceChildren(...cs) {
       // The children it drops are ORPHANED (see orders-day-sum.test.js): a card that asks whether it
       // is still connected must get the truth.
       for (const old of this.children) if (old && old.nodeType === 1) old.parentNode = null;
       this.children = [];
-      for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parentNode = this; }
+      for (const c of cs) { const n = c == null ? { nodeType: 3, text: "null" } : c; this.children.push(n); if (n.nodeType === 1) n.parentNode = this; }
     },
     insertBefore(c) { this.children.unshift(c); if (c && c.nodeType === 1) c.parentNode = this; return c; },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },

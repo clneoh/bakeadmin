@@ -1382,9 +1382,12 @@ export async function signIn(state, url, anonKey, email, password) {
 // Debounced refresh so a burst of order entry batches into one sync, ~1.5s
 // after the last save. Wired from app.js's save hook.
 let refreshTimer = null;
-export function scheduleRefresh(state) {
+// ⚠️ THE 1.5-SECOND BURST GUARD, WITH ITS REFRESH INJECTABLE (v584). ⚠️ It had no test at all: ⚠️ **a debounce
+// that fired twice, or never, would have been found by her rather than here.** ⭐ The second argument is for
+// tests only; every caller passes one argument and gets the real refresh.
+export function scheduleRefresh(state, run = refresh) {
   if (refreshTimer) clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(() => { refresh(state); }, 1500);
+  refreshTimer = setTimeout(() => { run(state); }, 1500);
 }
 
 // True while the page is on screen and worth refreshing. A hidden tab (switched

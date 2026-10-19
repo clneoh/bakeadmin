@@ -101,7 +101,7 @@ function createEl(tag) {
     // screen asks it through this.
     get firstChild() { return this.children[0] || null; },
     appendChild(c) { if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } return c; },
-    append(...cs) { for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parent = this; } },
+    append(...cs) { for (const c of cs) { const n = c == null ? { nodeType: 3, text: "null" } : c; this.children.push(n); if (n.nodeType === 1) n.parent = this; } },
     // Faithful on purpose, and this is the one place it matters most: the real
     // `replaceChildren` does NOT skip a null the way `el()` skips a null child — it
     // converts every argument with String(), so `replaceChildren(ask, readout)` with

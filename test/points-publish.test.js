@@ -48,11 +48,11 @@ function createEl(tag) {
       this.children.push(c);
       return c;
     },
-    append(...cs) { for (const c of cs.flat()) if (c != null) this.appendChild(c); },
+    append(...cs) { for (const c of cs.flat()) this.appendChild(c == null ? { nodeType: 3, text: "null" } : c); },
     replaceChildren(...cs) {
       for (const c of this.children || []) c.parentElement = null;
       this.children = [];
-      for (const c of cs.flat()) if (c != null) this.appendChild(c);
+      for (const c of cs.flat()) this.appendChild(c == null ? { nodeType: 3, text: "null" } : c);
     },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener() {},

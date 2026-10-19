@@ -83,7 +83,7 @@ function createEl(tag) {
       return i > 0 ? p.children[i - 1] : null;
     },
     appendChild(c) { if (c != null) { c.parentElement = this; this.children.push(c); } return c; },
-    append(...cs) { for (const c of cs.flat()) if (c != null) this.appendChild(c); },
+    append(...cs) { for (const c of cs.flat()) this.appendChild(c == null ? { nodeType: 3, text: "null" } : c); },
     // ⚠️⚠️ THIS SHIM HAD NO `insertBefore` AT ALL UNTIL v459, and that mattered the moment the shop began
     // MOVING the refusal line instead of leaving it where the markup put it: **the view quietly fell back
     // to the other placement, and a test asserting WHERE the line lands was asserting nothing.** ⭐ It was

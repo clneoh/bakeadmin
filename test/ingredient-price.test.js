@@ -132,6 +132,9 @@ test("a hand-edit that changed nothing is not logged", () => {
 });
 
 test("the log is capped, because it rides the ingredient into every cloud sync", () => {
+  // ⚠️⚠️ THE CAP IS A LITERAL, NOT A READ-BACK (v584). ⚠️ This test compared the log with `PRICE_LOG_CAP`
+  // itself, ⚠️ **so changing the constant from 50 to 5 shrank her price history and the suite stayed green.**
+  assert.equal(PRICE_LOG_CAP, 50, `★ the price log keeps ${PRICE_LOG_CAP} rows, not the 50 it has kept`);
   const i = ing();
   for (let n = 0; n < PRICE_LOG_CAP + 20; n += 1) {
     recordPriceMove(i, move({ price: 20 + n }));

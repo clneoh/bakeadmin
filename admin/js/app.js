@@ -557,6 +557,6 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
 }
 
 // Expose save/state to views that import from app.js without a cycle.
-export { state, save };
+export { state, save, dayMoved };
 
 boot();

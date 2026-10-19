@@ -18,7 +18,7 @@ function createEl(tag) {
     scrollTop: 0, parentNode: null, _listeners: {},
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     appendChild(c) { if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parentNode = this; } return c; },
-    append(...cs) { for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parentNode = this; } },
+    append(...cs) { for (const c of cs) { const n = c == null ? { nodeType: 3, text: "null" } : c; this.children.push(n); if (n.nodeType === 1) n.parentNode = this; } },
     replaceChildren(...cs) {
       // The children it drops are ORPHANED, not merely forgotten. A pop-up closes by
       // emptying its layer, and a screen inside that pop-up asks whether it is still
@@ -26,7 +26,7 @@ function createEl(tag) {
       // taken out of would go on answering "yes, still here" for the rest of the run.
       for (const old of this.children) if (old && old.nodeType === 1) old.parentNode = null;
       this.children = [];
-      for (const c of cs) if (c != null) { this.children.push(c); if (c.nodeType === 1) c.parentNode = this; }
+      for (const c of cs) { const n = c == null ? { nodeType: 3, text: "null" } : c; this.children.push(n); if (n.nodeType === 1) n.parentNode = this; }
     },
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
     removeEventListener() {},

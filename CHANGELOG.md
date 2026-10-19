@@ -1,8 +1,35 @@
-# Jienluv2bake — change history (v54 → v583)
+# Jienluv2bake — change history (v54 → v584)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v584, THE GUARDS THAT COULD NOT FAIL (no database step).**
+
+**Your words:** __"go ahead with the tests"__ — group 7 of the complete audit: twelve checks that were **green while the thing they guard was broken.** ⚠️ Every one of them was proved by making the change it is meant to catch and watching the suite stay green.
+
+**The guards**
+1. ⚠️ **THE BLANK-SCREEN GUARD COULD NOT SEE A COMMENTED-OUT EXPORT.** ⚠️ Commenting out one `export` left it green while the app could no longer load. ⭐ It reads the code now, not the prose.
+2. ⚠️ **THE LANGUAGE GUARD TOOK ITS LIST FROM THE DICTIONARIES IT CHECKS** — ⚠️ **deleting 中文 from the data deleted the language from the check.** ⭐ The three languages are written into the guard.
+3. ⚠️ **"NO null ON SCREEN" COULD NOT FAIL** — the test stand-in quietly dropped what the browser prints as the word "null". ⭐ The stand-ins now behave like the browser, and the assertion fails when one is passed.
+4. ⚠️ **"THE PDF BUILDERS ACTUALLY RUN" REPORTED PASS WHEN PYTHON WAS ABSENT.** ⭐ It skips, and says so — a skipped test is honest; a returned one lies.
+5. ⚠️ **"NO SYNC CALLS" WAS NEVER COUNTED.** ⭐ Every request on a cold start is counted, and a sync endpoint with sharing off now fails it.
+6. ⚠️ **THE "ONE DOOR OUT" GUARD KNEW ONLY ONE SPELLING** — ⚠️ `.length = 0`, `.splice`, `.pop` and `delete` all slipped past. ⭐ Every way a list is emptied is now caught.
+7. ⚠️ **"THE DAY IS RE-CHECKED" ASSERTED SPELLINGS, NOT BEHAVIOUR.** ⭐ It now moves the clock a day and watches the screen redraw — **the exact thing your report described.**
+8. ⚠️ **THE UPDATE CHECK'S REQUEST WAS NEVER ASSERTED** — the stub answered any address. ⭐ The address is now checked.
+9. ⚠️ **THE 50-ROW CAPS WERE COMPARED WITH THEIR OWN CONSTANT** — ⚠️ **changing 50 to 5 shrank your history with a green suite.** ⭐ The 50 is a literal now, in two places.
+10. ⚠️ **STRIP EVERY CHINESE CHARACTER FROM THE CHANGELOG AND THE PDF GUARD SKIPPED.** ⭐ No Chinese at all is a fault now.
+11. ⚠️ A missing test file read as an empty one. ⭐ It fails instead.
+12. ⚠️ **THIRTY-ODD TEST STAND-INS SWALLOWED A null**, so "nothing stray on screen" checks could not see it. ⭐ They all behave like the browser now.
+
+**And three surfaces that had no test at all**
+13. ⭐ **The Restore/Import screen** — a copy that opens, one that will not load, and one whose text is unreadable each answer in their own words (and an unreadable copy never opens as an empty one).
+14. ⭐ **The 1.5-second burst guard** on the sync refresh — a burst is one refresh, 1.5 s after the last.
+15. ⭐ **The sign-in gate's error branch** — a blank form says what is missing; a refusal says why and gives the button back.
+
+**16. Nothing of yours was rewritten, and there is no database step. ⭐ 3,684 tests green (was 3,676); every guard above was broken on purpose and watched to fail.**
+
+---
 
 **19 Oct 2026 — engine v583, WHO CAN READ IT, AND THE WORDS THAT WERE WRONG (no database step).**
 
