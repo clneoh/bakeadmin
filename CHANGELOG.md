@@ -1,8 +1,27 @@
-# Jienluv2bake — change history (v54 → v595)
+# Jienluv2bake — change history (v54 → v596)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**19 Oct 2026 — engine v596, THE FOURTH SWEEP, PART 2: THE DATABASE, THE PAPER AND THE SHOP (⚠️ RE-RUN shared_pool_slots.sql).**
+
+**Your words:** __"go ahead with part 2"__. The rest of what the fourth sweep found on the database, the printed sheets and the customer's page.
+
+1. ⚠️⚠️ **A HUNDRED LINES OF A HUNDRED STILL ZEROED A BAKE DAY.** The trigger ignored one absurd line but not an order made of them — **10,000 units from one request.** ⭐ The whole order's count is summed first; above 200 it moves no count at all.
+2. ⚠️ **A PACK'S PIECES ARE COUNTED AS ONE BY THE DATABASE.** The app counts a 4-pack as four toward the day (since v587), the trigger added the pack COUNT — **the day pill overstated and the shop could oversell.** ⭐ Pack pieces now count toward the day figure too.
+3. ⚠️ **THE ADVISOR FILE COULD ABORT ON A PROJECT WITHOUT THE ALERT TABLE** — the key repair was evaluated blind. ⭐ Guarded.
+4. ⚠️⚠️ **THE LIVE PURCHASE ORDER'S PAPER TOLD THE SHOP TO TAP "BOUGHT"** and that a press saves a snapshot. ⭐ Those sentences are screen-only now.
+5. ⚠️ **"PRINT THIS SHOP" DID NOTHING AND SAID NOTHING ON A PHONE THAT CANNOT PRINT**, and left the page marked for the next PO print. ⭐ It says so, before anything is marked.
+6. ⚠️ **THE PDF LETTERHEAD AND COLUMN HEADERS DID NOT WRAP** — a long mailing address ran off the file. ⭐ Wrapped, like the title and subtitle since v590.
+7. ⚠️⚠️ **A MALFORMED DATE PRINTED "undefined, NaN undefined"** on a label or a filing page. ⭐ Every date formatter answers an empty string for anything that is not a real date.
+8. ⚠️ **A DELETED POINT STAYED CHOSEN** on the shop and was named on the order and its WhatsApp message. ⭐ No Points means no chosen Point.
+9. ⚠️ **THE HOMEPAGE LATCHED ONE FAILED SETTINGS READ FOR THE WHOLE VISIT**, so it could quote RM16 while the shop said RM22. ⭐ It retries on success only.
+10. ⚠️ **THE HOMEPAGE PRICE CHOICE OFFERED EVERY PRODUCT**, so a pack could price a card headed FOCACCIA. ⭐ Only focaccia products are offered.
+11. ⚠️ **A PARCEL WITH NO RECIPIENT STILL PRINTED "TO"**, and **the invoice pop-up's number came from the day's slice while its paper numbered the whole sale.** ⭐ Both agree now.
+12. ⚠️ **"TODAY'S BAKE HAS CLOSED" FOLLOWED THE WEEKDAY PATTERN, NOT HER REAL DATES** — an extra Thursday she added was offered by the calendar and denied by the sentence. ⭐ Her published dates decide it.
+
+**⚠️ Re-run `supabase/shared_pool_slots.sql`.** No edge function redeploy. Nothing of yours is rewritten. 3,792 tests green.
 
 **19 Oct 2026 — engine v595, THE FOURTH SWEEP, PART 1: WHAT COULD EMPTY THE CLOUD, AND WHAT THE MONEY SAID (⚠️ REDEPLOY courier AND parcel).**
 

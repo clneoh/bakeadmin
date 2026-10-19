@@ -7,7 +7,7 @@
 // "No supplier price" header when real suppliers are present, so the buyer can
 // see at a glance which lines are firm pack deals and which are estimates.
 
-import { el, button, fmtQty, copyText } from "../ui.js";
+import { el, button, fmtQty, copyText, toast } from "../ui.js";
 import { fmtRM, round2, waNumber } from "../state.js";
 import { groupItemsBySupplier, buildSupplierOrderText } from "../purchasing.js";
 
@@ -84,6 +84,13 @@ function printOneShop(row) {
   // ⚠️ NO SECTION, NO PRINT. Falling back to printing the whole card would be the opposite of what the
   // press says it does.
   if (!body || typeof document === "undefined" || !document.body) return;
+  // ⚠️⚠️ AND A PHONE THAT CANNOT PRINT SAYS SO (v596) — before the classes go on, so nothing is left scoped.
+  // ⚠️ Without it the press did nothing silently and the body stayed marked for ten seconds, scoping the NEXT
+  // PO print to an empty shop.
+  if (!(typeof window !== "undefined" && typeof window.print === "function")) {
+    toast("This phone can't print — use Share instead.");
+    return;
+  }
   document.body.classList.add("po-shop-print");
   body.classList.add("print-shop");
   const done = () => {

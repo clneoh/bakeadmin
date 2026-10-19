@@ -636,7 +636,7 @@ test("★★★ the answer box follows the REAL days, and skips one that is sold
 
   // ⚠️ AND THE REPAINT IS WIRED, not only computed: `rerender` must call the box with that list.
   const SRC = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
-  assert.match(SRC, /paintDayAnswer\(CONFIG, cutoffText\(CONFIG\.cutoff\), firstOpenSpec\(dates, avail\)\)/,
+  assert.match(SRC, /paintDayAnswer\(CONFIG, cutoffText\(CONFIG\.cutoff\), firstOpenSpec\(dates, avail\),/,
     "★ the box is still painted once from the weekday rule — **it can name a day that has gone**");
 });
 

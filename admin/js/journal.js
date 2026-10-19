@@ -354,12 +354,12 @@ function sheetPages(s, cur) {
       y -= 16;
       return;
     }
-    if (s.bakery) { put(s.bakery, PDF_MARGIN, { font: "F2", size: 9, color: MUTED }); y -= 16; }
+    if (s.bakery) drawWrapped(s.bakery, { font: "F2", size: 9, color: MUTED, lead: 16 });
     // The letterhead, on the same muted small face as the name above it — it is an
     // address, not a heading, and the title below has to stay the loudest thing here.
+    // ⚠️⚠️ THE LETTERHEAD WRAPS TOO (v596) — a long mailing address ran off the file.
     for (const line of fromLines(s.from, s.bakery)) {
-      put(line, PDF_MARGIN, { size: 8.5, color: MUTED });
-      y -= 11.5;
+      drawWrapped(line, { size: 8.5, color: MUTED, lead: 11.5 });
     }
     drawWrapped(s.title, { font: "F2", size: 18, lead: 22 });
     y -= 2;
@@ -423,8 +423,8 @@ function sheetPages(s, cur) {
       // as a label over the rows rather than as a section of its own.
       if (l.head) {
         need(16);
-        put(l.what, PDF_MARGIN, { size: 9, color: MUTED });
-        y -= 12;
+        // ⚠️ AND A LONG COLUMN HEADER WRAPS (v596).
+        drawWrapped(l.what, { size: 9, color: MUTED, lead: 12 });
         return;
       }
       if (l.heading) {

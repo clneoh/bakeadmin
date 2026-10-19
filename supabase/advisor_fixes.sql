@@ -64,6 +64,12 @@ declare
   n_ids   bigint;
   n_nulls bigint;
 begin
+  -- ⚠️⚠️ A PROJECT WITHOUT THE ALERT TABLE MUST NOT ABORT THE FILE (v596). ⚠️ `::regclass` on a missing table
+  -- raises 42P01 and stops everything after it — including the revokes above, which had already run.
+  if to_regclass('public.order_alert_errors') is null then
+    raise notice 'order_alert_errors does not exist here — nothing to key.';
+    return;
+  end if;
   if exists (select 1 from pg_constraint
               where conrelid = 'public.order_alert_errors'::regclass and contype = 'p') then
     raise notice 'order_alert_errors already has a primary key. Nothing to do.';

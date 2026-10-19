@@ -402,9 +402,10 @@ export function packingLabelData(state, group, style = "full") {
     // read **"Set your bakery address in Settings → Mailing labels"** — ⚠️ **on the outside of a parcel a
     // courier is carrying.** ⭐ The sheet says nothing it cannot say; the preview tells her what is missing.
     for (const ln of senderLines) rows.push(["mail-line", ln]);
-    rows.push(["mail-sec", "TO"]);
-    if (customer) rows.push(["mail-name", customer]);
+    // ⚠️ AND NO "TO" HEADING WITH NOTHING UNDER IT (v596) — a bare TO on the outside of a parcel.
     const phone = String(first.whatsapp || "").trim();
+    if (customer || phone || recipientAddress.length) rows.push(["mail-sec", "TO"]);
+    if (customer) rows.push(["mail-name", customer]);
     if (phone) rows.push(["mail-line", phone]);
     for (const ln of recipientAddress) rows.push(["mail-line", ln]);
     rows.push(["mail-sec", "ORDER"]);
@@ -4198,7 +4199,7 @@ async function openInvoice(state, group) {
     receiptStatus: receiptStatusOfGroup(whole.orders, cur),
   });
 
-  showPopup(`Invoice #${invoiceNo(group)}`, (refresh, close) => el("div", {},
+  showPopup(`Invoice #${invoiceNo(whole)}`, (refresh, close) => el("div", {},
     // `journalBodyEl` deliberately does not draw a sheet's subtitle — every other journal
     // leans on the section wording above its card — so the person this invoice is for, and
     // the day the order was placed, are said here on the screen, while the sheet keeps the

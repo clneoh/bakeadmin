@@ -38,7 +38,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "595";
+export const SHOP_BUILD = "596";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -630,9 +630,14 @@ export function isOpen(cfg, d, now = new Date()) {
 // ⭐ Two truths, and the heading follows them:
 //   • a day she does not bake has no bake to have closed → he is in time for the next one;
 //   • a day she does bake is open only until its own cut-off (the day before).
-export function todayStillOpen(cfg, now = new Date()) {
+export function todayStillOpen(cfg, now = new Date(), bakesTodayOverride) {
+  // ⚠️⚠️ HER REAL DATES OUTRANK THE WEEKDAY PATTERN HERE TOO (v596). ⚠️ An extra Thursday she added had the
+  // calendar offering it while this said "today's bake has closed" — and removing a date said it on a day she
+  // was not baking. ⭐ The caller that knows the published rows passes the answer in.
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const bakesToday = Array.isArray(cfg && cfg.deliveryDays) && cfg.deliveryDays.includes(start.getDay());
+  const bakesToday = bakesTodayOverride !== undefined
+    ? !!bakesTodayOverride
+    : Array.isArray(cfg && cfg.deliveryDays) && cfg.deliveryDays.includes(start.getDay());
   return !bakesToday || isOpen(cfg, start, now);
 }
 
@@ -666,7 +671,7 @@ function dayBefore(d) {
 // one he is looking at; the heading tells him, and the green edge says it before he reads.
 //   • nothing open for today  → "Today's bake has closed" / the next day he can have it / the deadline
 //   • still time to order     → "You're in time"        / the same two lines
-function paintDayAnswer(cfg, cutoffSay, nextDay) {
+function paintDayAnswer(cfg, cutoffSay, nextDay, todayBakes) {
   const box = document.getElementById("day-answer");
   if (!box) return;
 
@@ -691,7 +696,7 @@ function paintDayAnswer(cfg, cutoffSay, nextDay) {
   // false on every day of the year: the heading read "Today's bake has closed" on a Sunday the bakery
   // never bakes, and **"You're in time" could never appear at all.** ⭐ A day she does not bake has no
   // bake to have closed; and a day she does bake is open until its own cut-off.
-  const todayOpen = todayStillOpen(cfg);
+  const todayOpen = todayStillOpen(cfg, new Date(), todayBakes);
   box.hidden = false;
   box.classList.toggle("ok", todayOpen);
   document.getElementById("answer-kicker").textContent = t(todayOpen ? "ansInTime" : "ansClosed");
@@ -3457,7 +3462,10 @@ function clearFieldMarks() {
     // ⚠️⚠️ AND THE ANSWER BOX IS REPAINTED FROM THE SAME LIST (v590) — after `buildCalendar`, because that is
     // where `dates` and `avail` have just settled. ⭐ A day that has closed, sold out or been removed can no
     // longer go on being named under a deadline that already passed.
-    paintDayAnswer(CONFIG, cutoffText(CONFIG.cutoff), firstOpenSpec(dates, avail));
+    paintDayAnswer(CONFIG, cutoffText(CONFIG.cutoff), firstOpenSpec(dates, avail),
+      Array.isArray(dayRows) && dayRows.length
+        ? dayRows.some((r) => r && r.date === todayKey)
+        : undefined);
     renderMenu();
     // ⚠️ LAST, and here rather than anywhere else, because EVERYTHING funnels through `rerender`: the day
     // tapped, the menu rebuilt, the 30-second refresh, the availability arriving. One call site covers
@@ -4645,7 +4653,14 @@ function renderPointList(wrap, total = 0) {
   // ⚠️ AND THE CARD'S OWN FOLD IS NOT DECIDED HERE (v412) — `refreshPointList` owns it, because it
   // is about the METHOD and this function is about the places. Two places deciding one thing is how
   // they come to disagree.
-  if (!points.length) { list.replaceChildren(); return; }
+  if (!points.length) {
+    // ⚠️⚠️ NO POINTS MEANS NO CHOSEN POINT (v596). ⚠️ This returned before the "a choice no longer open falls
+    // away" rule, so a customer kept "Sg Ara" after she deleted her last Point and the order still named it.
+    wrap._pointId = "";
+    wrap._pointName = "";
+    list.replaceChildren();
+    return;
+  }
   // The Point she marked as the kitchen, if she has one. ⚠️ Read from the published list rather
   // than assumed: an older storefront payload predates the flag and simply has no marked kitchen,
   // which is exactly the fallback case below.

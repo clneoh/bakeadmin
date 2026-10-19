@@ -69,8 +69,22 @@ export function generateUpcomingDates(settings, n = 8, existing = []) {
 
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// ⚠️⚠️ A MALFORMED DATE PRINTS NOTHING, NEVER "undefined" (v596). ⚠️ `new Date("18/09/2026T00:00:00")` is
+// invalid, and `getDay()` is NaN — ⚠️ **an imported row printed "undefined, NaN undefined" on a label.** ⭐ One
+// parts reader for the three formatters below.
+function isoParts(dateStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ""));
+  if (!m) return null;
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const d = new Date(Number(m[1]), month - 1, day);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export function weekdayName(dateStr) {
-  return WEEKDAY_NAMES[new Date(`${dateStr}T00:00:00`).getDay()];
+  const d = isoParts(dateStr);
+  return d ? WEEKDAY_NAMES[d.getDay()] : "";
 }
 
 // The same names the other way round: a weekday NUMBER (0 = Sunday) as a name, for
@@ -96,7 +110,8 @@ export function dayListLabel(days) {
 }
 
 export function longDate(dateStr) {
-  const d = new Date(`${dateStr}T00:00:00`);
+  const d = isoParts(dateStr);
+  if (!d) return "";
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
@@ -113,7 +128,8 @@ export function dayMonth(dateStr) {
 // Compact "Wed, 9 Sep" — same style as the storefront's chosen delivery day, so
 // the two pages show dates the same way.
 export function shortDate(dateStr) {
-  const d = new Date(`${dateStr}T00:00:00`);
+  const d = isoParts(dateStr);
+  if (!d) return "";
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${weekdayName(dateStr)}, ${d.getDate()} ${months[d.getMonth()]}`;

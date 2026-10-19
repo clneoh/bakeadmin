@@ -82,7 +82,10 @@ function waDigits(n) {
 // the line stays hidden.
 async function loadDevConfig() {
   if (devLoaded) return;
-  devLoaded = true;
+  // ⚠️⚠️ ONE FAILED REQUEST MUST NOT FREEZE THE SALE FACTS FOR THE WHOLE VISIT (v596). ⚠️ This latched
+  // BEFORE the fetch, so a single failure (airplane mode, a 503) left the typed RM16 / Mon-Wed-Fri / 6:00PM on
+  // the page while the shop polled and recovered — ⚠️ **the homepage could quote RM16 and the shop RM22 on the
+  // same phone.** ⭐ The latch is set only once the read succeeded.
   try {
     const res = await fetch(
       `${BASE}/rest/v1/storefront_config?select=data&id=eq.default`,
@@ -119,7 +122,8 @@ async function loadDevConfig() {
     if (/^\d{1,2}:\d{2}$/.test(cut)) siteFacts.cutoff = cut;
     if (Array.isArray(cfg.deliveryDays)) siteFacts.days = cfg.deliveryDays;
     renderSiteFacts();
-  } catch { /* offline — the credit line simply stays hidden */ }
+    devLoaded = true;   // ⭐ only now: a failed visit retries on the next call
+  } catch { /* offline — the next call tries again */ }
 }
 
 // The way the footer has always written it: +60 16-960 1268 for a Malaysian mobile, a plain

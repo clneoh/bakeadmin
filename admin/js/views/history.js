@@ -381,7 +381,8 @@ function boughtNote(po) {
   const p = listProgress(po);
   if (!p.total) return null;
   if (p.landed === 0) {
-    return el("p", { class: "po-snapshot-note" },
+    // ⚠️ SCREEN INSTRUCTION — never on a printed sheet (v596).
+    return el("p", { class: "po-snapshot-note no-print" },
       "Tap Bought on each shop as you pay for it. Nothing goes into your stock until you do.");
   }
   if (p.done) {

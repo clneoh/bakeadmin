@@ -72,6 +72,27 @@ begin
       return new;
     end if;
 
+    -- ⚠️⚠️ A HUNDRED LINES OF A HUNDRED IS STILL AN ABSURD ORDER (v596). ⭐ The whole order's count is summed
+    -- first; above a generous day (200) the order moves NO count at all.
+    declare
+      total_wanted integer := 0;
+      t_line       jsonb;
+      t_qty        integer;
+    begin
+      for t_line in select * from jsonb_array_elements(j->'lines') loop
+        if jsonb_typeof(t_line->'qty') = 'number' and (t_line->>'qty') ~ '^[0-9]+$' then
+          t_qty := (t_line->>'qty')::integer;
+        else
+          t_qty := 0;
+        end if;
+        if t_qty between 1 and 100 then total_wanted := total_wanted + t_qty; end if;
+      end loop;
+      if total_wanted > 200 then
+        raise notice 'order % asks for % units — the counts are ignored', new.id, total_wanted;
+        return new;
+      end if;
+    end;
+
     for line in select * from jsonb_array_elements(j->'lines') loop
       -- Only whole positive quantities against a real product name count.
       lname := coalesce(btrim(line->>'name'), '');

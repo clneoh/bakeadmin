@@ -135,8 +135,12 @@ export function renderSettings(root, state) {
   // on the loaf's card.** ⭐ She names the product once; the homepage follows it by its published name.
   const homeChoices = [
     { value: "", label: "Follow the first focaccia (default)" },
+    // ⚠️⚠️ ONLY A FOCACCIA — THE CARD IS THE FOCACCIA CARD (v596). ⚠️ The choice offered every product, so
+    // picking a "4 × Focaccia Box" put RM60 under a card headed FOCACCIA 12"×9". ⭐ The list is the products
+    // whose name is a focaccia; the card's own name and size are typed on the homepage and do not move.
     ...(state.products || [])
-      .filter((p) => p && p.active !== false && p.draft !== true && String(p.name || "").trim())
+      .filter((p) => p && p.active !== false && p.draft !== true && String(p.name || "").trim()
+        && /focaccia/i.test(String(p.name)))
       .map((p) => ({ value: p.id,
         label: Number(p.price) > 0 ? `${p.name} — RM${Number(p.price)}` : `${p.name} — no price yet` })),
   ];
@@ -259,7 +263,7 @@ export function renderSettings(root, state) {
       el("label", {}, "Homepage price product"),
       sfHome,
       el("p", { class: "card-sub", style: "margin:4px 0 0" },
-        "The price on the homepage card is this product's, as you publish it. Leave the default if you sell one focaccia.")),
+        "The price on the homepage card is this focaccia's, as you publish it. Only focaccia products are offered — the card's name and size are typed on the homepage itself.")),
     el("div", { class: "field", style: "margin-top:10px" },
       el("label", {}, "TNG QR code (image URL)"),
       sfTngQr,

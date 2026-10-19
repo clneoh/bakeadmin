@@ -387,7 +387,9 @@ function previewCard(state, chosen, bom, needsReview) {
     el("div", { class: "btn-row" },
       button("💾 Generate & Save", () => generate(state, chosen, bom, items, total), "primary"),
       button("Print", () => printPage(), "soft")),
-    el("p", { class: "po-snapshot-note" },
+    // ⚠️ AN INSTRUCTION TO HER IS NOT PRINTED FOR THE SHOP (v596). ⚠️ The live PO's paper told Mydin to tap
+    // Bought and that a press saves a snapshot. ⭐ The note stays on screen; the sheet carries the order.
+    el("p", { class: "po-snapshot-note no-print" },
       multi
         ? "Generating saves ONE snapshot of these days to PO History — each becomes \"✓ saved\" and drops out of the default list."
         : "Generating saves this list to PO History. Changing orders later won't change it — and once you're at the shop you can correct the prices and the amounts there until you tap Bought."));
