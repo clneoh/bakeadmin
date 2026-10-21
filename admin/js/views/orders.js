@@ -47,6 +47,7 @@ import { bakeryName, journalBodyEl, journalButtons } from "../journal.js";
 import { invoiceCurrency, invoiceNo, invoiceSheet } from "../invoice.js";
 import { labelCanPdf, labelPdf, labelPdfName } from "../label_pdf.js";
 import { labelBitmap, labelImageFile } from "../label_image.js";
+import { receiptSlipRows } from "../receipt_slip.js";
 import { orderPointName, setOrderPoint } from "../points.js";
 import { pointChoices } from "../pointAreas.js";
 // ★ THE PARCEL SEAM (v307). `parcels.js` is pure — it reads her own mailing block and the
@@ -4362,7 +4363,9 @@ async function openInvoice(state, group) {
           + "again once the phone is back online — the number is drawn then, and this page will show it.")
       : null,
     journalBodyEl(sheet, cur),
-    el("div", { class: "popup-actions" }, ...journalButtons(sheet, cur))));
+    el("div", { class: "popup-actions" },
+      button("Receipt over Wi-Fi", () => { printReceiptOverWifi(state, whole); }, "soft"),
+      ...journalButtons(sheet, cur))));
 }
 
 // The two things she most often needs to change once an order is placed: its note,
@@ -4842,6 +4845,18 @@ async function shareActiveLabel(state, group, style) {
     }
   } catch { /* fall through to the message */ }
   toast("This phone can't share a file — press Print instead.");
+}
+
+// ⭐⭐ THE SMALL CUSTOMER RECEIPT ON THE SAME PRINTER (v623) — a designed 100 × 150 mm slip, NOT the A4 invoice.
+async function printReceiptOverWifi(state, group) {
+  const rows = receiptSlipRows(state, group);
+  if (!rows.length) return toast("This order has nothing on it to print.");
+  const job = labelBitmap(rows, 203);
+  if (!job) return toast("This phone could not prepare the receipt.");
+  const sent = await sendPrintJob(state, job);
+  toast(sent
+    ? "Receipt sent to the Wi-Fi printer — it prints in a moment"
+    : "Could not send the receipt — is the bridge running and this phone signed in?");
 }
 
 // ⭐⭐ PRINT ON WI-FI (v617) — the job goes through the shared cloud to the Mac's bridge, which prints it on

@@ -1,8 +1,19 @@
-# Jienluv2bake — change history (v54 → v622)
+# Jienluv2bake — change history (v54 → v623)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v623, A SMALL CUSTOMER RECEIPT ON THE WI-FI PRINTER (NO DATABASE STEP).**
+
+**Your question:** __"should we make the print wifi for all print function?"__ — no for the documents, yes for a receipt.
+
+1. ⭐⭐ **THE INVOICE POPUP NOW CARRIES "Receipt over Wi-Fi".** It prints a **designed 100 × 150 mm customer receipt** on the label printer: bakery name, order code, date, customer, every item with its quantity and amount, any code or discount, the **total**, how it was paid, and the receipt number.
+2. ⚠️ **IT IS NOT THE INVOICE SHRUNK.** An A4 invoice on a 104 mm thermal printer clips or smears; ⭐ the slip is its own piece of paper.
+3. ⚠️ **The money comes from `customerTotal`** — the same reader the confirmation, the invoice and the tracking card use — so the slip cannot disagree with the paper the customer already has. A split sale prints as **one** slip with every line.
+4. ⭐ **Invoices, statements, POs and journals stay PDF** for Share or an A4 printer. The label printer is for labels and this slip.
+
+**No database step and no function deploy.** 3,887 tests green.
 
 **21 Oct 2026 — engine v622, THE BRIDGE CANNOT WEDGE ON A DEAD CONNECTION (NO DATABASE STEP).**
 
