@@ -131,3 +131,19 @@ test("★★★ the bridge does not spend an attempt on a wait, and retries insi
   assert.match(src, /async function sendWithRetry/, "the bridge does not retry within the job");
   assert.match(src, /waitingLogged\.delete/, "the waiting note is never cleared after a print");
 });
+
+test("★★★ a queue request that never answers cannot stop the poll (v622)", () => {
+  const src = readFileSync(new URL("../print-bridge/bridge.mjs", import.meta.url), "utf8");
+  assert.match(src, /async function fetchDeadlined/, "the bridge has no deadlined request");
+  assert.match(src, /new AbortController\(\)/, "nothing aborts a hung request");
+  assert.match(src, /fetchDeadlined\(`\$\{cfg\.url\}\/rest\/v1/, "the queue read is not deadlined");
+  assert.match(src, /prints site "/, "the bridge does not say which site it prints in its log");
+});
+
+test("★★ the status command only READS the queue (v622)", () => {
+  const src = readFileSync(new URL("../print-bridge/status.mjs", import.meta.url), "utf8");
+  assert.match(src, /select=id,created_at,status,site,attempts/, "the status command does not read the queue");
+  assert.equal(/method:\s*"PATCH"/.test(src), false, "★ the status command can change a job");
+  assert.equal(/method:\s*"DELETE"/.test(src), false, "★ the status command can delete a job");
+  assert.equal(/\/rpc\//.test(src), false, "★ the status command calls a function");
+});

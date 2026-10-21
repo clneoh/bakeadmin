@@ -26,6 +26,25 @@ const waitingLogged = new Set();
 
 function say(msg) { process.stdout.write(`${msg}\n`); }
 
+// ⚠️⚠️ A REQUEST THAT NEVER ANSWERS MUST NOT STOP THE POLL (v622). ⚠️ `fetch` has no timeout of its own, so a
+// dropped connection left the loop awaiting for ever — ⚠️ **the bridge looked alive but stopped taking jobs,
+// and the log said nothing.** ⭐ Every request is deadlined; a timeout comes back as "did not answer", which
+// the queue treats as a wait.
+async function fetchDeadlined(url, init = {}, ms = 15000) {
+  const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), ms) : null;
+  try {
+    return await fetch(url, ctrl ? { ...init, signal: ctrl.signal } : init);
+  } catch (err) {
+    if (err && (err.name === "AbortError" || String(err.message || "").includes("aborted"))) {
+      throw new Error(`the shared queue did not answer in ${Math.round(ms / 1000)} seconds`);
+    }
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function askConfig() {
   const rl = createInterface({ input: stdin, output: stdout });
   say("First run — the answers are saved on this Mac only, in " + CONFIG_PATH);
@@ -67,7 +86,7 @@ function readConfig() {
 }
 
 async function login(cfg) {
-  const res = await fetch(`${cfg.url}/auth/v1/token?grant_type=password`, {
+  const res = await fetchDeadlined(`${cfg.url}/auth/v1/token?grant_type=password`, {
     method: "POST",
     headers: { apikey: cfg.anonKey, "Content-Type": "application/json" },
     body: JSON.stringify({ email: cfg.email, password: cfg.password }),
@@ -121,7 +140,7 @@ async function sendWithRetry(cfg, bytes) {
 }
 
 async function rest(cfg, session, path, init = {}) {
-  return fetch(`${cfg.url}/rest/v1/${path}`, {
+  return fetchDeadlined(`${cfg.url}/rest/v1/${path}`, {
     ...init,
     headers: {
       apikey: cfg.anonKey,
@@ -193,7 +212,7 @@ async function main() {
     try {
       if (!session || Date.now() >= session.expiresAt) {
         session = await login(cfg);
-        say("signed in to the shared queue");
+        say(`signed in to the shared queue — this bridge prints site "${cfg.site || "main"}"`);
       }
       if (Date.now() - tidiedAt > 3600 * 1000) {
         tidiedAt = Date.now();

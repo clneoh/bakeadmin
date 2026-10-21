@@ -58,6 +58,18 @@ The phone can be on mobile data or any Wi-Fi; only the Mac needs to be on the pr
 
 The same press works on **Android and iPhone** — nothing different to set up on either.
 
+## If it does not print: the status command
+
+Run this in Terminal — it only READS the queue, it never prints or changes anything:
+
+```
+node print-bridge/status.mjs
+```
+
+It prints the site this bridge prints, then the newest jobs with their `status` and `site`. ⚠️ If the job's
+site differs from the bridge's, set Settings → Your address → *Label printer name for this device* to match.
+If it is `new` and the site matches, the service is not polling.
+
 ## If it does not print
 
 - **"waiting: sign-in failed"** — the email or password in `~/.bakeadmin-print.json` is wrong. Delete that file

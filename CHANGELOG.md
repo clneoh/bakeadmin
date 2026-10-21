@@ -1,8 +1,16 @@
-# Jienluv2bake — change history (v54 → v621)
+# Jienluv2bake — change history (v54 → v622)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v622, THE BRIDGE CANNOT WEDGE ON A DEAD CONNECTION (NO DATABASE STEP).**
+
+1. ⚠️⚠️ **A REQUEST WITH NO ANSWER COULD STOP THE POLL FOR EVER.** The queue read had no deadline, so a dropped connection left the bridge looking alive while it took no jobs — and the log said nothing. ⭐ Every request is now deadlined at 15 seconds; a timeout is logged as **"waiting"** and the next poll carries on.
+2. ⭐ **The log now names the site it prints:** `signed in to the shared queue — this bridge prints site "main"`. ⚠️ That is the name the phone's Settings → Your address → *Label printer name for this device* must match.
+3. ⭐ **A read-only status command** (`node print-bridge/status.mjs`) prints the bridge's site and the newest jobs with their status and site — the row itself says whether the mismatch is the site or the service.
+
+**Restart the background bridge once after this version.** No database step and no function deploy. 3,882 tests green.
 
 **21 Oct 2026 — engine v621, A SLEEPING PRINTER IS A WAIT, NOT A LOST LABEL (NO DATABASE STEP).**
 
