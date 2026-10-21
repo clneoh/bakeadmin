@@ -47,6 +47,9 @@ The same press works on **Android and iPhone** — nothing different to set up o
 - **Nothing happens at all** — is the script still running in Terminal? A closed Terminal window stops it.
 - **The print is shifted or split** — adjust the **gap** (2 mm for die-cut labels; 0 for continuous) or the
   label size in the printer's own settings. The bridge sends 100 × 150 mm.
+- **The label comes out inverted** (dark background, white letters) — this bridge flips the bits by default,
+  because the GP-1326D reads a set bit as paper. If you ever use a different printer that prints inverted
+  with that default, set `"invert": false` in `~/.bakeadmin-print.json` and restart it.
 
 ## Stopping it
 

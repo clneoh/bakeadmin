@@ -43,6 +43,9 @@ async function askConfig() {
     printerHost,
     printerPort: Number(portRaw) > 0 ? Number(portRaw) : 9100,
     gapMm: Number(gapRaw) >= 0 ? Number(gapRaw) : 2,
+    // ⚠️ The GP-1326D prints a set bit as PAPER (measured: dark background, white letters), so its bits are
+    // flipped at print time. A different printer can set this to false in the config file.
+    invert: true,
   };
   writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), { mode: 0o600 });
   chmodSync(CONFIG_PATH, 0o600);
@@ -130,7 +133,9 @@ async function pollOnce(cfg, session) {
   const jobs = await res.json().catch(() => []);
   for (const job of Array.isArray(jobs) ? jobs : []) {
     try {
-      const bytes = tsplForBitmap(job.payload, { gapMm: cfg.gapMm });
+      // ⚠️ A config written before this option existed has no `invert`; this printer needs it, so the
+      // default here is true rather than undefined.
+      const bytes = tsplForBitmap(job.payload, { gapMm: cfg.gapMm, invert: cfg.invert !== false });
       await sendToPrinter(cfg, bytes);
       await patchJob(cfg, session, job.id, { status: "printed", printed_at: new Date().toISOString() });
       say(`printed job ${job.id}`);

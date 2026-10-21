@@ -1,8 +1,16 @@
-# Jienluv2bake — change history (v54 → v617)
+# Jienluv2bake — change history (v54 → v618)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v618, THE LABEL PRINTS THE RIGHT WAY ROUND (NO DATABASE STEP).**
+
+1. ⚠️⚠️ **THE FIRST WI-FI LABEL CAME OUT INVERTED** — dark background, white letters. ⚠️ Measured on the GP-1326D: **it reads a set bit as paper**, the opposite of the usual TSPL convention. ⭐ The bridge now flips the bits just before printing; the phone's label keeps one meaning (a dark pixel is ink), and the printer's quirk stays on the machine that knows the printer.
+2. ⚠️ **The flip is a setting** (`"invert"` in the bridge's own config, default on for this printer), so a different printer later can print as-is.
+3. ⭐ The shared image and the PDF are unchanged — they were never inverted.
+
+**No database step and no function deploy. Restart the bridge once after this version.** 3,877 tests green.
 
 **21 Oct 2026 — engine v617, PRINT THE LABEL OVER WI-FI, FROM ANDROID OR IPHONE (ONE DATABASE STEP).**
 

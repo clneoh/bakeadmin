@@ -74,3 +74,14 @@ test("★★ the phone sends the job to the queue and reports only a real landin
   globalThis.fetch = async () => ({ ok: false });
   assert.equal(await sendPrintJob(state, job), false, "a refused insert was reported as sent");
 });
+
+test("★★★ the bridge flips the bits for this printer, and only when asked (v618)", () => {
+  // ⚠️ Measured on her GP-1326D: the first print had a dark background and white letters — the printer reads
+  // a set bit as PAPER. ⭐ The phone's job keeps one meaning (1 = ink); the flip belongs to the bridge.
+  const data = Buffer.from([0x0f, 0xf0]).toString("base64");
+  const job = { widthMm: 100, heightMm: 150, widthBytes: 2, height: 1, data };
+  const flipped = tsplForBitmap(job, { invert: true });
+  assert.ok(flipped.includes(Buffer.from([0xf0, 0x0f])), "★ the bits print inverted again");
+  const asIs = tsplForBitmap(job);
+  assert.ok(asIs.includes(Buffer.from([0x0f, 0xf0])), "a printer that reads 1 as ink was flipped without being asked");
+});
