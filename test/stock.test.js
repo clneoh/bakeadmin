@@ -548,18 +548,27 @@ test("★★★ recording production NEVER makes the day a bake day (v514)", () 
   const st = baseState([flour(1000)], [bread()]);
   st.settings = { defaultCapacity: 12 };
   st.orders = [];
-  st.deliveryDates = [{ id: "del", date: "2026-10-19", notes: "" }];
+  // ⚠️ RELATIVE TO TODAY, not a typed date — a fixture dated in the past stops testing anything the day it
+  // passes, because `nextDeliveryDates` correctly stops publishing it.
+  const plusDays = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const opened = plusDays(1);
+  const bakedOnly = plusDays(2);
+  st.deliveryDates = [{ id: "del", date: opened, notes: "" }];
 
   const before = JSON.stringify(st.deliveryDates);
-  setBakedTotal(st, st.products[0], "2026-10-20", 3, 0);   // a day with no row at all
+  setBakedTotal(st, st.products[0], bakedOnly, 3, 0);   // a day with no row at all
 
   assert.equal(JSON.stringify(st.deliveryDates), before,
     "★ recording production added or changed a delivery date — **the shop would offer a day she never "
     + "opened for orders**");
   const published = computeSlots(st, 20).map((r) => r.date);
-  assert.equal(published.includes("2026-10-20"), false,
+  assert.equal(published.includes(bakedOnly), false,
     "★ the day she recorded production on is being PUBLISHED to the storefront");
-  assert.equal(published.includes("2026-10-19"), true,
+  assert.equal(published.includes(opened), true,
     "…and the bake day she really opened is not being published, so this test is watching the wrong end");
 });
 

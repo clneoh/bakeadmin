@@ -1,8 +1,28 @@
-# Jienluv2bake — change history (v54 → v609)
+# Jienluv2bake — change history (v54 → v611)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v611, SHARE THE LABEL TO THE PRINTER'S OWN APP (NO DATABASE STEP).**
+
+**Your printer is Wi-Fi and its own app prints it; Android's print services cannot see it** — Mopria could not detect it either. ⚠️ That is not a fault in the app: **a web page never sees a printer.** ⭐ But it can hand a file to the app that does.
+
+1. ⭐ **THE LABEL SCREEN NOW HAS SHARE.** It builds the label as a **100 × 150 mm PDF** and hands it to the phone's share sheet; choose the printer's own app and print from there. The same rows the sheet draws go into the file, so the shared label and the printed one cannot say different things.
+2. ⚠️ **A LABEL TOO LONG FOR THE STICKER IS SCALED, NEVER CLIPPED** in the PDF either — the whole label is on one page, a little smaller.
+3. ⚠️ **If the phone has no share sheet**, the PDF is saved instead, with a message saying to open it in the printer's app.
+4. ⭐ Print stays for any printer the phone or computer can already see.
+
+**No database step and no function deploy.** 3,856 tests green.
+
+**21 Oct 2026 — engine v610, A LONG LABEL STAYS ON ONE STICKER (NO DATABASE STEP).**
+
+**Your printer arrived**, and the one printing fault waiting for it was measured on real label stock.
+
+1. ⚠️⚠️ **A VERY LONG MAILING LABEL COULD RUN ONTO A SECOND LABEL.** Measured at the real 100 mm width: a normal long label is 492 px against the sticker's 567 px (150 mm), but a 25-line one is **979 px — nearly two labels.** ⭐ The label print now **measures the sheet at its true 100 mm width and scales it to fit** when it would spill. **Nothing is clipped and nothing is lost** — the whole label is on one sticker, a little smaller. A label that already fits is untouched.
+2. ⭐ The paper is unchanged: **100 × 150 mm**, declared only for the label print.
+
+**No database step and no function deploy.** 3,852 tests green.
 
 **20 Oct 2026 — engine v609, THE FREEDOM TO SELL OR BAKE, UNOFFICIALLY (NO DATABASE STEP).**
 

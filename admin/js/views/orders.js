@@ -45,6 +45,7 @@ import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOr
 // pin's lookup uses, so the Google key stays on the server and never touches this page.
 import { bakeryName, journalBodyEl, journalButtons } from "../journal.js";
 import { invoiceCurrency, invoiceNo, invoiceSheet } from "../invoice.js";
+import { labelCanPdf, labelPdf, labelPdfName } from "../label_pdf.js";
 import { orderPointName, setOrderPoint } from "../points.js";
 import { pointChoices } from "../pointAreas.js";
 // ★ THE PARCEL SEAM (v307). `parcels.js` is pure — it reads her own mailing block and the
@@ -4726,6 +4727,15 @@ function labelSheetEl(state, group, style) {
 // the label sheet (never the app or the popup chrome). Cleaned up on afterprint
 // (async browsers) and by a fallback timer, so a leftover class can never blank
 // a later PO print.
+// ⭐⭐ HOW MUCH A LABEL MUST SHRINK TO STAY ON ONE 100 × 150 mm LABEL (v610). ⭐ CSS has no auto-fit, so the
+// printed sheet is measured at its real width and scaled down by this factor when it would spill onto a
+// second label. ⚠️ It NEVER scales up: a short label keeps its size. 1 CSS inch = 96 px, so 150 mm = 566.93 px.
+export function labelScaleFor(heightPx, targetPx = 150 * 96 / 25.4) {
+  const h = Number(heightPx);
+  if (!Number.isFinite(h) || h <= 0 || h <= targetPx) return 1;
+  return targetPx / h;
+}
+
 function printActiveLabel() {
   // ⚠️ A PHONE THAT CANNOT PRINT SAYS SO (v592) — before the class is added, so no trace is left.
   if (!(typeof window !== "undefined" && typeof window.print === "function")) {
@@ -4742,16 +4752,84 @@ function printActiveLabel() {
   // uses the printer's own paper setting, exactly as it did before this version — no worse than before.
   const host = document.head || document.documentElement || document.body;
   if (host && typeof host.appendChild === "function") host.appendChild(page);
+  // ⚠️⚠️ A VERY LONG MAILING LABEL NO LONGER RUNS ONTO A SECOND LABEL (v610). ⚠️ The honest fix needed a real
+  // print; measured on 100 × 150 mm stock, a normal long label fits, but a 25-line one is 979 px against the
+  // sheet's 567 px. ⭐ So the sheet is measured at its real 100 mm width and scaled to fit — **nothing is
+  // clipped and nothing is lost; the whole label is on one sticker, a little smaller.**
+  const sheet = document.querySelector(".label-sheet");
+  let scaled = null;
+  if (sheet) {
+    const clone = sheet.cloneNode(true);
+    Object.assign(clone.style, { position: "fixed", left: "-10000px", top: "0",
+      width: "100mm", maxWidth: "100mm", transform: "none" });
+    document.body.appendChild(clone);
+    const scale = labelScaleFor(clone.scrollHeight);
+    clone.remove();
+    if (scale < 1) {
+      scaled = sheet;
+      sheet.style.transform = `scale(${scale})`;
+      sheet.style.transformOrigin = "top left";
+    }
+  }
   const done = () => {
     document.body.classList.remove("label-print");
     const st = document.getElementById("label-page-size");
     if (st) st.remove();
+    if (scaled) { scaled.style.transform = ""; scaled.style.transformOrigin = ""; }
     window.removeEventListener("afterprint", done);
     clearTimeout(timer);
   };
   const timer = setTimeout(done, 10000);
   window.addEventListener("afterprint", done);
   try { window.print(); } catch { done(); toast("This phone couldn't print — use Share instead."); }
+}
+
+// ⭐⭐ SHARE THE LABEL AS A FILE (v611). ⚠️ A Wi-Fi label printer that Android's print services cannot see
+// still has its own app — and a web page can hand that app a file. ⭐ The same rows the sheet draws go into a
+// 100 × 150 mm PDF, so the shared label and the printed one cannot differ.
+async function shareActiveLabel(state, group, style) {
+  const data = packingLabelData(state, group, style);
+  const rows = data.rows || [];
+  if (!labelCanPdf(rows)) {
+    toast("This label has characters the app's PDF cannot draw — press Print and save it as a PDF instead.");
+    return;
+  }
+  const code = group && group.orders && group.orders[0] ? orderCode(group.orders[0]) : "";
+  let file = null;
+  try {
+    if (typeof File === "function") {
+      file = new File([labelPdf(rows)], labelPdfName(`#${code}`), { type: "application/pdf" });
+    }
+  } catch { file = null; }
+  const nav = typeof navigator !== "undefined" ? navigator : null;
+  if (file && nav && typeof nav.share === "function") {
+    let can = true;
+    if (typeof nav.canShare === "function") {
+      try { can = nav.canShare({ files: [file] }) === true; } catch { can = false; }
+    }
+    if (can) {
+      try {
+        await nav.share({ files: [file], title: `Label #${code}` });
+        return;
+      } catch (err) {
+        if (err && err.name === "AbortError") return; // a cancel is a decision, not a failure
+      }
+    }
+  }
+  // No share sheet: save the file, so she still has the PDF to open in the printer's app.
+  try {
+    if (file && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+      const url = URL.createObjectURL(file);
+      const link = el("a", { href: url, download: labelPdfName(`#${code}`) });
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      toast("Saved as a PDF — open it in the printer's app");
+      return;
+    }
+  } catch { /* fall through to the message */ }
+  toast("This phone can't share a file — press Print instead.");
 }
 
 // "Print label": pick one of the preset styles, preview it live, then print.
@@ -4795,8 +4873,13 @@ function openLabelPrint(state, group) {
     return el("div", { class: "label-print-body" },
       pills,
       sheetWrap,
+      // ⚠️ AND HOW TO REACH A PRINTER CHROME CANNOT SEE (v611): share the file to its own app.
+      el("p", { class: "card-sub", style: "margin:10px 0 0" },
+        "If the printer has its own app, press Share and choose that app — the label goes as a "
+        + "100 × 150 mm PDF. Print is for a printer Android or the computer can already see."),
       el("div", { class: "popup-actions" },
         button("Cancel", close, "ghost"),
+        button("Share", () => { shareActiveLabel(state, group, style); }, "soft"),
         button("Print label", printActiveLabel, "primary")));
   }, { wide: true });
 }
