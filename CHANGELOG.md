@@ -1,8 +1,19 @@
-# Jienluv2bake — change history (v54 → v616)
+# Jienluv2bake — change history (v54 → v617)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v617, PRINT THE LABEL OVER WI-FI, FROM ANDROID OR IPHONE (ONE DATABASE STEP).**
+
+**Your words:** __"i want it to run on wifi"__ and __"need it work on android and ios too."__
+
+1. ⭐⭐ **A "Print over Wi-Fi" PRESS ON THE LABEL.** The label is drawn at the printer's own 203 dpi as a one-bit bitmap and dropped into a small queue in your Supabase; a bridge on your Mac picks it up and prints it on the GP-1326D over Wi-Fi. **No share sheet, no file, and the same press on Android and iPhone.**
+2. ⚠️ **WHY A BRIDGE IS NEEDED:** the GP-1326D speaks TSPL on a raw network port, and a web page cannot open a raw socket — Android's print services cannot see it either. The Mac is the piece that can reach it.
+3. ⚠️ **ONE DATABASE STEP:** run `supabase/print_jobs.sql` once. It creates the queue table, grants it to your signed-in account (required for new tables from 30 October 2026), and leaves the public anon key with nothing.
+4. ⭐ **Setup on the Mac is three steps** (Terminal, then answer six questions — the printer's IP, not a Mac printer): see `print-bridge/README.md`. It does **not** use macOS printer settings or a driver. The Windows driver keeps working as it does now.
+
+**⚠️ Run `supabase/print_jobs.sql` once, then start the bridge on the Mac.** 3,876 tests green.
 
 **21 Oct 2026 — engine v616, THE GHOSTS STOP (NO DATABASE STEP).**
 

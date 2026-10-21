@@ -7,17 +7,19 @@
 import { LABEL_H_MM, LABEL_W_MM, labelLines } from "./label_pdf.js";
 
 const DPI = 300;                 // a label printer's own resolution is 203–300 dpi; 300 prints crisply
-const PX_PER_MM = DPI / 25.4;
+// PX_PER_MM is derived from the DPI passed to `labelCanvas`, so the same layout can be drawn at a phone's
+// 300 dpi or the printer's 203 dpi.
 
 // Draw the label onto a canvas. Returns the canvas, or null when there is no canvas at all (the test shims,
 // or a browser that refuses one) — the caller then falls back to the PDF.
-export function labelCanvas(rows) {
+export function labelCanvas(rows, dpi = 300) {
   if (typeof document === "undefined" || typeof document.createElement !== "function") return null;
   let canvas;
   try { canvas = document.createElement("canvas"); } catch { return null; }
   if (!canvas || typeof canvas.getContext !== "function") return null;
-  canvas.width = Math.round(LABEL_W_MM * PX_PER_MM);
-  canvas.height = Math.round(LABEL_H_MM * PX_PER_MM);
+  const pxPerMm = dpi / 25.4;
+  canvas.width = Math.round(LABEL_W_MM * pxPerMm);
+  canvas.height = Math.round(LABEL_H_MM * pxPerMm);
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
@@ -29,13 +31,13 @@ export function labelCanvas(rows) {
 
   const maxWidthMm = LABEL_W_MM - 10; // the layout's own inner width; the rest is the margin
   for (const line of labelLines(rows)) {
-    const size = Math.max(6, line.sizeMm * PX_PER_MM);
+    const size = Math.max(4, line.sizeMm * pxPerMm);
     ctx.font = `${line.bold ? "bold " : ""}${size.toFixed(1)}px system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif`;
-    const x = line.xMm * PX_PER_MM;
-    const room = Math.max(1, maxWidthMm * PX_PER_MM - (x - 10 * PX_PER_MM));
+    const x = line.xMm * pxPerMm;
+    const room = Math.max(1, maxWidthMm * pxPerMm - (x - 10 * pxPerMm));
     // ⚠️ `maxWidth` compresses a line that the canvas font makes slightly wider than the PDF's Helvetica
     // measurement — so a long address can never run off the sticker's edge.
-    ctx.fillText(line.text, x, line.yMm * PX_PER_MM, room);
+    ctx.fillText(line.text, x, line.yMm * pxPerMm, room);
   }
   return canvas;
 }
@@ -70,6 +72,55 @@ function blobFromDataUrl(canvas) {
     for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
     return new Blob([bytes], { type: "image/png" });
   } catch { return null; }
+}
+
+// ⭐⭐ THE LABEL AS A 1-BIT BITMAP FOR THE PRINTER (v617). TSPL takes a monochrome bitmap; this is the same
+// drawing, at the printer's own 203 dpi, with every dark pixel turned into a 1. Pure, so it can be tested
+// without a canvas.
+export function packBitmap(rgba, width, height) {
+  const widthBytes = Math.ceil(width / 8);
+  const bytes = new Uint8Array(widthBytes * height);
+  const px = Array.isArray(rgba) || rgba instanceof Uint8ClampedArray || rgba instanceof Uint8Array
+    ? rgba : (rgba && rgba.data) || [];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = (y * width + x) * 4;
+      if (i + 2 >= px.length) continue;
+      const alpha = px.length > i + 3 ? px[i + 3] : 255;
+      // ⚠️ A transparent pixel is PAPER, not ink — the canvas is filled white, but a caller's frame may not be.
+      const lum = alpha < 128 ? 255 : 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+      if (lum < 128) bytes[y * widthBytes + (x >> 3)] |= 0x80 >> (x & 7); // 1 = black in TSPL
+    }
+  }
+  return { widthBytes, height, bytes };
+}
+
+export function bytesToBase64(bytes) {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  try { return btoa(bin); } catch { return ""; }
+}
+
+// The job the phone sends through the queue: everything the bridge needs to print one label.
+export function labelBitmap(rows, dpi = 203) {
+  const canvas = labelCanvas(rows, dpi);
+  if (!canvas || typeof canvas.getContext !== "function") return null;
+  const ctx = canvas.getContext("2d");
+  if (!ctx || typeof ctx.getImageData !== "function") return null;
+  const { width, height } = canvas;
+  let img;
+  try { img = ctx.getImageData(0, 0, width, height); } catch { return null; }
+  const { widthBytes, bytes } = packBitmap(img && img.data, width, height);
+  return {
+    widthMm: LABEL_W_MM,
+    heightMm: LABEL_H_MM,
+    widthBytes,
+    height,
+    data: bytesToBase64(bytes),
+  };
 }
 
 // The label as a File the phone can hand to another app, or null.

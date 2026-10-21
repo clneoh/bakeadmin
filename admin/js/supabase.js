@@ -1045,6 +1045,34 @@ export async function claimReceipt(state, order, { force = false } = {}) {
   return false;
 }
 
+// ⭐⭐ SEND A LABEL TO THE PRINT QUEUE (v617). ⚠️ A web page cannot open a raw socket to a Wi-Fi printer, and
+// an HTTPS page cannot call a plain-HTTP device on the LAN — ⭐ so the job travels through the shared cloud
+// and the Mac's bridge prints it. The same route works on Android and iOS, with nothing to configure on the
+// phone. Returns true only when the job really landed in the queue.
+export async function sendPrintJob(state, payload) {
+  if (!payload) return false;
+  const c = cfg(state);
+  if (!ready(c)) return false;
+  let token = cachedToken();
+  if (!token) {
+    try { token = await login(c.url, c.anonKey, c.email, c.password); }
+    catch { return false; }
+  }
+  try {
+    const res = await fetch(`${c.url}/rest/v1/print_jobs`, {
+      method: "POST",
+      headers: {
+        apikey: c.anonKey,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ payload }),
+    });
+    return !!(res && res.ok);
+  } catch { return false; }
+}
+
 // ── the register itself (v366) ───────────────────────────────────────────────
 //
 // The whole run of receipt numbers, read straight from the table the numbers live in. It

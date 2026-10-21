@@ -20,7 +20,7 @@ import { orderedProducts } from "../productCategories.js";
 import { strictestCancelDays } from "../../../store/pool.js";
 import { buildConfirmation } from "../confirm.js";
 import { buildPaymentReminder, buildPickupReminder, buildShippedMessage } from "../messages.js";
-import { claimReceipt, incomingCapReached, maybePublishTracking, maybeSync, publishTracking, refundReceipt, stuckOrders, unrefundReceipt } from "../supabase.js";
+import { claimReceipt, incomingCapReached, maybePublishTracking, maybeSync, publishTracking, refundReceipt, sendPrintJob, stuckOrders, unrefundReceipt } from "../supabase.js";
 import { receiptLineOfGroup, receiptNoOf, receiptNoOfGroup, receiptStatusOfGroup } from "../receipts.js";
 import { couponDeclined, couponOnAny } from "../referrals.js";
 import { writeCourierCharge, courierFeeOf, courierPayerOf, courierCodOf, customerCourierFee, isCourierOrder, codeMissed, codeNotApplied, couponAgainst, customerTotal, receiptNote, receiptRows, promoOn, promoValue, promoOnBasket, refundableCharge, paymentShift } from "../courier.js";
@@ -46,7 +46,7 @@ import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOr
 import { bakeryName, journalBodyEl, journalButtons } from "../journal.js";
 import { invoiceCurrency, invoiceNo, invoiceSheet } from "../invoice.js";
 import { labelCanPdf, labelPdf, labelPdfName } from "../label_pdf.js";
-import { labelImageFile } from "../label_image.js";
+import { labelBitmap, labelImageFile } from "../label_image.js";
 import { orderPointName, setOrderPoint } from "../points.js";
 import { pointChoices } from "../pointAreas.js";
 // ★ THE PARCEL SEAM (v307). `parcels.js` is pure — it reads her own mailing block and the
@@ -4844,6 +4844,18 @@ async function shareActiveLabel(state, group, style) {
   toast("This phone can't share a file — press Print instead.");
 }
 
+// ⭐⭐ PRINT ON WI-FI (v617) — the job goes through the shared cloud to the Mac's bridge, which prints it on
+// the Wi-Fi printer. ⚠️ **No share sheet, no file, and the same press on Android and iOS.**
+async function printOverWifi(state, group, style) {
+  const data = packingLabelData(state, group, style);
+  const job = labelBitmap(data.rows, 203);
+  if (!job) return toast("This phone could not prepare the label for the printer.");
+  const sent = await sendPrintJob(state, job);
+  toast(sent
+    ? "Sent to the Wi-Fi printer — it prints in a moment"
+    : "Could not send the label — is the bridge running and this phone signed in?");
+}
+
 // ⭐ SAVE A COPY (v615) — the route that always works: save the image (or the PDF), then open it in the
 // printer's own app. ⚠️ Some printer apps never accept a share; they still import a file.
 function downloadLabelFile(file) {
@@ -4925,7 +4937,8 @@ function openLabelPrint(state, group) {
         button("Cancel", close, "ghost"),
         button("Save a copy", () => { saveActiveLabel(state, group, style); }, "ghost"),
         button("Share", () => { shareActiveLabel(state, group, style); }, "soft"),
-        button("Print label", printActiveLabel, "primary")));
+        button("Print over Wi-Fi", () => { printOverWifi(state, group, style); }, "primary"),
+        button("Print label", printActiveLabel, "soft")));
   }, { wide: true });
 }
 
