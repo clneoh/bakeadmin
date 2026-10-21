@@ -34,6 +34,7 @@ async function askConfig() {
   const printerHost = (await rl.question("Printer IP (from its Wi-Fi app): ")).trim();
   const portRaw = (await rl.question("Printer port [9100]: ")).trim();
   const gapRaw = (await rl.question("Label gap in mm [2]: ")).trim();
+  const siteRaw = (await rl.question("Printer name for this site [main]: ")).trim();
   rl.close();
   const cfg = {
     url,
@@ -43,6 +44,7 @@ async function askConfig() {
     printerHost,
     printerPort: Number(portRaw) > 0 ? Number(portRaw) : 9100,
     gapMm: Number(gapRaw) >= 0 ? Number(gapRaw) : 2,
+    site: siteRaw || "main",
     // ⚠️ The GP-1326D prints a set bit as PAPER (measured: dark background, white letters), so its bits are
     // flipped at print time. A different printer can set this to false in the config file.
     invert: true,
@@ -127,7 +129,8 @@ async function tidyOldJobs(cfg, session) {
 
 async function pollOnce(cfg, session) {
   const res = await rest(cfg, session,
-    "print_jobs?status=eq.new&order=created_at.asc&select=id,attempts,payload&limit=5");
+    `print_jobs?status=eq.new&site=eq.${encodeURIComponent(cfg.site || "main")}`
+    + "&order=created_at.asc&select=id,attempts,payload&limit=5");
   if (res.status === 401) return { relogin: true };
   if (!res.ok) throw new Error(`the queue could not be read (${res.status})`);
   const jobs = await res.json().catch(() => []);

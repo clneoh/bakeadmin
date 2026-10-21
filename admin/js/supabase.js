@@ -11,6 +11,7 @@ import { publishOccasions } from "./occasion_catalog.js";
 import { flattenTree, primaryCategoryId, productsInCategory } from "./productCategories.js";
 import { isThumb, lineNoteOf } from "../../storefront-fields.js";
 import { costOf, effectiveCapacity, effectiveLimit, hiddenPackBase, isPoolablePack, poolRemaining, totalUnitsOnDate } from "./bom.js";
+import { printSite } from "./print_site.js";
 import { byId, codeFromId, fmtRM, newId, orderCode, orderLineName, round2, save, saveFailure, stampOrderLine, duplicateOrderCodes, waNumber, groupOrders, redactedPhones, discardImportedRows } from "./state.js";
 import { phoneDigits } from "./customers.js";
 import { customerTotal } from "./courier.js";
@@ -1049,7 +1050,7 @@ export async function claimReceipt(state, order, { force = false } = {}) {
 // an HTTPS page cannot call a plain-HTTP device on the LAN — ⭐ so the job travels through the shared cloud
 // and the Mac's bridge prints it. The same route works on Android and iOS, with nothing to configure on the
 // phone. Returns true only when the job really landed in the queue.
-export async function sendPrintJob(state, payload) {
+export async function sendPrintJob(state, payload, { site = printSite() } = {}) {
   if (!payload) return false;
   const c = cfg(state);
   if (!ready(c)) return false;
@@ -1067,7 +1068,7 @@ export async function sendPrintJob(state, payload) {
         "Content-Type": "application/json",
         Prefer: "return=minimal",
       },
-      body: JSON.stringify({ payload }),
+      body: JSON.stringify({ site, payload }),
     });
     return !!(res && res.ok);
   } catch { return false; }

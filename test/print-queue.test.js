@@ -1,6 +1,7 @@
 // test/print-queue.test.js — the Wi-Fi print queue: bitmap packing, TSPL framing, and the job insert.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { packBitmap, bytesToBase64, labelBitmap } from "../admin/js/label_image.js";
 import { tsplForBitmap } from "../print-bridge/tspl.mjs";
 
@@ -71,6 +72,7 @@ test("★★ the phone sends the job to the queue and reports only a real landin
   assert.equal(await sendPrintJob(state, job), true);
   assert.match(seen.url, /\/rest\/v1\/print_jobs$/, "★ the job did not go to the queue table");
   assert.deepEqual(seen.body.payload, job, "★ the job's payload changed on the way out");
+  assert.equal(seen.body.site, "main", "★ the job does not say which printer it is for");
   globalThis.fetch = async () => ({ ok: false });
   assert.equal(await sendPrintJob(state, job), false, "a refused insert was reported as sent");
 });
@@ -84,4 +86,26 @@ test("★★★ the bridge flips the bits for this printer, and only when asked 
   assert.ok(flipped.includes(Buffer.from([0xf0, 0x0f])), "★ the bits print inverted again");
   const asIs = tsplForBitmap(job);
   assert.ok(asIs.includes(Buffer.from([0x0f, 0xf0])), "a printer that reads 1 as ink was flipped without being asked");
+});
+
+test("★★★ each device names the printer it prints to, and the name stays on that device (v619)", async () => {
+  // ⚠️ Two sites, one book: without a name every bridge would print every label, twice.
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => store.delete(k),
+  };
+  const { printSite, setPrintSite } = await import("../admin/js/print_site.js");
+  assert.equal(printSite(), "main", "a fresh device does not default to main");
+  assert.equal(setPrintSite("  second  "), "second", "the name was not trimmed");
+  assert.equal(printSite(), "second");
+  assert.equal(setPrintSite(""), "main", "clearing the name did not return to main");
+  assert.equal(store.has("bakeadmin.printSite"), false, "a cleared name was left behind");
+});
+
+test("★★★ the bridge asks only for its own site (v619)", () => {
+  const src = readFileSync(new URL("../print-bridge/bridge.mjs", import.meta.url), "utf8");
+  assert.match(src, /site=eq\.\$\{encodeURIComponent\(cfg\.site/, "★ the bridge reads every site's jobs — two sites would double-print");
+  assert.match(src, /Printer name for this site/, "the site is not part of the bridge's setup");
 });

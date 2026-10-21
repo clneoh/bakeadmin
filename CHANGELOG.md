@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v618)
+# Jienluv2bake — change history (v54 → v619)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v619, TWO SITES, ONE BOOK (ONE DATABASE STEP).**
+
+**Your question:** __"how do i set it at other site"__.
+
+1. ⭐⭐ **EACH LABEL NOW NAMES THE PRINTER IT IS FOR.** The job carries a **site name**; each bridge asks only for its own. **Two sites cannot print each other's labels, and no label prints twice.**
+2. ⚠️ **The name is set on each device**: Settings → **Your address** → *Label printer name for this device* (default `main`). ⭐ It stays on that device — the orders are still one shared book. The bridge on that site asks for the same name when it is started.
+3. ⚠️ **ONE DATABASE STEP:** re-run `supabase/print_jobs.sql`; it adds the `site` column to the table that already exists and re-indexes. Existing jobs become `main`.
+
+**Run `supabase/print_jobs.sql` once, and restart each bridge.** 3,879 tests green.
 
 **21 Oct 2026 — engine v618, THE LABEL PRINTS THE RIGHT WAY ROUND (NO DATABASE STEP).**
 

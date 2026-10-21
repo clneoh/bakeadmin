@@ -25,6 +25,9 @@ Settings → Printers. It connects to the printer's IP directly.
    - **Printer IP** — the address the printer's Wi-Fi app showed you (for example `192.168.1.50`)
    - **Port** — press Enter for `9100`
    - **Label gap** — press Enter for `2` mm (use `0` for continuous stock)
+   - **Printer name for this site** — press Enter for `main`, or a name you choose. ⚠️ It must match the name
+     in the app's Settings on the devices at this site; **two bridges with the same name would both print
+     every label.**
 
    The answers are saved in `~/.bakeadmin-print.json`, readable only by you. They are never in this repo.
 
