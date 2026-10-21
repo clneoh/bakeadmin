@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v624)
+# Jienluv2bake — change history (v54 → v625)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v625, REMOVE THE ORDERS WITH NO BAKE DAY IN ONE PRESS (NO DATABASE STEP).**
+
+**Your words:** __"now remove them"__ — after opening each one and finding they are old test rows.
+
+1. ⭐⭐ **THE RED CHECK LINE NOW CARRIES "Remove the N orders with no bake day".** ⚠️ It asks first and **names every code** in the question; the removal then uses the same shelf as the row's ✕ — **the orders go to the Removed list for 30 days, so nothing is destroyed and a real sale among them can be put back.**
+2. ⚠️ **It removes only the orders that check names** — no bake day and no day of their own. A placed order is not touched, and an ordinary order keeps its row's ✕.
+3. ⭐ The per-order "Remove this order" on each card (v624) stays, for a sale you want to put on a bake day instead.
+
+**No database step and no function deploy.** 3,890 tests green.
 
 **21 Oct 2026 — engine v624, AN ORDER WITH NO BAKE DAY CAN BE REMOVED FROM ITS OWN CARD (NO DATABASE STEP).**
 
