@@ -34,6 +34,23 @@ Settings → Printers. It connects to the printer's IP directly.
 4. **Leave it running.** It prints `signed in to the shared queue` and then waits. Every label sent from the
    app prints within about three seconds.
 
+## Run it in the background (recommended)
+
+⚠️ **Closing the Terminal window stops the bridge** — it is the program. To keep it running with no window,
+start it at login and have it restart itself, install it as a background service once:
+
+```
+sh print-bridge/install-mac.sh
+```
+
+It uses the same saved config, so answer the setup questions once in Terminal first (step 3). After that:
+
+- it starts **at login** and keeps running after the Terminal is closed;
+- its log is `~/Library/Logs/bakeadmin-print.log` — `tail -f` that file to watch it;
+- to stop and remove it: `sh print-bridge/uninstall-mac.sh` (the config file is left in place).
+
+⚠️ The Mac must still be **awake** to print; sleep pauses it.
+
 ## Printing
 
 In the backoffice: an order at **Baked** or later → **Print label** → choose the style → **Print over Wi-Fi**.
@@ -56,7 +73,9 @@ The same press works on **Android and iPhone** — nothing different to set up o
 
 ## Stopping it
 
-Press **Ctrl-C** in its Terminal window. To start it again, repeat step 3 (the answers are remembered).
+- If it is running in a Terminal window: press **Ctrl-C**.
+- If it is installed in the background: `sh print-bridge/uninstall-mac.sh`.
+- To start it again, repeat step 3, or run `sh print-bridge/install-mac.sh`.
 
 Keep the Mac awake while you expect labels: System Settings → Lock Screen → "Prevent automatic sleeping when
 the display is off" (or simply leave a Terminal window active).

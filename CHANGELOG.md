@@ -1,8 +1,19 @@
-# Jienluv2bake — change history (v54 → v619)
+# Jienluv2bake — change history (v54 → v620)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v620, THE BRIDGE RUNS WITHOUT A TERMINAL WINDOW (NO DATABASE STEP).**
+
+**Your words:** __"when i close the terminal, it dont print."__ ⚠️ True: the bridge IS the program, so closing its window stops it.
+
+1. ⭐ **ONE COMMAND INSTALLS IT AS A BACKGROUND SERVICE:** `sh print-bridge/install-mac.sh`. It **starts at login**, keeps running with no window, and is **restarted if it stops**.
+2. ⭐ **Its log is `~/Library/Logs/bakeadmin-print.log`**, so "is it running?" has an answer without a Terminal.
+3. ⭐ **`sh print-bridge/uninstall-mac.sh`** stops and removes it; the printer config is left in place.
+4. ⚠️ **The Mac must still be awake** — sleep pauses it; labels wait in the queue and print when it wakes.
+
+**No database step and no function deploy.** The phone and the printer are unchanged.
 
 **21 Oct 2026 — engine v619, TWO SITES, ONE BOOK (ONE DATABASE STEP).**
 
