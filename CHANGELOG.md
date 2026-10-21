@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v611)
+# Jienluv2bake — change history (v54 → v612)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v612, SHARE THE LABEL AS AN IMAGE, SO THE PRINTER APP APPEARS (NO DATABASE STEP).**
+
+**Your words:** __"why the printer app is not appear in share table"__ — because Android only offers an app for a file type it accepts, and most label-printer apps take **images**, not PDFs.
+
+1. ⭐⭐ **SHARE NOW SENDS THE LABEL AS A PNG FIRST** (300 dpi, 100 × 150 mm), with the PDF as the fallback for an app that prefers it. The printer's own app should now appear in the share sheet.
+2. ⚠️ **ONE LAYOUT, TWO FILES.** The PNG and the PDF are drawn from the same millimetre layout, so they cannot say or place anything differently.
+3. ⚠️ **A LONG LABEL IS SCALED UNTIL IT FITS** — measured, the fit now iterates instead of estimating, so no line can be cut off at the bottom. (The first fit under-shot; the test now asserts the lowest line is inside the sticker.)
+
+**No database step and no function deploy.** 3,860 tests green.
 
 **21 Oct 2026 — engine v611, SHARE THE LABEL TO THE PRINTER'S OWN APP (NO DATABASE STEP).**
 

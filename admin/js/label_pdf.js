@@ -1,22 +1,26 @@
-// admin/js/label_pdf.js — a packing label as a PDF FILE, at the sticker's own size.
+// admin/js/label_pdf.js — the label's own layout, and the same label as a PDF file.
 //
 // ⭐ WHY A FILE AT ALL. Her label printer is Wi-Fi and speaks its own app's protocol; Android's print
 // services (Default Print Service / Mopria) cannot see it, so Chrome cannot print to it. ⚠️ **A web page
-// never sees a printer** — but it CAN hand a file to the app that does. ⭐ So the label is built as a
-// 100 × 150 mm PDF and shared; the printer's own app opens it and prints.
+// never sees a printer** — but it CAN hand a file to the app that does. ⭐ The label is built at the
+// sticker's own size and shared; the printer's own app opens it and prints.
 //
-// The content is `packingLabelData`'s own rows — the same rows the on-screen sheet draws — so the shared
-// label cannot say something different from the printed one.
+// ⚠️⚠️ AND THE LAYOUT IS SHARED WITH THE IMAGE (v612). Many printer apps register for **images**, not PDFs,
+// so Android never shows them for a PDF. ⭐ One layout, two files: `labelLines` is in millimetres, and the PDF
+// and the PNG both render the very same lines — so the two cannot disagree.
 
 import { canDrawAll, makePdf, textWidth, wrapText } from "./pdf.js";
 
-const MM = 72 / 25.4; // PDF points per millimetre
-export const LABEL_W = 100 * MM;   // 283.46 pt
-export const LABEL_H = 150 * MM;   // 425.20 pt
-const MARGIN = 10 * MM;            // 28.35 pt
-const INNER = LABEL_W - MARGIN * 2;
+export const LABEL_W_MM = 100;
+export const LABEL_H_MM = 150;
+export const LABEL_MARGIN_MM = 10;
 
-// Class → [size, font]. The classes are the ones `packingLabelData` returns.
+const MM_TO_PT = 72 / 25.4;
+export const LABEL_W = LABEL_W_MM * MM_TO_PT;   // 283.46 pt
+export const LABEL_H = LABEL_H_MM * MM_TO_PT;   // 425.20 pt
+const INNER_PT = (LABEL_W_MM - LABEL_MARGIN_MM * 2) * MM_TO_PT;
+
+// Class → [size in pt, font]. The classes are the ones `packingLabelData` returns.
 const STYLE = {
   brand: [11, "F2"], meta: [8, "F1"], date: [8, "F1"], code: [15, "F2"], customer: [11, "F2"],
   item: [9, "F1"], items: [9, "F1"], note: [8, "F1"], address: [8, "F1"],
@@ -27,54 +31,81 @@ const [BASE_SIZE, BASE_FONT] = [9, "F1"];
 const textOf = (row) => String((row && row[1]) || "");
 const classOf = (row) => String((row && row[0]) || "");
 
-// Lay the rows out once at a given scale. Returns the ops and the height they used, so the caller can
-// shrink and try again — the same scale-to-fit idea as the printed sheet (v610), in PDF points.
-function layout(rows, scale = 1, measure = false) {
-  const ops = [];
-  let y = LABEL_H - MARGIN;
-  const top = y;
+// Lay the rows out in MILLIMETRES, from the top. `measure` lays out without the bottom break so the full
+// height is known; the caller uses that to shrink a label too tall for the sticker.
+function layoutMm(rows, scale = 1, measure = false) {
+  const lines = [];
+  let y = LABEL_MARGIN_MM;
+  const room = LABEL_H_MM - LABEL_MARGIN_MM;
   for (const row of rows || []) {
     const cls = classOf(row);
     const text = textOf(row);
     if (!text.trim()) continue;
-    const [wantSize, font] = STYLE[cls] || [BASE_SIZE, BASE_FONT];
-    const size = Math.max(5, wantSize * scale);
-    const lead = size * 1.32;
-    const lines = wrapText(text, INNER, { font, size });
-    for (const line of lines) {
-      y -= lead;
-      if (!measure && y < MARGIN) break;
+    const [wantPt, font] = STYLE[cls] || [BASE_SIZE, BASE_FONT];
+    // ⚠️ THE FLOOR MUST NOT DEFEAT THE FIT: at 5 pt a very long label could never shrink enough and its
+    // last lines were cut. ⭐ A tiny label is better than a missing line.
+    const sizePt = Math.max(1, wantPt * scale);
+    const sizeMm = sizePt / MM_TO_PT;
+    const lead = sizeMm * 1.32;
+    const wrapped = wrapText(text, INNER_PT * scale, { font, size: sizePt });
+    for (const line of wrapped) {
+      y += lead;
+      if (!measure && y > room) break;
+      const widthMm = textWidth(line, { font, size: sizePt }) / MM_TO_PT;
+      const inner = LABEL_W_MM - LABEL_MARGIN_MM * 2;
       // Mailing blocks are left-aligned like an address; the bag labels are centred.
       const x = cls.startsWith("mail-")
-        ? MARGIN
-        : MARGIN + Math.max(0, (INNER - textWidth(line, { font, size })) / 2);
-      ops.push({ op: "text", x, y, size, font, text: line });
+        ? LABEL_MARGIN_MM
+        : LABEL_MARGIN_MM + Math.max(0, (inner - widthMm) / 2);
+      lines.push({ text: line, xMm: x, yMm: y, sizeMm, font, bold: font === "F2" });
     }
-    y -= 2 * scale; // a small gap between blocks
-    if (!measure && y < MARGIN) break;
+    y += 0.7 * scale; // a small gap between blocks
+    if (!measure && y > room) break;
   }
-  return { ops, used: top - y };
+  return { lines, used: y - LABEL_MARGIN_MM };
 }
 
-// The label as PDF bytes. ⚠️ It never clips: if the content is taller than the sticker, every size is
-// scaled down until it fits — the whole label is on one sticker, a little smaller.
-export function labelPdf(rows) {
+// The label's lines in millimetres: x from the left, y as a baseline from the top, size in mm.
+// ⚠️ A label taller than the sticker is scaled down until it fits — never clipped.
+export function labelLines(rows) {
+  // ⚠️⚠️ SCALE UNTIL THE MEASURED LAYOUT ACTUALLY FITS (v612). ⚠️ A single linear estimate under-shot — the
+  // wrap widths change with the size — so the last line could still be cut. ⭐ Every pass measures the FULL
+  // layout with no bottom break, and the scale drops until it fits inside 2 mm of margin. **Nothing is ever
+  // clipped; an absurdly long label simply gets smaller.**
+  const room = LABEL_H_MM - LABEL_MARGIN_MM * 2 - 2;
   let scale = 1;
-  // ⚠️ MEASURE WITHOUT THE BOTTOM BREAK, or `used` can never exceed the room and the fit never triggers.
-  const full = layout(rows, scale, true);
-  const room = LABEL_H - MARGIN * 2;
-  if (full.used > room) scale = Math.max(0.4, room / full.used);
-  const plan = layout(rows, scale);
-  return makePdf([{ w: LABEL_W, h: LABEL_H, ops: plan.ops }]);
+  let plan = layoutMm(rows, scale, true);
+  let guard = 0;
+  while (plan.used > room && guard < 40) {
+    scale = Math.max(0.2, scale * 0.9);
+    plan = layoutMm(rows, scale, true);
+    guard += 1;
+  }
+  return plan.lines;
+}
+
+// The label as PDF bytes, at exactly 100 × 150 mm.
+export function labelPdf(rows) {
+  const ops = labelLines(rows).map((l) => ({
+    op: "text",
+    // PDF's origin is bottom-left, so a top-down baseline is mirrored.
+    x: l.xMm * MM_TO_PT,
+    y: (LABEL_H_MM - l.yMm) * MM_TO_PT,
+    size: l.sizeMm * MM_TO_PT,
+    font: l.font,
+    text: l.text,
+  }));
+  return makePdf([{ w: LABEL_W, h: LABEL_H, ops }]);
 }
 
 // The file's name when it arrives in the printer app, so she can tell two labels apart.
-export function labelPdfName(code) {
+export function labelPdfName(code, ext = "pdf") {
   const safe = String(code || "label").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim();
-  return `Label ${safe || "label"}.pdf`;
+  return `Label ${safe || "label"}.${ext}`;
 }
 
-// Whether the app's PDF can draw every character in these rows (the app's PDF has one Latin face).
+// Whether the app's files can draw every character in these rows (the PDF has one Latin face; the image uses
+// the phone's own fonts, so this is the PDF's limit and the conservative answer for both).
 export function labelCanPdf(rows) {
   return canDrawAll((rows || []).map(textOf).join("\n"));
 }

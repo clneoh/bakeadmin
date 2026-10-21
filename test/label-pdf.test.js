@@ -1,7 +1,7 @@
 // test/label-pdf.test.js — the shared label is a real 100 × 150 mm PDF.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { labelCanPdf, labelPdf, labelPdfName } from "../admin/js/label_pdf.js";
+import { labelCanPdf, labelLines, labelPdf, labelPdfName } from "../admin/js/label_pdf.js";
 
 const asText = (bytes) => {
   let s = "";
@@ -46,4 +46,28 @@ test("★★ the file is named after the order, and CJK is refused rather than m
   assert.equal(labelCanPdf([["mail-line", "Aisyah"]]), true);
   assert.equal(labelCanPdf([["mail-line", "陈小美"]]), false,
     "★ a Chinese name would print as ????? in this PDF");
+});
+
+test("★★★ one layout serves both files: centred for a bag, left-aligned for a parcel (v612)", () => {
+  const lines = labelLines(MAIL);
+  assert.ok(lines.length > 5, "the layout produced no lines");
+  const to = lines.find((l) => l.text === "Aisyah Rahman");
+  assert.ok(to, "★ the customer line is missing");
+  assert.equal(Math.round(to.xMm), 10, "★ a mailing block is not left-aligned");
+  const bag = labelLines([["brand", "Jien Luv 2 Bake"], ["customer", "Lucy"]]);
+  const name = bag.find((l) => l.text === "Lucy");
+  assert.ok(name.xMm > 10, "★ a bag label is not centred");
+});
+
+test("★★★ a label too tall for the sticker is scaled in the shared layout too (v612)", () => {
+  const rows = [...MAIL];
+  for (let i = 0; i < 120; i++) rows.push(["mail-line", `Extra item ${i + 1}`]);
+  const lines = labelLines(rows);
+  assert.ok(lines.some((l) => l.text === "Extra item 120"),
+    "★ the last line is missing — the image or PDF would clip it");
+  const lowest = Math.max(...lines.map((l) => l.yMm));
+  assert.ok(lowest <= 150 - 10,
+    `★ a line sits ${lowest.toFixed(1)} mm down a 150 mm sticker — it would be cut off`);
+  const head = lines.find((l) => l.text === "FROM");
+  assert.ok(head.sizeMm < 2.8, "★ nothing shrank, so the label cannot fit one sticker");
 });

@@ -1,0 +1,60 @@
+// admin/js/label_image.js — the same label as a PNG, because most label-printer apps register for images.
+//
+// ⚠️⚠️ ANDROID'S SHARE SHEET ONLY OFFERS APPS THAT ACCEPT THE FILE'S TYPE. A printer app that handles
+// `image/*` and not `application/pdf` never appears when a PDF is shared — ⭐ so the image is offered first
+// and the PDF is the fallback. The lines come from `labelLines`, the SAME layout the PDF draws.
+
+import { LABEL_H_MM, LABEL_W_MM, labelLines } from "./label_pdf.js";
+
+const DPI = 300;                 // a label printer's own resolution is 203–300 dpi; 300 prints crisply
+const PX_PER_MM = DPI / 25.4;
+
+// Draw the label onto a canvas. Returns the canvas, or null when there is no canvas at all (the test shims,
+// or a browser that refuses one) — the caller then falls back to the PDF.
+export function labelCanvas(rows) {
+  if (typeof document === "undefined" || typeof document.createElement !== "function") return null;
+  let canvas;
+  try { canvas = document.createElement("canvas"); } catch { return null; }
+  if (!canvas || typeof canvas.getContext !== "function") return null;
+  canvas.width = Math.round(LABEL_W_MM * PX_PER_MM);
+  canvas.height = Math.round(LABEL_H_MM * PX_PER_MM);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#000000";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+
+  const maxWidthMm = LABEL_W_MM - 10; // the layout's own inner width; the rest is the margin
+  for (const line of labelLines(rows)) {
+    const size = Math.max(6, line.sizeMm * PX_PER_MM);
+    ctx.font = `${line.bold ? "bold " : ""}${size.toFixed(1)}px system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif`;
+    const x = line.xMm * PX_PER_MM;
+    const room = Math.max(1, maxWidthMm * PX_PER_MM - (x - 10 * PX_PER_MM));
+    // ⚠️ `maxWidth` compresses a line that the canvas font makes slightly wider than the PDF's Helvetica
+    // measurement — so a long address can never run off the sticker's edge.
+    ctx.fillText(line.text, x, line.yMm * PX_PER_MM, room);
+  }
+  return canvas;
+}
+
+// The label as a PNG Blob, or null where there is no canvas.
+export function labelImageBlob(rows) {
+  const canvas = labelCanvas(rows);
+  if (!canvas || typeof canvas.toBlob !== "function") return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      canvas.toBlob((blob) => resolve(blob || null), "image/png");
+    } catch { resolve(null); }
+  });
+}
+
+// The label as a File the phone can hand to another app, or null.
+export async function labelImageFile(rows, name = "Label.png") {
+  if (typeof File !== "function") return null;
+  const blob = await labelImageBlob(rows);
+  if (!blob) return null;
+  try { return new File([blob], name, { type: "image/png" }); } catch { return null; }
+}

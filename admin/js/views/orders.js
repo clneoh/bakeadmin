@@ -46,6 +46,7 @@ import { attachProfiles, customerNameMatches, customerRowName, syncContactFromOr
 import { bakeryName, journalBodyEl, journalButtons } from "../journal.js";
 import { invoiceCurrency, invoiceNo, invoiceSheet } from "../invoice.js";
 import { labelCanPdf, labelPdf, labelPdfName } from "../label_pdf.js";
+import { labelImageFile } from "../label_image.js";
 import { orderPointName, setOrderPoint } from "../points.js";
 import { pointChoices } from "../pointAreas.js";
 // ★ THE PARCEL SEAM (v307). `parcels.js` is pure — it reads her own mailing block and the
@@ -4791,41 +4792,53 @@ async function shareActiveLabel(state, group, style) {
   const data = packingLabelData(state, group, style);
   const rows = data.rows || [];
   if (!labelCanPdf(rows)) {
-    toast("This label has characters the app's PDF cannot draw — press Print and save it as a PDF instead.");
+    toast("This label has characters the app's files cannot draw — press Print and save it as a PDF instead.");
     return;
   }
   const code = group && group.orders && group.orders[0] ? orderCode(group.orders[0]) : "";
-  let file = null;
+  // ⚠️⚠️ THE IMAGE IS OFFERED FIRST (v612). ⚠️ Android only shows an app for a file type it accepts, and most
+  // label-printer apps register for `image/*`, not `application/pdf` — ⚠️ **which is why the printer's app
+  // never appeared in the share sheet.** ⭐ The PNG is the same layout the PDF draws; the PDF stays as the
+  // fallback for an app that prefers it.
+  const files = [];
+  try {
+    const png = await labelImageFile(rows, labelPdfName(`#${code}`, "png"));
+    if (png) files.push(png);
+  } catch { /* no canvas — the PDF below is the answer */ }
   try {
     if (typeof File === "function") {
-      file = new File([labelPdf(rows)], labelPdfName(`#${code}`), { type: "application/pdf" });
+      files.push(new File([labelPdf(rows)], labelPdfName(`#${code}`), { type: "application/pdf" }));
     }
-  } catch { file = null; }
+  } catch { /* no PDF either — the message below is the honest answer */ }
+
   const nav = typeof navigator !== "undefined" ? navigator : null;
-  if (file && nav && typeof nav.share === "function") {
-    let can = true;
-    if (typeof nav.canShare === "function") {
-      try { can = nav.canShare({ files: [file] }) === true; } catch { can = false; }
-    }
-    if (can) {
+  if (nav && typeof nav.share === "function") {
+    for (const file of files) {
+      let can = true;
+      if (typeof nav.canShare === "function") {
+        try { can = nav.canShare({ files: [file] }) === true; } catch { can = false; }
+      }
+      if (!can) continue;
       try {
         await nav.share({ files: [file], title: `Label #${code}` });
         return;
       } catch (err) {
         if (err && err.name === "AbortError") return; // a cancel is a decision, not a failure
+        // The phone refused this type after saying it could take it — try the next file.
       }
     }
   }
-  // No share sheet: save the file, so she still has the PDF to open in the printer's app.
+  // No share sheet, or it refused both: save a file so she still has something to open in the printer's app.
   try {
+    const file = files[0];
     if (file && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
       const url = URL.createObjectURL(file);
-      const link = el("a", { href: url, download: labelPdfName(`#${code}`) });
+      const link = el("a", { href: url, download: file.name });
       document.body.appendChild(link);
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 10000);
-      toast("Saved as a PDF — open it in the printer's app");
+      toast("Saved a label file — open it in the printer's app");
       return;
     }
   } catch { /* fall through to the message */ }
