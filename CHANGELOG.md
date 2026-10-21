@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v612)
+# Jienluv2bake — change history (v54 → v613)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v613, PUT THE MISSING RECEIPT NUMBERS BACK IN ONE PRESS (NO DATABASE STEP).**
+
+**Your screen after the data clear:** 14 orders whose receipt number is in the register but not on the order. Not caused by the clear — the phone was hiding it — and the repair is safe.
+
+1. ⭐⭐ **THE RED LINE NOW HAS A PRESS.** "Put the 14 numbers back" goes through exactly the orders the check names and asks the register for the number each one already has — **the same number, never a new one** — the same claim the Invoice card uses.
+2. ⚠️ **An order that already carries its number is not touched**, and a failure is named rather than counted as done; the check re-runs afterwards so the result is visible.
+3. ⚠️ **The six orders with no bake day are not part of this press.** Which day each belongs on is your decision; the check lists their numbers so you can find each one in the Orders search box.
+
+**No database step and no function deploy.** 3,862 tests green.
 
 **21 Oct 2026 — engine v612, SHARE THE LABEL AS AN IMAGE, SO THE PRINTER APP APPEARS (NO DATABASE STEP).**
 

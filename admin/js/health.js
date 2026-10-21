@@ -492,11 +492,22 @@ export function registerChecks(state, register, voided) {
           const want = String(Math.floor(Number(r && r.number))).padStart(6, "0");
           if (has !== want) wrong.push(`#${code} · receipt #${want}, order says ${has ? `#${has}` : "none"}`);
         }
-        return wrong.length
-          ? fail("carried", "Every receipt's number is on the order it names", wrong,
-            "A number was issued for these orders and the order is not carrying it, so your filing page can print \"none yet\" beside a receipt your register can name in full.",
-            "Open the order's own receipt — or open the order and press Save, then Paid again. Either way the app asks for the number again and gets back the SAME one, never a new one.")
-          : pass("carried", "Every receipt's number is on the order it names");
+        if (!wrong.length) return pass("carried", "Every receipt's number is on the order it names");
+        const f = fail("carried", "Every receipt's number is on the order it names", wrong,
+          "A number was issued for these orders and the order is not carrying it, so your filing page can print \"none yet\" beside a receipt your register can name in full.",
+          "Open the order's own receipt — or open the order and press Save, then Paid again. Either way the app asks for the number again and gets back the SAME one, never a new one.");
+        // ⭐ ONE PRESS RATHER THAN FOURTEEN (v613): the ids of the rows to repair, each the first row of its
+        // order. ⚠️ The press uses the SAME claim as the Invoice card, which returns the register's number —
+        // **it can never issue a new one.**
+        f.repair = "receiptStamps";
+        f.repairIds = [...new Set(register
+          .filter((r) => !voidedNos.has(Math.floor(Number(r && r.number))))
+          .filter((r) => !carriers.has(Math.floor(Number(r && r.number))))
+          .map((r) => groups.get(String((r && r.order_code) || "").trim().toUpperCase()))
+          .filter(Boolean)
+          .map((g) => g.orders[0] && g.orders[0].id)
+          .filter(Boolean))];
+        return f;
       })(),
       // ── 9b · every refund in the register is marked on its order (v604) ────
       (() => {
