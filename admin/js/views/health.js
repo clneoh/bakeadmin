@@ -120,11 +120,17 @@ export function renderHealth(root, state) {
       async () => {
         let ok = 0;
         let failed = 0;
+        let needsPaid = 0;
         for (const id of todo) {
           const row = (state.orders || []).find((o) => o && String(o.id) === id);
           if (!row) { failed += 1; continue; }
+          // ⚠️ A RECEIPT IS FOR MONEY RECEIVED: an order the app does not believe is paid cannot be
+          // claimed, and the press says so instead of counting it as a failure.
+          if (!row.paidReceived) { needsPaid += 1; continue; }
+          // ⚠️ FORCED: a number that disagrees with the register must still be asked about, or the press
+          // reports success and the red line never clears (v615).
           // eslint-disable-next-line no-await-in-loop
-          if (await claimReceipt(state, row)) ok += 1;
+          if (await claimReceipt(state, row, { force: true })) ok += 1;
           else failed += 1;
         }
         if (ok) {
@@ -132,6 +138,7 @@ export function renderHealth(root, state) {
           maybeSync(state);
         }
         toast(`${ok} number${ok === 1 ? "" : "s"} put back`
+          + (needsPaid ? ` · ${needsPaid} need their payment marked first — open each and press Paid` : "")
           + (failed ? ` · ${failed} could not be reached — run the check again` : ""));
         run(true);
       },

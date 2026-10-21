@@ -43,12 +43,33 @@ export function labelCanvas(rows) {
 // The label as a PNG Blob, or null where there is no canvas.
 export function labelImageBlob(rows) {
   const canvas = labelCanvas(rows);
-  if (!canvas || typeof canvas.toBlob !== "function") return Promise.resolve(null);
-  return new Promise((resolve) => {
-    try {
-      canvas.toBlob((blob) => resolve(blob || null), "image/png");
-    } catch { resolve(null); }
-  });
+  if (!canvas) return Promise.resolve(null);
+  // ⚠️⚠️ SOME BROWSERS HAVE NO `toBlob` (OR IT DOES NOTHING) — v615. ⚠️ Without this fallback the image
+  // silently disappeared and the share fell back to the PDF, ⚠️ **which is why the printer app still never
+  // appeared in her sheet.** ⭐ `toDataURL` is present everywhere; the bytes are the same PNG.
+  if (typeof canvas.toBlob === "function") {
+    const viaBlob = new Promise((resolve) => {
+      try { canvas.toBlob((blob) => resolve(blob || null), "image/png"); } catch { resolve(null); }
+    });
+    // A canvas that answers `null` is tried the other way below.
+    return viaBlob.then((blob) => blob || blobFromDataUrl(canvas));
+  }
+  return Promise.resolve(blobFromDataUrl(canvas));
+}
+
+function blobFromDataUrl(canvas) {
+  try {
+    if (typeof canvas.toDataURL !== "function" || typeof atob !== "function" || typeof Blob !== "function") {
+      return null;
+    }
+    const data = String(canvas.toDataURL("image/png") || "");
+    const comma = data.indexOf(",");
+    if (comma < 0) return null;
+    const bin = atob(data.slice(comma + 1));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: "image/png" });
+  } catch { return null; }
 }
 
 // The label as a File the phone can hand to another app, or null.

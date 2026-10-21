@@ -4812,19 +4812,18 @@ async function shareActiveLabel(state, group, style) {
   } catch { /* no PDF either — the message below is the honest answer */ }
 
   const nav = typeof navigator !== "undefined" ? navigator : null;
+  // ⚠️⚠️ ASK BY TRYING, NOT BY `canShare` (v615). ⚠️ A phone can answer "no" for a file type it would in
+  // fact share, and the old gate then skipped the image and offered the PDF — ⚠️ **which is why her share
+  // sheet still showed a PDF.** ⭐ The attempt itself is the test; a refusal falls through to the next file,
+  // and a cancel is a decision.
   if (nav && typeof nav.share === "function") {
     for (const file of files) {
-      let can = true;
-      if (typeof nav.canShare === "function") {
-        try { can = nav.canShare({ files: [file] }) === true; } catch { can = false; }
-      }
-      if (!can) continue;
       try {
         await nav.share({ files: [file], title: `Label #${code}` });
         return;
       } catch (err) {
-        if (err && err.name === "AbortError") return; // a cancel is a decision, not a failure
-        // The phone refused this type after saying it could take it — try the next file.
+        if (err && err.name === "AbortError") return;
+        // refused — try the next file
       }
     }
   }
@@ -4843,6 +4842,38 @@ async function shareActiveLabel(state, group, style) {
     }
   } catch { /* fall through to the message */ }
   toast("This phone can't share a file — press Print instead.");
+}
+
+// ⭐ SAVE A COPY (v615) — the route that always works: save the image (or the PDF), then open it in the
+// printer's own app. ⚠️ Some printer apps never accept a share; they still import a file.
+function downloadLabelFile(file) {
+  try {
+    if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") return false;
+    const url = URL.createObjectURL(file);
+    const link = el("a", { href: url, download: file.name });
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return true;
+  } catch { return false; }
+}
+
+async function saveActiveLabel(state, group, style) {
+  const data = packingLabelData(state, group, style);
+  const code = group && group.orders && group.orders[0] ? orderCode(group.orders[0]) : "";
+  let file = null;
+  try { file = await labelImageFile(data.rows, labelPdfName(`#${code}`, "png")); } catch { file = null; }
+  if (!file) {
+    try {
+      if (typeof File === "function") {
+        file = new File([labelPdf(data.rows)], labelPdfName(`#${code}`), { type: "application/pdf" });
+      }
+    } catch { file = null; }
+  }
+  if (!file) return toast("This phone could not make a label file — press Print instead.");
+  if (!downloadLabelFile(file)) return toast("This phone could not save the file — press Share instead.");
+  toast("Saved a label file — open it in the printer's app");
 }
 
 // "Print label": pick one of the preset styles, preview it live, then print.
@@ -4892,6 +4923,7 @@ function openLabelPrint(state, group) {
         + "100 × 150 mm PDF. Print is for a printer Android or the computer can already see."),
       el("div", { class: "popup-actions" },
         button("Cancel", close, "ghost"),
+        button("Save a copy", () => { saveActiveLabel(state, group, style); }, "ghost"),
         button("Share", () => { shareActiveLabel(state, group, style); }, "soft"),
         button("Print label", printActiveLabel, "primary")));
   }, { wide: true });

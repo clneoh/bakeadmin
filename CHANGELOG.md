@@ -1,8 +1,20 @@
-# Jienluv2bake — change history (v54 → v614)
+# Jienluv2bake — change history (v54 → v615)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v615, THE REPAIR THAT STALLED, AND THE SHARE THAT STILL SAID PDF (NO DATABASE STEP).**
+
+**Your words:** __"still put 8 numbers back after few press"__ and __"the share table still din show the label printer app, and the offering still pdf??"__
+
+1. ⚠️⚠️ **THE RECEIPT REPAIR COULD REPORT SUCCESS WITHOUT CHANGING ANYTHING.** The claim's ordinary shortcut answers "it already has a number" **without asking the register** — so the eight orders that carry a *different* number were counted as repaired and left untouched, and the red line never cleared. ⭐ The repair now **forces the question**: the register returns the number it already issued and that number is put back. It never draws a new one.
+2. ⚠️ **AN ORDER THE APP DOES NOT BELIEVE IS PAID IS NAMED, NOT COUNTED.** A receipt is for money received; those orders are reported as needing **Paid** pressed first.
+3. ⚠️ **AND IT TRIES THE CODE THE ORDER WORE BEFORE IT WAS GROUPED**, because the register keeps the number under that code.
+4. ⚠️⚠️ **THE SHARE STILL OFFERED A PDF** because the phone's `canShare` answer could veto the image, and a canvas without `toBlob` produced none. ⭐ It now **asks by trying**: the image is offered first and the attempt itself is the test; `toDataURL` is the fallback for making it.
+5. ⭐ **AND A "SAVE A COPY" BUTTON**, for a printer app that never joins the share sheet: save the image, then open it in the printer's own app.
+
+**No database step and no function deploy.** 3,867 tests green.
 
 **21 Oct 2026 — engine v614, FORCE UPDATE: THE UPDATE STRIP CAN NOW ACTUALLY UPDATE (NO DATABASE STEP).**
 

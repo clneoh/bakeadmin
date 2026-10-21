@@ -1067,6 +1067,7 @@ test("★★★ the missing receipt stamps come with a one-press repair, naming 
 test("★★★ the repair press claims the SAME number through the Invoice path (v613)", () => {
   const src = readFileSync(new URL("../admin/js/views/health.js", import.meta.url), "utf8");
   assert.match(src, /repairReceiptStamps\(r\.repairIds\)/, "★ the button does not start the repair");
-  assert.match(src, /await claimReceipt\(state, row\)/, "★ the repair does not use the Invoice card's claim");
+  assert.match(src, /await claimReceipt\(state, row, \{ force: true \}\)/,
+    "★ the repair does not force the register's number over a disagreeing one");
   assert.match(src, /the same number, never a new one/i, "★ the confirmation does not say it cannot issue a number");
 });

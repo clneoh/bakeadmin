@@ -21,3 +21,13 @@ test("★★★ Share offers the IMAGE before the PDF, because Android filters b
   assert.match(read("admin/js/label_image.js"), /"image\/png"/, "the image is not a PNG");
   assert.match(read("admin/js/label_image.js"), /300/, "the image is not at a print resolution");
 });
+
+test("★★★ the share attempts the image itself, not a canShare verdict (v615)", () => {
+  const orders = read("admin/js/views/orders.js");
+  // ⚠️ A phone can answer no for a type it would in fact share; the old gate then skipped the image and
+  // offered the PDF — which is why the printer app still never appeared.
+  // ⚠️ Match the CALL, not the comment that explains why the call is gone.
+  assert.equal(/nav\.canShare\s*\(/.test(orders), false, "★ the share is gated on canShare again");
+  assert.match(orders, /button\("Save a copy"/, "★ there is no file-saving route for an app that never joins the sheet");
+  assert.match(read("admin/js/label_image.js"), /toDataURL/, "★ a canvas with no toBlob yields no image at all");
+});
