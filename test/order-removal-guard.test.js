@@ -165,8 +165,11 @@ test("★ a removed order is KEPT, not destroyed — and put back exactly as it 
   const back = restoreRemovedOrder(st, "o1");
   assert.ok(back, "the row on the shelf could not be put back");
   assert.equal(st.removedOrders.length, 0, "the shelf kept a row it had already restored");
-  assert.deepEqual(st.orders.find((o) => o.id === "o1"), before,
-    "★ the order came back different from the one that left");
+  // ⚠️ v616 stamps the restore so a stale shelf row on another device cannot re-remove it. The stamp is the
+  // only new field; everything the order itself carried must be exactly as it left.
+  const { restoredAt, ...same } = st.orders.find((o) => o.id === "o1");
+  assert.ok(restoredAt, "★ the restore is not stamped — another device's shelf row can undo it at once");
+  assert.deepEqual(same, before, "★ the order came back different from the one that left");
   // ⚠️ AND NOTHING ELSE MOVED.
   assert.deepEqual(st.orders.map((o) => o.id).sort(), ["o1", "o2"]);
 });

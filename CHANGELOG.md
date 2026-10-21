@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v615)
+# Jienluv2bake — change history (v54 → v616)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v616, THE GHOSTS STOP (NO DATABASE STEP).**
+
+**Your words:** __"the old data keep comming back like ghost"__ — and that was a real fault, not a phone problem.
+
+1. ⚠️⚠️ **AN OLD COPY COULD ERASE A DELETION.** The app kept the live order and dropped its Removed row whenever both existed — **so a device still holding an old copy brought the order back, and that resurrection then travelled to the cloud.** ⭐ Now the two dates decide: a **removal newer than the copy wins**, the old copy is taken off the live list, and its deletion is sent up again. A deliberate **restore** is stamped with its own date and still wins the other way.
+2. ⚠️ **A copy with no date is never guessed at** — it falls back to the old rule, because removing a real order on a guess would be worse than one ghost.
+3. ⭐ **Clearing a phone's cache cannot cause this:** a cleared phone has nothing to send, so it mirrors the cloud. The ghosts came from a device holding an old copy, and that route is now closed.
+
+**No database step and no function deploy.** 3,870 tests green.
 
 **21 Oct 2026 — engine v615, THE REPAIR THAT STALLED, AND THE SHARE THAT STILL SAID PDF (NO DATABASE STEP).**
 
