@@ -109,3 +109,25 @@ test("★★★ the bridge asks only for its own site (v619)", () => {
   assert.match(src, /site=eq\.\$\{encodeURIComponent\(cfg\.site/, "★ the bridge reads every site's jobs — two sites would double-print");
   assert.match(src, /Printer name for this site/, "the site is not part of the bridge's setup");
 });
+
+// ── v621: a sleeping printer is a wait, not a failed label ─────────────────
+
+test("★★★ a printer that is not there yet is a WAIT, not a failure (v621)", async () => {
+  // ⚠️ MEASURED: the first attempt after idle failed with EHOSTUNREACH and the next poll printed it. ⚠️ The old
+  // bridge counted that among five attempts and could abandon a label while the printer slept.
+  const { isConnectivityError } = await import("../print-bridge/retry.mjs");
+  assert.equal(isConnectivityError(Object.assign(new Error("x"), { code: "EHOSTUNREACH" })), true);
+  assert.equal(isConnectivityError(Object.assign(new Error("x"), { code: "ECONNREFUSED" })), true);
+  assert.equal(isConnectivityError(new Error("the printer did not answer in 10 seconds")), true);
+  assert.equal(isConnectivityError(new Error("the job has no bitmap data")), false,
+    "★ a broken label was treated as a printer that might come back");
+  assert.equal(isConnectivityError(null), false);
+});
+
+test("★★★ the bridge does not spend an attempt on a wait, and retries inside the job (v621)", () => {
+  const src = readFileSync(new URL("../print-bridge/bridge.mjs", import.meta.url), "utf8");
+  assert.match(src, /if \(isConnectivityError\(err\)\) \{[\s\S]{0,220}continue;/,
+    "★ a sleeping printer still counts against the five attempts");
+  assert.match(src, /async function sendWithRetry/, "the bridge does not retry within the job");
+  assert.match(src, /waitingLogged\.delete/, "the waiting note is never cleared after a print");
+});

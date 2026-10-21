@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v620)
+# Jienluv2bake — change history (v54 → v621)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v621, A SLEEPING PRINTER IS A WAIT, NOT A LOST LABEL (NO DATABASE STEP).**
+
+**Your log:** __"job 5 failed (1/5): connect EHOSTUNREACH … printed job 5"__ — it printed, on the next try.
+
+1. ⚠️⚠️ **A NETWORK "NOT THERE YET" NO LONGER COUNTS AS A FAILURE.** The bridge abandoned a label after five failed attempts, so a printer asleep for longer than about fifteen seconds could lose one. ⭐ A connection-level wait now leaves the job waiting and prints it on the first pass that reaches the printer.
+2. ⭐ **It retries three times inside the same job** (about a second apart), so a printer waking up prints the first label without waiting for the next poll.
+3. ⭐ **The log says "waiting for the printer" once**, not every three seconds, and a real fault (a broken label) is still counted and marked failed.
+
+**Restart the background bridge once after this version.** No database step and no function deploy. 3,881 tests green.
 
 **21 Oct 2026 — engine v620, THE BRIDGE RUNS WITHOUT A TERMINAL WINDOW (NO DATABASE STEP).**
 

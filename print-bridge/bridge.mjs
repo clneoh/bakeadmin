@@ -16,10 +16,13 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import net from "node:net";
 import { tsplForBitmap } from "./tspl.mjs";
+import { isConnectivityError } from "./retry.mjs";
 
 const CONFIG_PATH = join(homedir(), ".bakeadmin-print.json");
 const POLL_MS = 3000;
 const MAX_ATTEMPTS = 5;
+// ⚠️ A JOB WAITING FOR A SLEEPING PRINTER IS LOGGED ONCE, not every three seconds.
+const waitingLogged = new Set();
 
 function say(msg) { process.stdout.write(`${msg}\n`); }
 
@@ -99,6 +102,24 @@ function sendToPrinter(cfg, bytes) {
   });
 }
 
+// ⚠️ A SLEEPING PRINTER WAKES ON A CONNECTION (v621): three quick tries inside one job, instead of making it
+// wait for the next three-second poll. ⚠️ Only a network-level "not there" is retried here; a real fault is
+// returned at once.
+async function sendWithRetry(cfg, bytes) {
+  let last = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await sendToPrinter(cfg, bytes);
+      return;
+    } catch (err) {
+      last = err;
+      if (!isConnectivityError(err)) throw err;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1200));
+    }
+  }
+  throw last;
+}
+
 async function rest(cfg, session, path, init = {}) {
   return fetch(`${cfg.url}/rest/v1/${path}`, {
     ...init,
@@ -139,10 +160,21 @@ async function pollOnce(cfg, session) {
       // ⚠️ A config written before this option existed has no `invert`; this printer needs it, so the
       // default here is true rather than undefined.
       const bytes = tsplForBitmap(job.payload, { gapMm: cfg.gapMm, invert: cfg.invert !== false });
-      await sendToPrinter(cfg, bytes);
+      await sendWithRetry(cfg, bytes);
       await patchJob(cfg, session, job.id, { status: "printed", printed_at: new Date().toISOString() });
+      waitingLogged.delete(String(job.id));
       say(`printed job ${job.id}`);
     } catch (err) {
+      // ⚠️⚠️ A PRINTER THAT IS NOT THERE YET IS A WAIT, NOT A FAILED LABEL (v621). ⚠️ Counting it as one of five
+      // attempts abandoned a label when the printer slept for more than about fifteen seconds. ⭐ It stays
+      // `new`, and prints on the first poll that reaches the printer.
+      if (isConnectivityError(err)) {
+        if (!waitingLogged.has(String(job.id))) {
+          waitingLogged.add(String(job.id));
+          say(`job ${job.id} is waiting for the printer: ${err.message}`);
+        }
+        continue;
+      }
       const attempts = Number(job.attempts || 0) + 1;
       const fields = attempts >= MAX_ATTEMPTS ? { status: "failed", attempts } : { attempts };
       try { await patchJob(cfg, session, job.id, fields); } catch { /* retried next poll */ }
