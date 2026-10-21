@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v623)
+# Jienluv2bake — change history (v54 → v624)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v624, AN ORDER WITH NO BAKE DAY CAN BE REMOVED FROM ITS OWN CARD (NO DATABASE STEP).**
+
+**Your words:** __"the link already there just it is not able to delete."__
+
+1. ⭐⭐ **AN ORDER WITH NO BAKE DAY NOW HAS "REMOVE THIS ORDER" INSIDE THE CARD THE LINK OPENS.** ⚠️ It had no row on any day, so the ✕ that normally removes an order could not be reached — **the card was the only door, and it had no remove.** ⭐ It asks first, exactly as the row's ✕ does, and the order goes to the **Removed list** for 30 days, not into nothing.
+2. ⚠️ The press is offered **only** on an order whose bake day is missing; an ordinary order keeps the row's ✕ and is not given a second remove in its card.
+3. ⭐ The finder result's own ✕ is unchanged — both doors now work.
+
+**No database step and no function deploy.** 3,888 tests green.
 
 **21 Oct 2026 — engine v623, A SMALL CUSTOMER RECEIPT ON THE WI-FI PRINTER (NO DATABASE STEP).**
 

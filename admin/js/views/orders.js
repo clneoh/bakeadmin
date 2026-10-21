@@ -3241,7 +3241,14 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     el("div", { class: "card-sub", style: "margin:0 0 10px" },
       "Hidden products are listed as \"(hidden)\" — you can still add or keep one."),
     button("Save changes", saveEdits, "block primary"),
-    el("div", { style: "margin-top:8px" }, button("Cancel", close, "ghost block")));
+    el("div", { style: "margin-top:8px" }, button("Cancel", close, "ghost block")),
+    // ⚠️⚠️ AN ORDER WITH NO BAKE DAY HAS NO ROW ON ANY DAY, so the ✕ that normally removes an order is
+    // unreachable — ⚠️ **her own report: "the link already there just it is not able to delete".** ⭐ The card
+    // the link opens is the only place she can remove it, and it asks first exactly as the row's ✕ does.
+    (first.deliveryDateId && byId(state.deliveryDates, first.deliveryDateId))
+      ? null
+      : el("div", { style: "margin-top:10px" },
+          button("Remove this order", () => { close(); removeOrder(state, group, root, dateId); }, "danger block")));
 }
 
 // Write the pop-up's parcel choice onto the order (v226). Kept in ONE place because

@@ -311,3 +311,14 @@ test("★ and the invariant holds on LOAD as well as on a merge", () => {
   assert.deepEqual(old.removedOrders.map((r) => r.id), ["o9"],
     "★ loading a state with a stale shelf row left it in place");
 });
+
+test("★★★ an order with no bake day can be removed from the card it opens (v624)", () => {
+  // ⚠️ Her words: __"the link already there just it is not able to delete"__. ⚠️ An orphan has no row on any
+  // day, so the day row's ✕ cannot be reached; the Edit card is the only door.
+  const src = readFileSync(new URL("../admin/js/views/orders.js", import.meta.url), "utf8");
+  const at = src.indexOf("Remove this order");
+  assert.ok(at > 0, "★ the orphan's card has no remove");
+  const around = src.slice(at - 700, at + 300);
+  assert.match(around, /first\.deliveryDateId && byId\(state\.deliveryDates/, "★ the remove is offered on every order, not only an orphan");
+  assert.match(around, /removeOrder\(state, group, root, dateId\)/, "★ the press does not use the shelf's own removal");
+});
