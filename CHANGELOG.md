@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v613)
+# Jienluv2bake — change history (v54 → v614)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**21 Oct 2026 — engine v614, FORCE UPDATE: THE UPDATE STRIP CAN NOW ACTUALLY UPDATE (NO DATABASE STEP).**
+
+**Your words:** __"even i close all tab in my phone, the app still say Still not update… this is also the reason i clear the browser cache."__ — and you were right to.
+
+1. ⚠️⚠️ **THE STRIP TOLD HER TO CLOSE THE APP, AND CLOSING IT CHANGED NOTHING.** An installed app or a restored tab keeps its session, so the phone still believed the reload had been tried — **while the old build kept being served from its cache.** ⭐ The "Still not updated" state now carries a **Force update** press: it unregisters the old worker, deletes the app's caches, and reloads from an address the cache has never seen. The worker and its offline copy come back on the next open.
+2. ⚠️ **The ordinary "Update now" is unchanged** — a normal reload when the phone is only one small step behind.
+3. ⚠️ **Getting this version onto the phone needs one fresh address**, because the old build has no Force button: open `https://jienluv2bake.com.my/admin/?fresh=1` once. After that, every future "Still not updated" has the press that works.
+
+**No database step and no function deploy.** 3,864 tests green.
 
 **21 Oct 2026 — engine v613, PUT THE MISSING RECEIPT NUMBERS BACK IN ONE PRESS (NO DATABASE STEP).**
 
