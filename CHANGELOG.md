@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v627)
+# Jienluv2bake — change history (v54 → v628)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Oct 2026 — engine v628, ONE DOCUMENT: THE INVOICE, PRINTED OVER WI-FI (NO DATABASE STEP).**
+
+**Your words:** __"i dont have to have 2 docs, i just need one docs, that is the invoice with all info in it."__
+
+1. ⭐⭐ **THE INVOICE CARD NOW CARRIES "Invoice over Wi-Fi".** It draws the invoice at 100 × 150 mm — bakery and address, **Invoice #**, the placed date, the customer, every item with its amount, any code or discount, **Total**, the receipt and order numbers, a COD or refund sentence, and the printed date — and sends it to the label printer. **That is the same page the Windows driver prints onto the sticker.**
+2. ⚠️ **THE SEPARATE SMALL RECEIPT IS WITHDRAWN.** Its button is removed; one sale, one document on the label printer.
+3. ⭐ The **A4 invoice and its PDF/Share are unchanged** — the same information, on a page that suits it.
+
+**No database step and no function deploy.** 3,891 tests green.
 
 **23 Oct 2026 — engine v627, THE SMALL RECEIPT SAYS THE SAME FACTS AS THE INVOICE (NO DATABASE STEP).**
 
@@ -54,6 +64,8 @@ always tell which build a phone is running.
 2. ⚠️ **IT IS NOT THE INVOICE SHRUNK.** An A4 invoice on a 104 mm thermal printer clips or smears; ⭐ the slip is its own piece of paper.
 3. ⚠️ **The money comes from `customerTotal`** — the same reader the confirmation, the invoice and the tracking card use — so the slip cannot disagree with the paper the customer already has. A split sale prints as **one** slip with every line.
 4. ⭐ **Invoices, statements, POs and journals stay PDF** for Share or an A4 printer. The label printer is for labels and this slip.
+
+**23 Oct 2026 — corrected in v628:** the separate small receipt is withdrawn at her word — **one document, the invoice**, printed over Wi-Fi from its own card.
 
 **No database step and no function deploy.** 3,887 tests green.
 
