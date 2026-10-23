@@ -1049,15 +1049,21 @@ export async function claimReceipt(state, order, { force = false } = {}) {
 // ⭐⭐ SEND A LABEL TO THE PRINT QUEUE (v617). ⚠️ A web page cannot open a raw socket to a Wi-Fi printer, and
 // an HTTPS page cannot call a plain-HTTP device on the LAN — ⭐ so the job travels through the shared cloud
 // and the Mac's bridge prints it. The same route works on Android and iOS, with nothing to configure on the
-// phone. Returns true only when the job really landed in the queue.
+// phone.
+//
+// ⚠️⚠️ AND IT SAYS **WHY** IT FAILED (v629), because the words on screen have to be true. **This phone can
+// never see the bridge or the printer** — a job that lands in the queue is printed whenever the bridge next
+// asks for one. So a failure HERE is always about this phone reaching the bakery's cloud, and the message
+// must never ask whether the bridge is running: the job never got as far as the bridge.
 export async function sendPrintJob(state, payload, { site = printSite() } = {}) {
-  if (!payload) return false;
+  if (!payload) return { ok: false, why: "no-job" };
   const c = cfg(state);
-  if (!ready(c)) return false;
+  // Shared data off, or no address/key yet — nothing can be sent from this phone at all.
+  if (!ready(c)) return { ok: false, why: "not-set-up" };
   let token = cachedToken();
   if (!token) {
     try { token = await login(c.url, c.anonKey, c.email, c.password); }
-    catch { return false; }
+    catch { return { ok: false, why: "sign-in" }; }
   }
   try {
     const res = await fetch(`${c.url}/rest/v1/print_jobs`, {
@@ -1070,8 +1076,8 @@ export async function sendPrintJob(state, payload, { site = printSite() } = {}) 
       },
       body: JSON.stringify({ site, payload }),
     });
-    return !!(res && res.ok);
-  } catch { return false; }
+    return res && res.ok ? { ok: true, why: "" } : { ok: false, why: "refused" };
+  } catch { return { ok: false, why: "no-answer" }; }
 }
 
 // ── the register itself (v366) ───────────────────────────────────────────────

@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v628)
+# Jienluv2bake — change history (v54 → v629)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Oct 2026 — engine v629, A PRINT THAT DOES NOT SEND SAYS WHAT ACTUALLY WENT WRONG (NO DATABASE STEP).**
+
+**Your words:** __"fix the wifi print message so it doesn't blame the bridge."__
+
+1. ⚠️⚠️ **THE OLD MESSAGE ASKED "IS THE BRIDGE RUNNING?" — AND THE JOB HAD NEVER REACHED THE BRIDGE.** The phone hands the job to the bakery's cloud first; only then does the Mac's bridge pick it up. So when the send failed, the fault was always between the phone and the cloud, and the question sent you to check a Mac that was never involved. **Measured during the Supabase incident of 23 Oct 2026: the printer and the bridge were both fine.**
+2. ⭐ **THE MESSAGE NOW NAMES THE ONE THING TO CHECK**, by where the send stopped:
+   - **Sharing is off on this phone, so nothing reached the queue — turn on Shared data in Settings, then send it again.**
+   - **This phone could not sign in to the bakery's cloud — check Shared data in Settings, then send it again.**
+   - **No answer from the bakery's cloud — the invoice did not send. Try again in a moment.**
+   - **The bakery's cloud would not take it just now — try again in a moment.**
+3. ⭐ **The same words for the packing label and for the invoice.** A print that does send still says **"sent — it prints in a moment"**, and nothing about that has changed.
+
+**No database step and no function deploy.** 3,892 tests green.
 
 **23 Oct 2026 — engine v628, ONE DOCUMENT: THE INVOICE, PRINTED OVER WI-FI (NO DATABASE STEP).**
 
