@@ -12,6 +12,8 @@ import { methodLabel } from "./accounts.js";
 import { orderDay } from "./profit.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { longDate } from "./dates.js";
+import { orderDateOf } from "./customers.js";
+import { refundDayOf } from "./money.js";
 import { fmtRM, orderCode, orderLineName, orderLinePrice, round2 } from "./state.js";
 
 // The whole sale, not the day's slice — the same family rule the invoice uses.
@@ -35,12 +37,19 @@ export function receiptSlipRows(state, group) {
   const bakery = String((state.settings && state.settings.storefront
     && state.settings.storefront.name) || "Jienluv2bake").trim();
   const day = orderDay(state, first);
-  const out = [
-    ["brand", bakery],
-    ["meta", "RECEIPT"],
-    ["code", `#${orderCode(first)}`],
-  ];
-  if (day) out.push(["date", longDate(day)]);
+  const placed = orderDateOf(first);
+  const out = [["brand", bakery]];
+  // ⭐ THE BAKERY'S OWN ADDRESS, the same one the invoice prints (v627) — a customer slip with a phone
+  // number and a name but no address reads as a receipt from nowhere.
+  const addressLines = String((state.settings && state.settings.mailingAddress) || "")
+    .split(/\n+/).map((x) => x.trim()).filter(Boolean).slice(0, 3);
+  for (const line of addressLines) out.push(["note", line]);
+  out.push(["meta", "RECEIPT"], ["code", `#${orderCode(first)}`]);
+  // ⚠️⚠️ TWO DIFFERENT TRUE DATES, EACH LABELLED (v627). ⚠️ The invoice prints the day the order was PLACED;
+  // this slip used to print the BAKE day with no label, so the two documents looked contradicting when both
+  // were right. ⭐ Name both and there is nothing to reconcile.
+  if (placed) out.push(["date", `Ordered ${longDate(placed)}`]);
+  if (day) out.push(["date", `Bake day ${longDate(day)}`]);
   const name = String(first.customerName || "").trim();
   if (name) out.push(["customer", name]);
 
@@ -48,7 +57,9 @@ export function receiptSlipRows(state, group) {
     const qty = Number(o.qty) || 0;
     const price = orderLinePrice(state, o);
     const amount = price == null ? "" : fmtRM(round2(price * qty));
-    out.push(["mail-line", `${orderLineName(state, o)} x${qty}${amount ? `   ${amount}` : ""}`]);
+    // ⚠️ THE SAME ORDER AS THE INVOICE (v627): quantity, then the name. Two documents for one sale should not
+    // read the same line in two shapes.
+    out.push(["mail-line", `${qty} × ${orderLineName(state, o)}${amount ? `   ${amount}` : ""}`]);
   }
   if (t.promo > 0) {
     out.push(["mail-line", `${String(t.promoCode || "Code").trim()} discount   -${fmtRM(t.promo)}`]);
@@ -62,6 +73,20 @@ export function receiptSlipRows(state, group) {
     : "Not yet paid"]);
   const no = receiptNoOfGroup(family);
   out.push(["mail-line", no ? `Receipt #${no}` : "No receipt number"]);
+  // ⚠️⚠️ A CASH-ON-DELIVERY FEE IS NOT IN THE TOTAL — SAY SO (v627). ⚠️ The invoice has this sentence; the
+  // small receipt did not, so a customer could hand over the driver's fee believing it was included.
+  if (Number(t.cod) > 0) {
+    out.push(["mail-line", `Courier ${fmtRM(t.cod)} paid to the driver (COD)`]);
+  }
+  // ⚠️ AND A REFUNDED SALE SAYS SO ON THE SMALL RECEIPT TOO (v627) — the invoice does; the slip a customer
+  // keeps should not read like an unrefunded one. The TOTAL above stays the sale's own total, as on the invoice.
+  const refunded = family.find((o) => o && o.refundedAt) || null;
+  if (refunded) {
+    const back = round2(Number(refunded.refundAmountRM) || 0);
+    const day = refundDayOf({ orders: [refunded] }, state);
+    const when = /^\d{4}-\d{2}-\d{2}$/.test(day) ? ` on ${longDate(day)}` : "";
+    out.push(["mail-line", back > 0 ? `Refunded ${fmtRM(back)}${when}` : `Refunded${when}`]);
+  }
   out.push(["mail-line", "Thank you"]);
   return out;
 }

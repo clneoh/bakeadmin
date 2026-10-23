@@ -1,8 +1,30 @@
-# Jienluv2bake — change history (v54 → v625)
+# Jienluv2bake — change history (v54 → v627)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**23 Oct 2026 — engine v627, THE SMALL RECEIPT SAYS THE SAME FACTS AS THE INVOICE (NO DATABASE STEP).**
+
+**Your words:** __"one call it receipt, the other call it invoice"__ and __"pls check for other inconsistency in printing."__ ⭐ **Same serial, two documents** — Invoice #000020 and Receipt #000020 are one number by design.
+
+1. ⚠️⚠️ **TWO DATES, EACH LABELLED.** The invoice prints the day the order was **placed**; the receipt printed the **bake day** with no label, so the two looked contradictory when both were right. The receipt now says **"Ordered 16 Oct 2026"** and **"Bake day 15 Oct 2026"**.
+2. ⭐ **YOUR ADDRESS** — the same mailing address the invoice prints — now sits under the bakery name on the receipt.
+3. ⚠️ **A CASH-ON-DELIVERY FEE IS NAMED** ("paid to the driver (COD)"), because it is not in the total; and **a refunded sale says "Refunded RM … on …"**, as the invoice does.
+4. ⭐ **Item lines read the same way round as the invoice** — quantity, then the name.
+5. ⚠️ **The packing label is left exactly as it was** when no van day is typed (its own deliberate rule, v429).
+
+**No database step and no function deploy.** 3,893 tests green.
+
+**23 Oct 2026 — engine v626, THE NOTE'S UNDERLINE TRAVELS TO THE PHONE'S LABEL (NO DATABASE STEP).**
+
+**Your words:** __"its format differ from when i use print from windows"__ — and the line was missing.
+
+1. ⚠️⚠️ **THE CUSTOMER'S UNDERLINED WORDS WERE LOST ON THE DRAWN LABEL.** The Windows sheet underlines the note beside an item with CSS; the phone's label is drawn by code, and that code printed the words **without the underline** — so a packer could not see which item the note belonged to. ⭐ The underline is now drawn on the **Wi-Fi label, the shared PNG and the label PDF**, under the same words and in the same size.
+2. ⭐ **Nothing else changes:** the same rows, the same money, the same size. The words were always there; the line under them was not.
+3. ⚠️ A run split across a line-wrap is underlined where it appears whole; the words themselves are never dropped.
+
+**No database step and no function deploy.** 3,892 tests green.
 
 **21 Oct 2026 — engine v625, REMOVE THE ORDERS WITH NO BAKE DAY IN ONE PRESS (NO DATABASE STEP).**
 
