@@ -4,6 +4,16 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**24 Oct 2026 — engine v632_2, THE SECOND GATEWAY'S FIRST SCREEN IS A PHOTO (NO DATABASE STEP).**
+
+**Your words, on seeing /store2/ for the first time:** __"is this suppose to be the output?"__ — it was, and it was only the first of the changes. This is the one that makes it look like the study.
+
+1. ⭐⭐ **ONE PHOTO, ONE LINE, ONE PRESS.** The top of `/store2/` is now one picture of your bread, the shop's name in the serif over it, the tagline, the language pills, and **one cream press — Pick a bake day** — that goes straight to step 1. ⚠️ **300px, not a full screen**: a customer still sees a day they can order without scrolling.
+2. ⚠️ **MEASURED OVER THE PHOTOGRAPH** (the veil behind the words): white text holds **9.3:1 at the top, 7.1:1 at the headline and 7.0:1 at the press** — all clear of the 4.5 the shop holds itself to, on the brightest part of the picture, not the easiest.
+3. ⭐ **Nothing behind it changed**: the same ids, the same language pills, the same "Our homepage" way back, the same step 1 — and the press lands on step 1 with the page scrolled to it. The photograph is an `<img>` with its real size, so the layout does not jump while it arrives.
+
+**No database step and no function deploy.** `/store/` is untouched. 3,900 tests green.
+
 **24 Oct 2026 — engine v631_2, A SECOND SHOP AT /store2/ — THE SAME BOOK, AND A FULL DAY THAT ANSWERS (NO DATABASE STEP).**
 
 **Your words:** __"can you do it at jienluv2bake/store2/ but accessing same database, let me have a working live experience, the jienluv2bake/store/ remain active"__ and __"call it version xxxx_2"__.

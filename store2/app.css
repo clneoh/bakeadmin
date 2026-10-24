@@ -109,6 +109,75 @@ html, body {
 }
 
 /* ---------- Hero banner ---------- */
+/* ★★ THE PHOTO HERO (v631_2) — one picture, one line, one press, adapted from the reference study.
+   ⚠️ Everything below it is the shop as it already was: the same ids, the same language pills, the same
+   "Our homepage" way back, so the wiring and the three languages are untouched.
+   ⚠️ The veil is load-bearing: white type over a photograph cannot be measured against a fixed colour, so the
+   gradient is what makes it hold at 4.5:1 over both a bright crumb and a dark tray. */
+.hero.hero-photo {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  background: #7a3a1e;
+  min-height: 300px;
+  display: flex;
+  align-items: flex-end;
+}
+.hero.hero-photo .hero-photo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 60%;
+}
+.hero.hero-photo .hero-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(38, 18, 8, .62) 0%, rgba(38, 18, 8, .18) 42%, rgba(38, 18, 8, .82) 100%);
+}
+/* ⚠️ ON A WIDE SCREEN THE HERO'S WORDS LINE UP WITH THE PAGE'S OWN COLUMN (540px), not the far-left edge —
+   a full-bleed photo with its text in the corner reads as two unrelated things. */
+.hero.hero-photo .hero-inner {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+  padding: calc(18px + env(safe-area-inset-top)) 20px 22px;
+}
+.hero.hero-photo .hero-title {
+  font-family: var(--serif);
+  font-size: 38px;
+  line-height: 1.05;
+  letter-spacing: -.01em;
+  margin: 6px 0 6px;
+  text-wrap: balance;
+}
+.hero.hero-photo .hero-sub { font-family: var(--serif); font-size: 15px; margin: 0 0 14px; }
+/* ⭐ THE ONE PRESS: a cream pill against the photograph, 48px tall for a thumb, and the same words as step 1
+   so the press and the thing it goes to are named alike. */
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(30, 14, 6, .28);
+}
+.hero-cta::after { content: "↓"; font-size: 15px; }
+.hero-cta:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
 .hero {
   color: #fff;
   padding: 26px 20px calc(20px + env(safe-area-inset-top));

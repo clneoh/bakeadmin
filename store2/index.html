@@ -42,7 +42,15 @@
     <button type="button" class="build-btn" id="build-reload" data-i18n="buildReload">Reload</button>
   </div>
 
-  <header class="hero">
+  <header class="hero hero-photo">
+    <!-- ★★ ONE PHOTO, ONE LINE, ONE PRESS (v631_2, the reference study). ⚠️ The photo is an <img>, never a CSS
+         background: a background is invisible to the preloader and to the browser's format choice, and this is
+         the largest thing on the first screen. `fetchpriority` keeps it from waiting behind the scripts, and
+         the veil is what makes white type readable over a photograph. -->
+    <img class="hero-photo-img" src="../img/focaccia%20800g.jpeg" alt="" width="960" height="1280"
+         fetchpriority="high" decoding="async">
+    <span class="hero-veil" aria-hidden="true"></span>
+    <div class="hero-inner">
     <div class="hero-top">
       <p id="eyebrow" class="hero-eyebrow"></p>
       <nav id="lang-switch" class="lang-switch" aria-label="Language" data-i18n-aria="langAria">
@@ -60,6 +68,10 @@
          item on the top row: that row's eyebrow already wraps to two lines on a
          phone and the language pills need the whole right half. -->
     <a id="home-link" class="hero-home" href="/" data-i18n="homeLink">🏠 Our homepage</a>
+    <!-- ⭐ THE ONE PRESS ON THE FIRST SCREEN. It goes to step 1 rather than opening a cart: the customer's next
+         question is "when can I have it", not "what is this site". -->
+    <a class="hero-cta" href="#step1" data-i18n="sPickDay">Pick a bake day</a>
+    </div>
   </header>
 
   <main class="view">
