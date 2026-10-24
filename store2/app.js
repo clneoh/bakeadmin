@@ -40,7 +40,7 @@ import { fullDayAnswer } from "./full_day.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "632";
+export const SHOP_BUILD = "633";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -2784,13 +2784,19 @@ function clearFieldMarks() {
           // `.card-head` is space-between, so the words and the stamp each keep
           // their end. `min-width: 0` on the words is what lets a long product
           // name wrap instead of shoving the stamp off the card.
+          // ★★ THE ITEM AS A ROW (v633_2): what it is on the left, what it costs and how many on the right.
+          // ⚠️ THE PRICE MOVED OUT OF THE UNIT LINE and gained its own weight — `RM16.00 / loaf` read as one
+          // quiet fact, and a price is the third thing a customer looks for. The unit stays beside the name,
+          // where it describes the bread rather than the money.
           el("div", { class: "card-head" },
             el("div", { class: "card-words" },
               el("p", { class: "card-title" }, nameFor(p, lang)),
-              el("p", { class: "card-sub" }, `RM${p.price.toFixed(2)} / ${unitFor(p, lang)}`),
+              el("p", { class: "card-sub" }, unitFor(p, lang)),
+              stamp,
               desc ? el("p", { class: "prod-desc" }, desc) : null),
-            stamp),
-          el("div", { class: "stepper" }, dec, qtyBox, inc),
+            el("div", { class: "card-side" },
+              el("p", { class: "card-price" }, `RM${p.price.toFixed(2)}`),
+              el("div", { class: "stepper" }, dec, qtyBox, inc))),
           lineNoteArea,
           note,
           nextNote,
@@ -3336,6 +3342,30 @@ function clearFieldMarks() {
   // sentence on the screen named step 2.** ⭐ One rule with two readers is the only way those two can never
   // disagree, and this file has already paid for splitting one fact across two places (v427: a duration in
   // CSS and a moment in JS).
+  // ★★ THE FOUR STEPS AS A BAR (v633_2). ⚠️ THE LABELS ARE READ FROM THE STEP HEADINGS THEMSELVES — never
+  // typed a second time here — so the bar cannot name a step differently from the step under it, and each of
+  // the three languages arrives with its own heading. ⚠️ The words are rewritten only when a heading's text has
+  // actually changed (a language switch), because rebuilding the bar on every stepper press would restart the
+  // page's layout for a line that has not moved.
+  function paintStepBar(done) {
+    const bar = document.getElementById("stepbar");
+    if (!bar || typeof bar.replaceChildren !== "function") return;
+    // ⚠️ THREE OF THE FOUR STEPS HAVE A HEADING; THE FOURTH IS THE PLACE ORDER PRESS ITSELF — her own layout
+    // ("number 4 should not be inside the button, it should sit beside"), so its words come from the button.
+    const heads = [1, 2, 3].map((n) => document.querySelector(`#step${n} h2`))
+      .concat([document.getElementById("order-btn")]);
+    if (heads.some((h) => !h)) return;
+    const words = heads.map((h) => String(h.textContent || "").trim());
+    const shown = [...bar.children].map((n) => n.textContent);
+    if (!shown.length || shown.join("\u0000") !== words.join("\u0000")) {
+      bar.replaceChildren(...words.map((w) => el("span", { class: "stepbar-item" }, w)));
+    }
+    const current = done.findIndex((d) => !d);
+    [...bar.children].forEach((n, i) => {
+      n.className = "stepbar-item" + (done[i] ? " done" : "") + (i === current ? " on" : "");
+    });
+  }
+
   function stepsDone() {
     const nameEl = document.getElementById("name-input");
     const waEl = document.getElementById("whatsapp-input");
@@ -3391,6 +3421,7 @@ function clearFieldMarks() {
       const head = document.getElementById(`step${i + 1}`);
       if (head && head.classList) head.classList.toggle("done", done[i]);
     }
+    paintStepBar(done);
     // ★★★ AND THE PREVIOUS ORDER'S RECEIPT GOES THE MOMENT A NEW ORDER BEGINS (v499).
     //
     // ⚠️⚠️ READ OFF THE SHOP'S OWN STATE, IN ONE PLACE, AND WITH NO LISTENER ON ANY CONTROL. ⭐ **Step 1 done

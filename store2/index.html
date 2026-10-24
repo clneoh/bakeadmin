@@ -75,6 +75,11 @@
   </header>
 
   <main class="view">
+    <!-- ★★ THE FOUR STEPS AS A BAR (v633_2). ⚠️ Its labels are READ FROM THE STEP HEADINGS by `paintStepBar`,
+         never typed again here — so the bar and the step under it cannot name the same thing differently, and
+         the three languages arrive with the headings. ⚠️ `aria-hidden`: the numbered headings below are the
+         real, readable content; this is the same four facts drawn as a line. -->
+    <nav id="stepbar" class="stepbar" aria-hidden="true"></nav>
     <!-- The code the shop is running today, at the top of the page and under the
          shop name (v269). A statement, never a control: it names the code so the
          customer can type it, and the bakery still takes the money off by hand in

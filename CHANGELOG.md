@@ -4,6 +4,17 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**24 Oct 2026 — engine v633_2, THE STEPS AS A BAR, THE ITEMS AS ROWS — AND A DAY NO LONGER CARRIES A COUNT (NO DATABASE STEP).**
+
+**Your words:** __"do the step bar and item rows next"__, and on the calendar: __"to show how many left in the calendar is not desireable, and confusing, not helpful unless you are only selling one item at a day."__
+
+1. ⭐⭐ **THE FOUR STEPS ARE A BAR.** Under the photo: **Pick a bake day · What would you like? · Your details · Place order**, with the step you are on in terracotta and the ones behind you in green. ⚠️ **Its words are read from the step headings themselves**, never typed a second time — so the bar cannot name a step differently from the step under it, in any of the three languages. The old sentence ("You'll do the 4 steps, ordering 1, 2, 3, 4…") is hidden on this gateway; `/store/` keeps it.
+2. ⭐⭐ **THE ITEM IS A ROW.** The name and the unit are on the left, the **price is its own bold figure on the right**, and the **stepper sits under the price it changes** rather than at the bottom of the card. The count ("only 2 left") is a green pill under the name. ⚠️ A sold-out or off-sale product keeps its own pill colours, and the sheet's other rules are untouched.
+3. ⚠️⚠️ **AND A BAKE DAY NO LONGER CARRIES A COUNT — your rule, and it is right.** The shop sells several things with their own daily limits, so **a number on the day answers a question nobody asked and contradicts the numbers beside the products**. A day now says only whether it can be ordered: a green ring, or FULL. **Only a product says how many are left.**
+4. ⚠️ **A sideways scroll was found and fixed while measuring.** Drawn in the flow, the FULL stamp widened its week column and the calendar ran 15px past a 320px screen. The stamp is now placed over the cell instead of inside its layout, and the item row gives up a little size below 360px — nothing is hidden, everything is just smaller.
+
+**No database step and no function deploy.** `/store/` is untouched. 3,904 tests green.
+
 **24 Oct 2026 — engine v632_2, THE SECOND GATEWAY'S FIRST SCREEN IS A PHOTO (NO DATABASE STEP).**
 
 **Your words, on seeing /store2/ for the first time:** __"is this suppose to be the output?"__ — it was, and it was only the first of the changes. This is the one that makes it look like the study.
