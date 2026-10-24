@@ -4,6 +4,17 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**24 Oct 2026 — engine v634, THE TRIAL IS NOW THE SHOP (NO DATABASE STEP).**
+
+**Your words:** __"store2 is good enough, deploy and replace store"__.
+
+1. ⭐⭐ **`/store/` IS NOW THE SHOP YOU TRIED.** The photo hero, the four-step bar, the item rows, the FULL day that answers with the next open day, and no count on a bake day — all of it is at the address your customers already have. **`/store2/` is gone** (the folder is deleted, and the address answers 404).
+2. ⚠️⚠️ **AND IT IS FINDABLE AGAIN.** The trial carried `noindex, nofollow` while it shared the shop's place in search with `/store/`; the moment it became the shop that had to change — **an unindexed shop is a shop a customer cannot search for.** The page is `index, follow` again.
+3. ⭐ **THE FOOTER SAYS `Engine v634`** — the `_2` name was the second gateway's, and there is one gateway again.
+4. ⚠️ **The shop's own tests followed the page rather than the reverse.** The stepper moved into the price column, so the tests that found it by position now WALK the card for it; the day-count test now pins "a full day is a press that answers"; and the two tests that read the old `RM16.00 / loaf` line and the old header class were updated to what the page now is. **Nothing was deleted to make them pass** — every changed assertion states the behaviour it now requires.
+
+**No database step and no function deploy.** 3,902 tests green.
+
 **24 Oct 2026 — engine v633_2, THE STEPS AS A BAR, THE ITEMS AS ROWS — AND A DAY NO LONGER CARRIES A COUNT (NO DATABASE STEP).**
 
 **Your words:** __"do the step bar and item rows next"__, and on the calendar: __"to show how many left in the calendar is not desireable, and confusing, not helpful unless you are only selling one item at a day."__

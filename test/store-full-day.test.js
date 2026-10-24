@@ -1,10 +1,10 @@
-// test/store2-full-day.test.js — the SECOND gateway: what a tapped full bake day answers.
+// test/store-full-day.test.js — the shop: what a tapped full bake day answers.
 //
 // ⚠️ THE FAULT THIS EXISTS FOR. A day with no pans left was a struck-through number and a DEAD TAP: not a
 // button, no words, and nothing telling a customer when they could have bread. Three states — open, full,
 // not a bake day — were drawn so alike that only the colour separated them.
 //
-// The answer is driven on `store2/full_day.js`, which is the rule the page actually calls (a source check
+// The answer is driven on `store/full_day.js`, which is the rule the page actually calls (a source check
 // below pins that). The wiring is checked by reading the page, because the page cannot be imported without
 // a browser.
 
@@ -12,7 +12,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { isoOf, nextOpenAfter, fullDayAnswer } from "../store2/full_day.js";
+import { isoOf, nextOpenAfter, fullDayAnswer } from "../store/full_day.js";
 import { STORE } from "../store-lang.js";
 import { LANGS } from "../i18n.js";
 
@@ -60,7 +60,7 @@ test("★★★ the answer says whether the day is STILL full (v631_2)", () => {
 });
 
 test("★★★ the shop draws the stamp, makes a full day a press, and uses this rule (v631_2)", () => {
-  const src = read("store2/app.js");
+  const src = read("store/app.js");
   assert.match(src, /"cal-stamp", "aria-hidden": "true" \}, t\("calFull"\)/,
     "★ a full day has no word on it — three states look alike again");
   assert.match(src, /if \(open \|\| named \|\| \(full && !past\)\)/,

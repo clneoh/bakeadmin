@@ -11,6 +11,9 @@
        crawls, so what it lists is whatever the shop says today.
        ⚠️ **TO HIDE THE SHOP INSTEAD**, change this one line to content="noindex, nofollow" — and allow a couple
        of weeks, because a page is not un-indexed instantly. -->
+  <!-- ★★ THE TRIAL IS THE SHOP NOW (v634). ⚠️ It was `noindex, nofollow` while it shared the shop's place in
+       search with /store/; the moment it BECAME the shop, it had to be findable again — ⭐ **an unindexed shop
+       is a shop a customer cannot search for.** -->
   <meta name="robots" content="index, follow">
   <title>Order · Jienluv2bake</title>
   <!-- The chalk hand used by the bakery's own sentence in the shelf strip (v274).
@@ -39,7 +42,15 @@
     <button type="button" class="build-btn" id="build-reload" data-i18n="buildReload">Reload</button>
   </div>
 
-  <header class="hero">
+  <header class="hero hero-photo">
+    <!-- ★★ ONE PHOTO, ONE LINE, ONE PRESS (v631_2, the reference study). ⚠️ The photo is an <img>, never a CSS
+         background: a background is invisible to the preloader and to the browser's format choice, and this is
+         the largest thing on the first screen. `fetchpriority` keeps it from waiting behind the scripts, and
+         the veil is what makes white type readable over a photograph. -->
+    <img class="hero-photo-img" src="../img/focaccia%20800g.jpeg" alt="" width="960" height="1280"
+         fetchpriority="high" decoding="async">
+    <span class="hero-veil" aria-hidden="true"></span>
+    <div class="hero-inner">
     <div class="hero-top">
       <p id="eyebrow" class="hero-eyebrow"></p>
       <nav id="lang-switch" class="lang-switch" aria-label="Language" data-i18n-aria="langAria">
@@ -57,9 +68,18 @@
          item on the top row: that row's eyebrow already wraps to two lines on a
          phone and the language pills need the whole right half. -->
     <a id="home-link" class="hero-home" href="/" data-i18n="homeLink">🏠 Our homepage</a>
+    <!-- ⭐ THE ONE PRESS ON THE FIRST SCREEN. It goes to step 1 rather than opening a cart: the customer's next
+         question is "when can I have it", not "what is this site". -->
+    <a class="hero-cta" href="#step1" data-i18n="sPickDay">Pick a bake day</a>
+    </div>
   </header>
 
   <main class="view">
+    <!-- ★★ THE FOUR STEPS AS A BAR (v633_2). ⚠️ Its labels are READ FROM THE STEP HEADINGS by `paintStepBar`,
+         never typed again here — so the bar and the step under it cannot name the same thing differently, and
+         the three languages arrive with the headings. ⚠️ `aria-hidden`: the numbered headings below are the
+         real, readable content; this is the same four facts drawn as a line. -->
+    <nav id="stepbar" class="stepbar" aria-hidden="true"></nav>
     <!-- The code the shop is running today, at the top of the page and under the
          shop name (v269). A statement, never a control: it names the code so the
          customer can type it, and the bakery still takes the money off by hand in

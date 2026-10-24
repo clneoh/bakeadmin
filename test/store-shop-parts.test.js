@@ -1,4 +1,4 @@
-// test/store2-shop-parts.test.js — the second gateway's step bar and item row, and the rule that a bake day
+// test/store-shop-parts.test.js — the shop's step bar and item row, and the rule that a bake day
 // never carries a COUNT.
 //
 // ⚠️ WHY THE COUNT RULE IS HERE. Her words: __"to show how many left in the calendar is not desireable, and
@@ -11,15 +11,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
-const APP = read("store2/app.js");
+const APP = read("store/app.js");
 // ⚠️⚠️ COMMENTS GO BEFORE ANY MATCH (the house rule). ⚠️ **BITTEN: commenting the call out left every test
 // green**, because the regex found `paintStepBar(done);` inside the comment that explained it.
 const live = (src) => String(src).split("\n")
   .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
   .map((l) => l.replace(/\/\*.*?\*\//g, ""))
   .join("\n");
-const HTML = read("store2/index.html");
-const CSS = read("store2/app.css");
+const HTML = read("store/index.html");
+const CSS = read("store/app.css");
 
 test("★★★ the step bar is built from the step headings, never typed a second time (v633_2)", () => {
   assert.match(HTML, /<nav id="stepbar" class="stepbar" aria-hidden="true"><\/nav>/,

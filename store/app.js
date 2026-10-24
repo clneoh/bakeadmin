@@ -19,6 +19,8 @@ import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
 // read her phone and know which build the shop is running — and the address fed back with
 // a customer's words names it too. One number, one file, no second copy to forget.
 import { ENGINE_VERSION } from "../admin/js/version.js";
+// ★★ the answer a tapped full day gives (v631_2)
+import { fullDayAnswer } from "./full_day.js";
 
 // ★★★ WHICH BUILD THIS FILE IS — A LITERAL, NOT AN IMPORT, AND THAT IS THE WHOLE OF v496.
 //
@@ -38,7 +40,7 @@ import { ENGINE_VERSION } from "../admin/js/version.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "633";
+export const SHOP_BUILD = "634";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1208,6 +1210,9 @@ function renderDevFoot(cfg) {
   // build is my shop running?" — so it has to be **the build the file she is reading actually is**, not the
   // number that happens to be in a little file beside it. ⭐ Measured: with the import it said **v495 on a
   // page running v494**, which is precisely the sentence the update notice exists to make impossible.
+  // ⚠️ `SHOP_BUILD` must stay a plain number — the build notice compares DIGITS against `admin/js/version.js`,
+  // and a suffix there would make the notice blind. ⭐ The `_2` that named the second gateway went with it
+  // (v634): there is one shop again.
   holder.appendChild(el("div", { class: "dev-engine" }, `Engine v${SHOP_BUILD}`));
 }
 
@@ -2779,13 +2784,19 @@ function clearFieldMarks() {
           // `.card-head` is space-between, so the words and the stamp each keep
           // their end. `min-width: 0` on the words is what lets a long product
           // name wrap instead of shoving the stamp off the card.
+          // ★★ THE ITEM AS A ROW (v633_2): what it is on the left, what it costs and how many on the right.
+          // ⚠️ THE PRICE MOVED OUT OF THE UNIT LINE and gained its own weight — `RM16.00 / loaf` read as one
+          // quiet fact, and a price is the third thing a customer looks for. The unit stays beside the name,
+          // where it describes the bread rather than the money.
           el("div", { class: "card-head" },
             el("div", { class: "card-words" },
               el("p", { class: "card-title" }, nameFor(p, lang)),
-              el("p", { class: "card-sub" }, `RM${p.price.toFixed(2)} / ${unitFor(p, lang)}`),
+              el("p", { class: "card-sub" }, unitFor(p, lang)),
+              stamp,
               desc ? el("p", { class: "prod-desc" }, desc) : null),
-            stamp),
-          el("div", { class: "stepper" }, dec, qtyBox, inc),
+            el("div", { class: "card-side" },
+              el("p", { class: "card-price" }, `RM${p.price.toFixed(2)}`),
+              el("div", { class: "stepper" }, dec, qtyBox, inc))),
           lineNoteArea,
           note,
           nextNote,
@@ -3021,6 +3032,13 @@ function clearFieldMarks() {
   let tipIso = null;
   let tipInstalled = false;
 
+  // ★★ THE FULL DAY THE CUSTOMER TAPPED (v631_2), a YYYY-MM-DD key or null. ⚠️ MEASURED: a day with no
+  // pans left was a struck-through number **and a dead tap** — the customer could not tell whether the shop
+  // was closed, broken, or simply full, and nothing told them the next day they could have bread. ⭐ It is
+  // remembered here rather than on the day's record so a live refresh (which rebuilds every cell) keeps the
+  // answer on screen until the customer taps elsewhere.
+  let fullIso = null;
+
   // The marks the bakery let the shop see. Nothing decides privacy here — the
   // published list is already only the standard days, never a mark she typed
   // herself — so this is a shape guard and nothing more.
@@ -3158,6 +3176,10 @@ function clearFieldMarks() {
       if (past) cls += " past";
       if (sol) cls += ` sol occ-${occColour(sol)} occ-${occStrength(sol)}`;
       const kids = [el("span", { class: "cal-num" }, String(Number(iso.slice(8, 10))))];
+      // ★★ A FULL DAY SAYS SO IN A WORD, BELOW THE NUMBER (v631_2). ⚠️ The strike-through alone left three
+      // states looking alike — open, full and not a bake day — and a word survives a customer who cannot tell
+      // the colours apart. ⚠️ It sits UNDER the number, never over it: the date is what the customer came to read.
+      if (full && !past) kids.push(el("span", { class: "cal-stamp", "aria-hidden": "true" }, t("calFull")));
       // The name waits in its own bubble and is never listed in advance. `hidden`
       // is set on the node itself, not through el(): the shop's el() skips only
       // null, so `hidden: false` would still set the attribute and hide it.
@@ -3168,18 +3190,25 @@ function clearFieldMarks() {
       }
       // A day she delivers with room left is tapped to choose it; a marked day is
       // tapped to read its name — and the one day can be both.
-      if (open || named) {
+      // ★★ AND A FULL DAY IS A PRESS TOO (v631_2). ⚠️ It was a `<span>` — a dead tap on a day a customer can
+      // clearly see something is wrong with. ⭐ It still chooses nothing (there is nothing to choose); it
+      // ANSWERS, and names the next day they can have bread.
+      if (open || named || (full && !past)) {
         // ⚠️⚠️ EVERY DAY WAS A BUTTON WHOSE ONLY NAME WAS ITS NUMBER (v583) — ⚠️ **"12", with no month, no
         // weekday and no word for whether it was chosen.** ⭐ The name is the date a person says, and the
         // chosen day says so in `aria-pressed`.
         const dayName = fmtDay(new Date(`${iso}T00:00:00`));
         return el("button", {
-          class: cls + (open ? " tappable" : "") + (named ? " tippable" : ""),
+          class: cls + (open ? " tappable" : "") + (named ? " tippable" : "") + (full && !past ? " tapfull" : ""),
           "aria-label": full ? `${dayName}, ${t("soldOut")}` : dayName,
           "aria-pressed": isSel ? "true" : "false",
           dataset: { iso },
           onclick: () => {
             if (named) tipIso = iso;
+            // ⚠️ ONE ANSWER AT A TIME: choosing an open day puts the full day's note away, and asking about a
+            // full day does not steal the chosen day from him.
+            if (full && !past) fullIso = iso;
+            else fullIso = null;
             if (open) { selected = iso; dayPicked = true; } // their own tap (v434)
             focusIso = iso;
             // Rebuild the grid + menu together so the chosen day and the quantities
@@ -3227,8 +3256,9 @@ function clearFieldMarks() {
           dayPicked
             ? sub(t("calChosen"), fmtDay(new Date(`${selected}T00:00:00`)))
             : sub(t("calChosenFor"), fmtDay(new Date(`${selected}T00:00:00`)))),
-        // Any day in this window with no room left, named rather than guessed at.
-        soldOutLine(specs, new Set(weeks.flat()))));
+        // ★★ A DAY THEY TAPPED THAT IS FULL ANSWERS THEM (v631_2); otherwise the line names every full day in
+        // the window. ⚠️ ONE AT A TIME: two sentences about the same day would read as two different facts.
+        fullIso ? fullNote(specs, weeks) : soldOutLine(specs, new Set(weeks.flat()))));
     // ⚠️⚠️ AND THE DAY THE CUSTOMER TAPPED TAKES THE KEYBOARD BACK (v593). ⚠️ `replaceChildren` removed the
     // cell that had focus — ⚠️ **it fell to the body and the next Tab started at the top of the shop.** ⭐ The
     // rebuilt cell for the same date is focused, without scrolling.
@@ -3241,6 +3271,39 @@ function clearFieldMarks() {
       }
     }
   };
+
+  // ★★ WHAT A TAPPED FULL DAY ANSWERS (v631_2). Her rule that a control which cannot act must say why, in the
+  // place it was tapped — and a customer's real question is not "why can't I?" but **"when can I?"**, so the
+  // next open day is named AND offered as a press. ⚠️ `next` is read from the SAME `specs` the grid is drawn
+  // from, so the day named here and the day that gets chosen cannot disagree.
+  function fullNote(specs, weeks) {
+    // ⭐ ONE RULE, ONE CALLER: `fullDayAnswer` says whether the day is still full and which day comes next.
+    const answer = fullDayAnswer(specs, fullIso);
+    // The day stopped being full (a cancellation, a refresh) — say what the window actually holds.
+    if (!answer.full) {
+      fullIso = null;
+      return soldOutLine(specs, new Set(weeks.flat()));
+    }
+    const day = fmtDay(new Date(`${fullIso}T00:00:00`));
+    // ⭐ THE SAME RULE THE PRESS USES — one search, so the day named and the day chosen cannot differ.
+    const next = answer.next;
+    return el("div", { class: "full-note", role: "status" },
+      el("p", { class: "full-note-say" }, sub(t("fullDaySay"), day)),
+      el("p", { class: "full-note-next" },
+        next ? sub(t("fullDayNext"), fmtDay(next.date)) : t("fullDayNone")),
+      next
+        ? el("button", {
+          type: "button",
+          class: "full-note-go",
+          onclick: () => {
+            selected = dateKey(next.date);
+            dayPicked = true;   // their own choice, made by pressing this
+            fullIso = null;
+            rerender();
+          },
+        }, sub(t("fullDayChoose"), shortDay(dateKey(next.date))))
+        : null);
+  }
 
   // "Sold out: 18 Sep, 25 Sep" — the days on screen that are already full. Empty
   // when the window has none, so the line takes no space.
@@ -3279,6 +3342,30 @@ function clearFieldMarks() {
   // sentence on the screen named step 2.** ⭐ One rule with two readers is the only way those two can never
   // disagree, and this file has already paid for splitting one fact across two places (v427: a duration in
   // CSS and a moment in JS).
+  // ★★ THE FOUR STEPS AS A BAR (v633_2). ⚠️ THE LABELS ARE READ FROM THE STEP HEADINGS THEMSELVES — never
+  // typed a second time here — so the bar cannot name a step differently from the step under it, and each of
+  // the three languages arrives with its own heading. ⚠️ The words are rewritten only when a heading's text has
+  // actually changed (a language switch), because rebuilding the bar on every stepper press would restart the
+  // page's layout for a line that has not moved.
+  function paintStepBar(done) {
+    const bar = document.getElementById("stepbar");
+    if (!bar || typeof bar.replaceChildren !== "function") return;
+    // ⚠️ THREE OF THE FOUR STEPS HAVE A HEADING; THE FOURTH IS THE PLACE ORDER PRESS ITSELF — her own layout
+    // ("number 4 should not be inside the button, it should sit beside"), so its words come from the button.
+    const heads = [1, 2, 3].map((n) => document.querySelector(`#step${n} h2`))
+      .concat([document.getElementById("order-btn")]);
+    if (heads.some((h) => !h)) return;
+    const words = heads.map((h) => String(h.textContent || "").trim());
+    const shown = [...bar.children].map((n) => n.textContent);
+    if (!shown.length || shown.join("\u0000") !== words.join("\u0000")) {
+      bar.replaceChildren(...words.map((w) => el("span", { class: "stepbar-item" }, w)));
+    }
+    const current = done.findIndex((d) => !d);
+    [...bar.children].forEach((n, i) => {
+      n.className = "stepbar-item" + (done[i] ? " done" : "") + (i === current ? " on" : "");
+    });
+  }
+
   function stepsDone() {
     const nameEl = document.getElementById("name-input");
     const waEl = document.getElementById("whatsapp-input");
@@ -3334,6 +3421,7 @@ function clearFieldMarks() {
       const head = document.getElementById(`step${i + 1}`);
       if (head && head.classList) head.classList.toggle("done", done[i]);
     }
+    paintStepBar(done);
     // ★★★ AND THE PREVIOUS ORDER'S RECEIPT GOES THE MOMENT A NEW ORDER BEGINS (v499).
     //
     // ⚠️⚠️ READ OFF THE SHOP'S OWN STATE, IN ONE PLACE, AND WITH NO LISTENER ON ANY CONTROL. ⭐ **Step 1 done
