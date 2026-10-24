@@ -1,8 +1,31 @@
-# Jienluv2bake — change history (v54 → v629)
+# Jienluv2bake — change history (v54 → v631)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**24 Oct 2026 — engine v631_2, A SECOND SHOP AT /store2/ — THE SAME BOOK, AND A FULL DAY THAT ANSWERS (NO DATABASE STEP).**
+
+**Your words:** __"can you do it at jienluv2bake/store2/ but accessing same database, let me have a working live experience, the jienluv2bake/store/ remain active"__ and __"call it version xxxx_2"__.
+
+1. ⭐⭐ **THE SECOND GATEWAY IS LIVE: `jienluv2bake.com.my/store2/`.** It is a copy of the shop reading **the same Supabase project**, so a day, a price, a slot and an order are the same facts on both. **`/store/` is untouched and stays the shop you send customers to.** ⭐ The second gateway calls itself **v631_2** in the footer, so a look at the bottom of the page tells you which one you are in — the number is shared, the `_2` is the gateway's name.
+2. ⚠️ **THE TRIAL IS DELIBERATELY NOT INDEXED** (`noindex, nofollow`). Two pages selling the same shop would compete with each other in search, and Google would pick one — so the trial cannot take the shop's place by accident. One line to flip the day this becomes the only shop.
+3. ⭐⭐ **A FULL BAKE DAY NOW ANSWERS.** It wore a strikethrough and was a dead tap. It now says **FULL** under the date, and tapping it says **"Wednesday, 28 Oct is full. The next day you can have bread is Monday, 2 Nov."** with a **Choose 2 Nov** press — the way onwards instead of a wall. Tapping an open day puts that note away, and a refresh that frees the day removes it rather than leaving a sentence that has gone stale.
+4. ⭐ **The new words are in all three languages** (FULL / 已满 / PENUH and the sentence and press around it).
+
+**No database step and no function deploy** — the second gateway reads and writes exactly what the first one does.
+
+**Measured:** 3,900 tests green. The new full-day rule is bitten three ways (the next day skipped, the stamp removed, and the money functions drifted between the two gateways — the last one is a new guard that compares `cartTotal`, `judge`, `judgeCtx`, `paintPromo`, `waUrl`, `pageContext`, `markField` and `sayStepFirst` between `/store/` and `/store2/`, so a copy cannot quietly price differently). Driven live: with a made-up full day in the harness, the stamp drew, the note named Monday 2 Nov, and the press chose it.
+
+**23 Oct 2026 — engine v630, "FORCE UPDATE" NOW REALLY FORCES IT (NO DATABASE STEP).**
+
+**Where this came from:** the munchies session measured it on this Mac on 23 Oct — *"the strip told me this phone had v625 and the site had v628. I pressed Force update and it came back with the same sentence."* ⭐ Their fix is taken here, and checking it in this app found a second fault underneath it.
+
+1. ⚠️⚠️ **THE PRESS WAS SWITCHING OFF THE ONE THING THAT FORCES A FRESH COPY.** The app runs a small worker that makes the browser re-check every script instead of trusting its own ten-minute copy. **Force update unregistered that worker first and then reloaded** — so the reload was answered by the browser's own ten-minute cache, the same old files ran again, and the strip honestly said so. It now **keeps the worker, asks it for a new copy of itself, clears the app's stored copy, and reloads through it**. A second press on a page that is still behind drops the worker completely and loads a brand-new address — the last resort, not the first move.
+2. ⚠️⚠️ **AND THIS APP OFTEN HAD NO WORKER AT ALL.** The registration waited for the page's `load` event, and the app asks the site for its version *first* — so on a load where `load` arrived during that wait, the registration never happened. **Measured on the running app: the whole screen drawn, and no worker registered.** Without it nothing re-checks the code, which is why a pushed fix could sit unseen and the press had nothing to ask. **The worker is now registered on every load, before the lock and before signing in.**
+3. ⭐ Two tests now pin both stages, and one pins that the registration cannot be skipped.
+
+**No database step and no function deploy.** 3,893 tests green.
 
 **23 Oct 2026 — engine v629, A PRINT THAT DOES NOT SEND SAYS WHAT ACTUALLY WENT WRONG (NO DATABASE STEP).**
 

@@ -305,6 +305,12 @@ const en = {
   // ⚠️ IT NAMES THE COLOUR AND THE SHAPE, because both are what he is looking at: "in a green circle".
   // The ring is drawn beside it (`.cal-key-dot`), so the words and the thing cannot drift apart.
   calKey: "Days in a green circle are bake days.",
+  // ★★ THE SHOP'S SECOND GATEWAY (v631_2) — a full day says so, and answers "when can I?".
+  calFull: "FULL",
+  fullDaySay: "%1 is full.",
+  fullDayNext: "The next day you can have bread is %1.",
+  fullDayChoose: "Choose %1",
+  fullDayNone: "There is no open day to show yet.",
 
   // Why a product reads "Sold out" on a date it can't be ordered for, and the
   // notes above the menu when a refresh changes the basket. The rule comes from
@@ -620,6 +626,11 @@ const zh = {
   // shop's own word for a bake day (it is what `calChosen` uses above), and 绿色圆圈 names both the colour
   // and the shape the customer is looking at.
   calKey: "绿色圆圈里的日期是烘焙日。",
+  calFull: "已满",
+  fullDaySay: "%1 已满。",
+  fullDayNext: "下一个可以拿到面包的日子是 %1。",
+  fullDayChoose: "选择 %1",
+  fullDayNone: "目前还没有开放的日子。",
 
   closedFrom: "只接受 %1 起的烘焙日订单",
   closedTo: "只接受 %1 或之前的烘焙日订单",
@@ -863,6 +874,11 @@ const ms = {
   // ⚠️ MY WORDS, NOT HERS — for her to correct. "Hari membakar" is this shop's own word for a bake day
   // (see `calChosen` above); "bulatan hijau" is the green circle he is looking at.
   calKey: "Tarikh dalam bulatan hijau ialah hari membakar.",
+  calFull: "PENUH",
+  fullDaySay: "%1 sudah penuh.",
+  fullDayNext: "Hari seterusnya anda boleh dapat roti ialah %1.",
+  fullDayChoose: "Pilih %1",
+  fullDayNone: "Belum ada hari terbuka untuk ditunjuk.",
 
   closedFrom: "Hanya tersedia untuk hari membakar dari %1",
   closedTo: "Hanya tersedia untuk hari membakar sehingga %1",
