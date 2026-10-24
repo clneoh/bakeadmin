@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#c4552f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <!-- ★★★ THE SHOP IS DELIBERATELY FINDABLE TOO (v538). ⚠️ Her words: __"i want to be ready for business in no
+       time"__ — so the shop states it rather than being left to chance. ⭐ And the honest note for whoever reads
+       this next: **indexed is not the same as ready.** Google captures this page as it stands the first time it
+       crawls, so what it lists is whatever the shop says today.
+       ⚠️ **TO HIDE THE SHOP INSTEAD**, change this one line to content="noindex, nofollow" — and allow a couple
+       of weeks, because a page is not un-indexed instantly. -->
+  <!-- ★★ THE TRIAL IS THE SHOP NOW (v634). ⚠️ It was `noindex, nofollow` while it shared the shop's place in
+       search with /store/; the moment it BECAME the shop, it had to be findable again — ⭐ **an unindexed shop
+       is a shop a customer cannot search for.** -->
+  <!-- ⚠️⚠️ A TRIAL GATEWAY (v636_2): noindex, so two copies cannot compete in search. One line to flip
+       when it becomes the only shop. -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>Order · Jienluv2bake</title>
+  <!-- The chalk hand used by the bakery's own sentence in the shelf strip (v274).
+       Fetched before the stylesheet so it is already in flight when app.css asks
+       for it, and `crossorigin` because a font is always a CORS request even from
+       our own origin — without it the browser fetches the file twice. -->
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+        href="fonts/ShantellSans-Regular-latin.woff2">
+  <link rel="stylesheet" href="app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥖</text></svg>">
+</head>
+<body>
+  <!-- ★★ THE PAGE CHECKS ITSELF (v492). GitHub Pages serves this shop with `cache-control:
+       max-age=600` and no build number in any URL, so a price change, a closed day or a new
+       field can be pushed and NOT arrive — a customer ordering off the old page is a real order
+       placed wrongly. The backoffice has had this strip since v255; the shop never did.
+       ⚠️ IT IS ABOVE EVERYTHING, including the header, because it is about the whole page.
+       ⚠️ AND IT SAYS NOTHING WHEN IT CANNOT TELL — offline, a stub, a file it cannot read: all
+       silent. A page that cried "out of date" on a bad connection would be worse than one that
+       never spoke, and the customer has done nothing wrong.
+       The three strings come from store-lang.js like every other word on this page, so it
+       arrives in whichever language they are reading. -->
+  <div class="build-notice" id="build-notice" hidden>
+    <p class="build-say" id="build-say" data-i18n="buildStale">A newer version of this page is ready.</p>
+    <p class="build-say" id="build-stuck" data-i18n="buildStuck" hidden>A newer version is ready. Close this page completely, then open it again.</p>
+    <button type="button" class="build-btn" id="build-reload" data-i18n="buildReload">Reload</button>
+  </div>
+
+  <header class="hero hero-photo">
+    <!-- ★★ ONE PHOTO, ONE LINE, ONE PRESS (v631_2, the reference study). ⚠️ The photo is an <img>, never a CSS
+         background: a background is invisible to the preloader and to the browser's format choice, and this is
+         the largest thing on the first screen. `fetchpriority` keeps it from waiting behind the scripts, and
+         the veil is what makes white type readable over a photograph. -->
+    <img class="hero-photo-img" src="../img/focaccia%20800g.jpeg" alt="" width="960" height="1280"
+         fetchpriority="high" decoding="async">
+    <span class="hero-veil" aria-hidden="true"></span>
+    <div class="hero-inner">
+    <div class="hero-top">
+      <p id="eyebrow" class="hero-eyebrow"></p>
+      <nav id="lang-switch" class="lang-switch" aria-label="Language" data-i18n-aria="langAria">
+        <button type="button" class="lang-pill" data-lang="en">EN</button>
+        <button type="button" class="lang-pill" data-lang="zh">中文</button>
+        <button type="button" class="lang-pill" data-lang="ms">BM</button>
+      </nav>
+    </div>
+    <h1 id="name" class="hero-title"></h1>
+    <p id="tagline" class="hero-sub"></p>
+    <!-- The way back to the brand page. The shop is reached directly from an
+         Instagram bio or a shared link as often as from the homepage, so a
+         visitor who lands here first has no other route to the reviews, the
+         gallery and the story. Its own line under the tagline, not a third
+         item on the top row: that row's eyebrow already wraps to two lines on a
+         phone and the language pills need the whole right half. -->
+    <a id="home-link" class="hero-home" href="/" data-i18n="homeLink">🏠 Our homepage</a>
+    <!-- ⭐ THE ONE PRESS ON THE FIRST SCREEN. It goes to step 1 rather than opening a cart: the customer's next
+         question is "when can I have it", not "what is this site". -->
+    <a class="hero-cta" href="#step1" data-i18n="sPickDay">Pick a bake day</a>
+    </div>
+  </header>
+
+  <main class="view">
+    <!-- ★★ THE FOUR STEPS AS A BAR (v633_2). ⚠️ Its labels are READ FROM THE STEP HEADINGS by `paintStepBar`,
+         never typed again here — so the bar and the step under it cannot name the same thing differently, and
+         the three languages arrive with the headings. ⚠️ `aria-hidden`: the numbered headings below are the
+         real, readable content; this is the same four facts drawn as a line. -->
+    <nav id="stepbar" class="stepbar" aria-hidden="true"></nav>
+    <!-- The code the shop is running today, at the top of the page and under the
+         shop name (v269). A statement, never a control: it names the code so the
+         customer can type it, and the bakery still takes the money off by hand in
+         WhatsApp. Filled by the shop from the codes the app published; empty and
+         hidden until there is a public code running.
+
+         Two lines: the shop's own sentence, which always names the code; and
+         under it the bakery's own words, in her language (v270). Hers is extra,
+         never instead — a strip that stopped naming the code would be telling a
+         customer about a discount they cannot ask for. -->
+    <div id="promo-today" class="promo-today" hidden>
+      <!-- Both empty on purpose: the slides and the dots are built by the script. The slides
+           are stacked in one grid cell so the strip is as tall as the TALLEST message and
+           cannot change height as they turn (v295); the dots sit UNDER that box, one per
+           offer, and add a fixed height of their own. A static line here would be a second
+           copy of an offer the script is about to draw. -->
+      <div id="promo-rotor" class="promo-rotor"></div>
+      <div id="promo-dots" class="promo-dots"></div>
+    </div>
+
+    <div id="referral-banner" class="referral-banner" hidden data-i18n="referral">🎁 You were referred — you have a welcome discount on your first order</div>
+
+    <!-- Where a code the customer was handed goes. Rendered always, so a card
+         still works when the shop is not advertising anything that day. -->
+    <div class="card promo-box">
+      <div class="field">
+        <label for="promo-input" data-i18n="promoLabel">Have a code?</label>
+        <div class="promo-row">
+          <input id="promo-input" class="input" type="text" autocapitalize="characters"
+                 autocomplete="off" autocorrect="off" spellcheck="false"
+                 data-i18n-ph="promoPh" placeholder="e.g. FRESH10">
+          <button id="promo-apply" class="promo-apply" type="button" data-i18n="promoApply">Use it</button>
+        </div>
+        <p id="promo-say" class="card-sub promo-say" role="status" hidden></p>
+        <button id="promo-clear" class="promo-clear" type="button" hidden data-i18n="promoRemove">Remove the code</button>
+      </div>
+    </div>
+
+    <!-- ★★ THE ANSWER, NOT THE RULE (v405). Her customer's order went wrong because the page stated
+         the RULES ("delivery days Mon/Wed/Fri", "order by 18:00 the day before") and left him to work
+         out what they meant for him. It now says the answer out loud, and the rules stay underneath
+         for anyone who wants them. Filled by app.js; hidden entirely unless the trial flag is on. -->
+    <div id="day-answer" class="answer">
+      <p class="answer-kicker" id="answer-kicker"></p>
+      <p class="answer-big" id="answer-big"></p>
+      <p class="answer-sub" id="answer-sub"></p>
+    </div>
+
+    <section class="card info">
+      <p class="info-row"><strong data-i18n="deliveryDays">Bake days</strong>: <span id="delivery-days" class="info-val"></span></p>
+      <p class="info-row"><strong data-i18n="orderBy">Order by</strong>: <span id="cutoff" class="info-val"></span></p>
+    </section>
+
+    <!-- ★★ THE THREE STEPS (v405). Her words: __"first you might mention that it is a 3 step ordering
+         process, name the 1st by 1 in a circle, big one"__. ⚠️ The lede promises it ENDS, which is the
+         part a nervous customer wants; the circles say which one they are on. -->
+    <!-- ★★ "GOOD TO KNOW" (v636_2) — the layer of reassurance the plan calls for, at the one moment a
+         customer starts to wonder how this works: after the day is offered, before the items.
+         ⚠️ It reuses the privacy sheet's own shape (a link, a panel, a press to open, a press away to close),
+         because a second way of showing a panel on this page is a second thing to keep working. -->
+    <p class="facts-line"><button id="facts-open" class="privacy-link" type="button" aria-expanded="false"
+        aria-controls="facts-sheet" data-i18n="factsLink">Good to know</button></p>
+    <div class="facts-sheet" id="facts-sheet" hidden>
+      <p class="privacy-sheet-head" data-i18n="factsHead">Before you order</p>
+      <ul class="privacy-sheet-list">
+        <li data-i18n="factBake">We bake on the days the calendar offers, and the bread is made the morning of its day.</li>
+        <li data-i18n="factCutoff">Orders close the evening before your bake day — the exact time is always in the card above the calendar.</li>
+        <li data-i18n="factGet">Collect it yourself from the point you choose, or have it delivered by Lalamove, which serves Penang Island only. Delivery costs what Lalamove charges for the trip.</li>
+        <li data-i18n="factPay">Your order is confirmed when the payment reaches us — we send the payment QR on WhatsApp.</li>
+        <li data-i18n="factChange">To move or cancel an order, message us on WhatsApp as early as you can and we will tell you honestly what can be done.</li>
+        <li><span data-i18n="factAsk">Ask us anything — WhatsApp</span> <a id="facts-wa" class="privacy-wa" href="" hidden></a></li>
+      </ul>
+    </div>
+    <p class="steps-lede" id="steps-lede"></p>
+
+    <div class="step-head" id="step1"><span class="step-num">1</span>
+      <h2 class="section" data-i18n="sPickDay">Pick a bake day</h2></div>
+    <p class="bake-day-what" data-i18n="bakeDayWhat">A bake day is the day we bake. Your bread is made that morning, so it is at its freshest that day — and the earliest it can be ready for you is the afternoon, not the morning.</p>
+    <div id="dates"></div>
+
+    <!-- ★★★ WHERE A STEP SAYS WHY IT IS NOT OPEN YET (v455). Her words: __"the message show in the wrong
+         place and the screen jump, it should shown up at the appropriate place, or the missing field turn
+         red embossed, or how a form filling would behave"__ ⚠️ **A form marks the thing that is missing,
+         where it sits** — not a pop-up at the top.
+         ⚠️⚠️ IT MOVES, AND SINCE v493 IT ALWAYS MOVES TO THE SAME KIND OF PLACE: **directly under the
+         heading of the step it is about** (v493 — her words: __"the screen should scroll to step1, and
+         below step one flashing the warning meaasge"__). ⭐ Where it sits in this file is only where it
+         rests before the first refusal; its `hidden` attribute is set from the start, so it is never read
+         from here. ⚠️ **The headings are static markup that no repaint replaces, so a line hung under one
+         can no longer be torn out of the page** — which is what let v493 retire the re-hanging machinery
+         v460 needed. -->
+    <p class="step-note" id="step-note" role="status" hidden></p>
+    <div class="step-head" id="step2"><span class="step-num">2</span>
+      <h2 class="section" data-i18n="sWhat">What would you like?</h2></div>
+    <div id="menu-note" class="menu-note" role="status" hidden></div>
+    <div id="menu" class="menu"></div>
+
+    <div class="step-head" id="step3"><span class="step-num">3</span>
+      <h2 class="section" data-i18n="sYourDetails">Your details</h2></div>
+    <div class="card">
+      <div class="field">
+        <label for="name-input" data-i18n="yourName">Your name</label>
+        <input id="name-input" class="input" type="text" data-i18n-ph="namePh" placeholder="e.g. Aunty Bee" autocomplete="name">
+      </div>
+      <div class="field">
+        <label for="whatsapp-input"><span data-i18n="whatsappNo">WhatsApp number</span> <em class="req">*</em></label>
+        <input id="whatsapp-input" class="input" type="tel" inputmode="tel" data-i18n-ph="whatsPh" placeholder="e.g. 012-345 6789" autocomplete="tel" required>
+        <p class="card-sub" style="margin:4px 0 0" data-i18n="waSub">We use this to confirm your order and send your payment QR — we'll never spam you.</p>
+      </div>
+      <!-- ★★ EACH WAY SAYS WHAT IT IS (v407). Her customer ordered a courier when he wanted to
+           collect, and nothing on the page told him the difference — two bare words, "Self
+           collect" and "Courier delivery", left him to guess what he was choosing and what it
+           would cost him. Her words: "imagine that you are totally new, and you want to order
+           from this baker, and you are not so good at online ordering".
+
+           ⚠️ SO THEY ARE ROWS, NOT A TWO-WORD TOGGLE: one full-width row per way, a bold name
+           over a plain line — the same shape as the collect-from list directly below, because it
+           is the same kind of question and this is a shop a nervous person has to read.
+           ⚠️ BOTH LINES ARE TRUE BEFORE ANYTHING IS TAPPED, which is the whole point: he can
+           compare without tapping, and cannot tap his way into a choice he did not understand.
+           ⚠️ THE COURIER LINE PROMISES NO AMOUNT, because the shop genuinely has none — she
+           quotes carriage by hand afterwards (`judgeCtx` says the same, in its own words). What
+           it can say honestly is that the total under this page is the bread's.
+           ⚠️ NEITHER ROW IS EVER DISABLED. This is a description, never a gate. -->
+      <div class="field">
+        <!-- ⚠️ A <label> WITH NO FOR= NAMES NOTHING (v588) — the same fault v583 fixed on the homepage. -->
+        <span class="field-label" id="fulfil-label" data-i18n="howGet">How will you get your order?</span>
+        <!-- ★★ AND THE LINE THAT SAYS IT IS A QUESTION TO ANSWER (v416). Her words: __"you need a
+             'click to choose' after the title, and self collect should not be default"__. ⚠️ With
+             NEITHER card wearing the edge, the two of them read as two descriptions rather than as
+             two things to pick — **so this stands under the question until he picks one.** -->
+        <p class="seg-prompt" id="fulfil-pick" data-i18n="fulfilPick">Tap to choose one.</p>
+        <div class="seg" id="fulfillment" role="group" aria-labelledby="fulfil-label">
+          <div class="seg-opt" data-opt="collect">
+            <button type="button" class="seg-btn" data-fulfillment="collect">
+              <span class="seg-head-row">
+                <span class="seg-name" data-i18n="selfCollect">Self collect</span>
+                <!-- ★★ AND THE CARD SAYS IT OPENS (v412). Her words: __"i want the self collect card at
+                     store to be folded as default"__. The caret is the whole of the hint that there is
+                     anything behind it, so it is drawn from the first paint and store/app.js turns it
+                     over when the card opens. -->
+                <span class="seg-caret" id="collect-caret">▸</span>
+              </span>
+              <span class="seg-sub" data-i18n="selfCollectSub">You come to us — no delivery charges. We message you the exact collection point and the time window for collection. It is normally late afternoon on the bake day.</span>
+            </button>
+            <!-- ★★ THE PLACES ARE PART OF THE CHOICE, NOT A BOX THAT APPEARS UNDER IT (v410). Her
+                 words: __"there is 2 main selection, select self collect and a drop down appear,
+                 should not be in present interface"__ — the list of places and the choice to collect
+                 were TWO steps, and a control that appears once you have chosen something reads as
+                 a second question rather than as part of the first.
+                 ⚠️ SO THE PLACES LIVE INSIDE THE SELF-COLLECT CARD, and the card wears the edge —
+                 one piece, one decision. Tapping a place CHOOSES SELF COLLECT as well as the place,
+                 which is what that tap means.
+                 ⚠️ AND IT IS BUILT BY THE SCRIPT, so it carries no data-i18n tags and the
+                 dictionary's English-must-match-the-markup rule in test/store-i18n.test.js is
+                 untouched. Empty until store/app.js fills it, so a shop with no places is byte for
+                 byte the shop it was. -->
+            <!-- ★★ AND THE LINE THAT SAYS THE LIST IS A THING TO PRESS (v415). Her words: __"the
+                 self collect have to have message follow, click to choose point, without click it
+                 should not highlight"__. ⚠️ It sits BESIDE the list rather than inside it, so the
+                 list stays nothing but places — the same care the address list takes with its own
+                 instruction row. ⚠️ Authored with its own `data-i18n`, so the three languages come
+                 from the dictionary and nothing here has to be written by the script. -->
+            <p class="point-pick" id="point-pick" data-i18n="pointPick" hidden>Tap to choose which Self collection Point you want to collect your orders from.</p>
+            <div class="point-list" id="point-list" hidden></div>
+          </div>
+          <div class="seg-opt" data-opt="courier">
+            <button type="button" class="seg-btn" data-fulfillment="courier">
+              <span class="seg-head-row">
+                <span class="seg-name" data-i18n="courier">Courier delivery</span>
+                <span class="seg-caret" id="courier-caret">▸</span>
+              </span>
+              <span class="seg-sub" data-i18n="courierSub">A rider brings it to your door. Any delivery charge is told to you on WhatsApp — the total shown is for the bread only.</span>
+            </button>
+            <div class="field addr-body" id="address-field" hidden>
+              <label for="address-input" data-i18n="addressLabel">Delivery address</label>
+              <input id="address-input" class="input" type="text" data-i18n-ph="addressPh" placeholder="Street, area, Penang…" autocomplete="street-address">
+              <!-- Where the addresses the lookup found appear (v202). Emptied and hidden by
+                   store/app.js; every word inside it is written by JS, so it carries no
+                   data-i18n tags and the dictionary's English-must-match-the-markup rule in
+                   test/store-i18n.test.js is untouched. -->
+              <div class="addr-list" id="addr-list" hidden></div>
+              <!-- ★★ THE PIN IS AN OFFER, NOT A STEP — AND ITS REASONING LIVES INSIDE THE MAP (v437).
+                   Her words: __"Pin a map can be confusion that is not mandatory to be faced by
+                   customer, especially when we have auto complete. Pin helps on certain scenarios
+                   that we understand, maybe we just fade that function"__.
+                   ⚠️⚠️ It used to be a whole paragraph and a full-width button at the same weight as
+                   the address field above, so it read as the next thing to do. ⭐ **Closed, it is now
+                   ONE quiet line with the press as a link inside it** — and the long explanation,
+                   which is the part that says skipping is fine, moved INTO the map where he is
+                   actually moving the pin and can read it properly.
+                   ⚠️ "USE MY LOCATION" WAS REMOVED (v414) for the same reason, and its note was
+                   here: **a customer can SEE the door he is choosing and move it, where a phone's
+                   own guess at where he is standing cannot be checked at all.** -->
+              <p class="card-sub pin-ask" id="pin-ask">
+                <span data-i18n="pinHintShort">Door hard to find?</span>
+                <button type="button" id="pin-map" class="pin-link" data-i18n="pinOnMap">Pin on the map</button>
+              </p>
+              <p class="card-sub pin-status" id="pin-status" hidden></p>
+              <div class="pin-box" id="pin-box" hidden>
+                <p class="card-sub pin-note" id="pin-loading" data-i18n="pinLoading">Loading the map…</p>
+                <p class="card-sub pin-note" id="pin-tap" data-i18n="pinTapFirst" hidden>Tap the map once to drop the pin — then drag it to the exact door.</p>
+                <div class="pin-hold" id="pin-hold"></div>
+                <!-- ⭐ THE REASONING, INSIDE THE MAP. It is read while the pin is being moved, which
+                     is the only moment it has anything to say. -->
+                <p class="card-sub pin-note pin-why" data-i18n="pinHint">Skip this and the driver goes to the address you typed — that is fine for most houses. Pin it only if the address alone will not find your door: a condo block, a guard house. Either way, put the block and unit number in the address above.</p>
+                <div class="pin-actions">
+                  <button type="button" id="pin-keep" class="track-btn" data-i18n="pinKeep">Keep this spot</button>
+                  <button type="button" id="pin-cancel" class="pin-btn" data-i18n="pinCancel">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- ⚠️ THE SEPARATE "Collect from" FIELD THAT USED TO SIT HERE IS GONE (v410). It was a
+           labelled box that appeared the moment Self collect was chosen — a second question under
+           the first, which is exactly what she said should not be in the interface. The places it
+           held now live inside the Self collect card itself, above. -->
+      <div class="field" style="margin-bottom:0">
+        <label for="note-input" data-i18n="noteLabel">Notes for Collection/Delivery (optional)</label>
+        <input id="note-input" class="input note-input" type="text" data-i18n-ph="notePh" placeholder="e.g. collect 6pm / prefer deliver 6 to 8pm" autocomplete="off">
+      </div>
+
+      <!-- HOW HER CUSTOMERS' DETAILS ARE USED now lives in the ORDER BAR, one quiet
+           line under Place order, and in the panel that line opens (v350). It was a
+           block here at the point of collection (v348); she asked for it moved, because
+           the block read as something LOUD sitting in the middle of the form. The line
+           and the panel are at the foot of this file, beside the button. Nothing about
+           the notice itself changed — same four facts, same Act, same date. -->
+    </div>
+
+    <section id="track-section">
+      <h2 class="section" data-i18n="sTrack">Track your order</h2>
+      <div class="card">
+        <p class="card-sub" style="margin:0 0 10px" data-i18n-html="trackHint">Placed an order? Enter the order number from your confirmation (it starts with <strong>#</strong>, e.g. #A3F9C2).</p>
+        <div class="track-row">
+          <!-- ⚠️⚠️ A PLACEHOLDER IS NOT A NAME (v583): with no label, a screen reader announced these two
+               boxes as "edit text" and nothing said which was which. ⭐ Each carries its own name. -->
+          <input id="track-input" class="input" type="text" data-i18n-ph="trackPh" placeholder="e.g. A3F9C2" autocomplete="off" autocapitalize="characters" data-i18n-aria="trackNoLabel" aria-label="Order number">
+        </div>
+        <!-- ★★★ AND THE PHONE THE ORDER WAS PLACED WITH (v558). ⚠️ A six-character code is about 16.7
+             million values and this lookup is open to anyone, so a stranger making requests could reach a
+             real order. ⭐ The phone is the second key, and it is not published anywhere public. -->
+        <div class="track-row track-row-phone">
+          <input id="track-phone" class="input" type="tel" inputmode="tel" data-i18n-ph="trackPhonePh" placeholder="phone you ordered with" autocomplete="tel" data-i18n-aria="trackPhoneLabel" aria-label="Phone you ordered with">
+          <button id="track-btn" class="track-btn" data-i18n="trackBtn">Track</button>
+        </div>
+        <div id="track-result" class="track-result" role="status" hidden></div>
+      </div>
+    </section>
+
+    <section id="policy-box" hidden>
+      <h2 class="section" data-i18n="sPolicies">Policies</h2>
+      <div class="card">
+        <p id="policy-text" class="policy-text"></p>
+      </div>
+    </section>
+
+    <div id="confirm-msg" class="confirm-msg" role="status" hidden></div>
+    <div id="social" class="social"></div>
+    <div id="dev-foot" class="dev-foot" hidden></div>
+    <div id="fb-foot" class="fb-foot" hidden></div>
+  </main>
+
+  <div class="bar-spacer" id="bar-spacer"></div>
+  <div class="order-bar">
+    <!-- ★★ THE CODE IS SAID AGAIN HERE, WHERE THE MONEY IS (v408). Her words: __"If there is promo
+         coupon attached, say it on top of Place Order"__. The line under the code box already says
+         the code will be taken off at the confirmation — and it is UP THE PAGE, out of sight by the
+         time a customer reaches the button. This is the moment they commit, and the moment the
+         figure they are looking at (the goods total on the bar, which is BEFORE the code) needs
+         explaining. Filled by store/app.js and hidden unless a code is actually on the order, so
+         an ordinary order's bar is byte-for-byte the bar it has always been.
+         ⚠️ IT IS A STATEMENT, NEVER A GATE: it never blocks the button and never changes a total. -->
+    <p class="promo-bar" id="promo-bar" hidden></p>
+    <div class="order-bar-row">
+      <div class="order-summary">
+        <span id="bar-count" class="bar-count">0 items</span>
+        <span id="bar-total" class="bar-total">RM0.00</span>
+      </div>
+      <!-- ★★ THE FOURTH STEP SITS BESIDE THE BUTTON, NOT INSIDE IT (v438). Her words: __"the
+           number 4 should not be inside the the Place order button, it should sit beside, same size
+           with other number to be consistant, make the place order button smaller to make roon for
+           the 4 ball"__.
+           ⚠️⚠️ v435 drew it INSIDE the button, with `#order-btn::before` — a 20px disc against the
+           other three's 30px ones, so **it was a fourth number that did not match the three he
+           had just followed.** ⭐ It is the same `.step-num` shape now, at the same 30px, standing
+           in the same place in the sequence: after the details, before the press.
+           ⚠️ AND THE BUTTON IS NARROWER FOR IT — the circle and its gap come out of a row that was
+           `flex: 1` on the button, which is the room she asked to be made. -->
+      <span class="bar-step" id="bar-step" aria-hidden="true">4</span>
+      <button id="order-btn" class="btn primary" disabled>Place order</button>
+    </div>
+
+    <!-- THE NOTICE, ONE LINE UNDER THE BUTTON (v350; reworked v351).
+         She asked for "we use your details only to bake and deliver" OUT, which left
+         "privacy notice" twice back to back — "…our privacy notice. Privacy notice".
+         So the words IN the sentence are now the trigger, the way Amazon's own checkout
+         does it: nothing repeats and nothing is added.
+
+         ⚠️ IT OPENS ON A CLICK, AND CLOSES WHEN YOU CLICK AWAY. Her words: "make it
+         expend only when i click on it, away, colapse." It opened on HOVER for one
+         version (v351) and she changed it the same day. **A press behaves the same on a
+         laptop and on a phone** — which hover never could, because hover does not exist
+         on a touchscreen and this shop is ordered from phones. The trigger is a real
+         <button>, so Enter and Space work, and Escape closes it.
+
+         ⚠️ THE PANEL FLOATS ABOVE THE LINE rather than pushing the bar taller, so
+         opening it never moves Place order under the customer's thumb. It sits INSIDE
+         this wrapper because "away" means OUTSIDE THE NOTICE — a press on the WhatsApp
+         link inside the panel must not close it.
+
+         ⚠️ THE CONTACT NUMBER IS NOT IN THE STRINGS. The sentence is translated with the
+         rest of the page; the number is filled by store/app.js from the same setting the
+         order button builds its link from, so the two can never disagree.
+         ⚠️ IT IS A NOTICE, NEVER A GATE: no tick box, and nothing here can refuse an order.
+         ⚠️ THIS LINE IS THE ONLY PLACE THE NOTICE IS GIVEN, so 12.5px is its FLOOR, not a
+         starting point — the guide warns against a font the customer will not read. -->
+    <div class="order-notice-wrap" id="privacy-zone">
+      <!-- The sentence is split around the press, so the press carries the closing full
+           stop: it is a full stop in English and Bahasa Malaysia and a 。 in Chinese, and
+           a punctuation mark left in the markup would be wrong in one of the three. -->
+      <p class="order-notice"><span data-i18n="privacyLine">By ordering you agree to our</span> <button id="privacy-open" class="privacy-link" type="button" aria-expanded="false" aria-controls="privacy-sheet" data-i18n="privacyLink">privacy notice.</button></p>
+    </div>
+
+    <!-- ⚠️ THE PANEL IS A CHILD OF THE BAR, NOT OF THE NOTICE LINE (v357).
+         It used to sit inside the wrapper just above the words, which put it directly on top
+         of the row — and that row IS the Place order button. Her words: "can the pop up be
+         open higher not to block the Placae Order button". Out here it positions against the
+         BAR itself, so it opens above the whole bar and the button stays in sight while the
+         notice is read.
+         ⚠️ It is no longer inside #privacy-zone, so the click-away test had to learn about it
+         — see store/app.js, where "away" means outside the words AND outside this panel. -->
+    <div class="privacy-sheet" id="privacy-sheet" hidden>
+      <p class="privacy-sheet-head" data-i18n="privacyHead">How we use your details</p>
+      <ul class="privacy-sheet-list">
+        <li data-i18n="privacyWhat">We use your data only to make your order, get it to you, and talk to you about it. For a delivery we also need your address and the pin on your door.</li>
+        <li data-i18n="privacyWho">To bring your order to you, the driver is given your name, number and address. Your confirmation reaches you on WhatsApp, and an alert carrying your order pings our phone. Nobody else sees your details, and we never sell them.</li>
+        <li data-i18n="privacyKeep">Your details stay with your order in our order book, on a secure cloud service and on our own phones behind a PIN. We keep the sales record for seven years, as the tax office asks — but your name, number and address are not part of that record, so ask us any time and we will delete them.</li>
+        <li><span data-i18n="privacyContact">Ask us any time to see, correct or delete what we hold — WhatsApp</span> <a id="privacy-wa" class="privacy-wa" href="" hidden></a></li>
+      </ul>
+      <p class="privacy-sheet-fine" data-i18n="privacyDate">Under Malaysia's Personal Data Protection Act 2010 (Act 709). Last reviewed: 7 October 2026.</p>
+    </div>
+  </div>
+
+  <!-- ★★ THE QUESTION BEFORE A CUSTOMER CHANGES HOW HE GETS HIS ORDER (v436). Her words: __"a
+       confirmation pop up, asking whether customer intend to change to delivery? the point selection
+       will be cleared, vise versa"__.
+       ⚠️⚠️ IT IS THE SHOP'S FIRST QUESTION. `#confirm-msg` is a NOTICE — a banner with no buttons —
+       and the privacy sheet is read-only, so nothing on this page has ever asked the customer
+       anything. ⭐ It sits at the TOP LEVEL, outside the order bar, because it must cover the whole
+       screen: a question answered by a press on the page behind it is not a question.
+       ⚠️ Its title, body and two buttons are written by JS, not tagged — the words differ by which
+       way he is going, so there is no one translation to put here. -->
+  <div class="ask-scrim" id="ask-scrim" hidden>
+    <div class="ask-card" role="dialog" aria-modal="true" aria-labelledby="ask-title">
+      <p class="confirm-title" id="ask-title"></p>
+      <p class="confirm-body" id="ask-body"></p>
+      <div class="ask-actions">
+        <button type="button" class="ask-quiet" id="ask-keep"></button>
+        <button type="button" class="ask-go" id="ask-change"></button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -4,6 +4,18 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**24 Oct 2026 — engine v636_2, THE FIRST STEP OF THE CUSTOMER PLAN: "GOOD TO KNOW" (NO DATABASE STEP).**
+
+**Your words:** __"do it in store2"__, from the plan [customer-levels-plan.md] — which starts with the layer that serves every customer: facts and reassurance.
+
+1. ⭐⭐ **A "GOOD TO KNOW" LINE NOW SITS UNDER THE DAY CARD, opening five plain sentences**: we bake on the days the calendar offers and the bread is made that morning; orders close the evening before (the exact time stays in the card above, so there is only ever one copy of it); collect from the point you choose or have it delivered by Lalamove, Penang Island only, at Lalamove's own rate; your order is confirmed when payment reaches us; and to move or cancel, message us early and we will tell you honestly what can be done. **The WhatsApp number is at the end of it.**
+2. ⭐ **It opens where it is read** — in the flow, under the line that opened it — and closes on a press away or Escape, exactly as the privacy notice does. Both panels now share **one** piece of wiring rather than two copies of it.
+3. ⚠️⚠️ **ALLERGENS, KEEPING AND FREEZING ARE DELIBERATELY NOT IN IT.** Those are food facts, and she has not given the words. **A test now fails if anyone adds a plausible-sounding food claim** — it was bitten with "this bread keeps for three days", which the first version of the guard let straight through.
+4. ⚠️ **A language switch no longer closes the panel.** Measured: reading it in English and switching to 中文 shut it, so a customer reading in the wrong language had to open it again. The words change; the panel stays.
+5. ⭐ **It is the second gateway again: `/store2/`, `noindex`** — so the live shop is untouched while you try it.
+
+**No database step and no function deploy.** 3,907 tests green.
+
 **24 Oct 2026 — engine v634, THE TRIAL IS NOW THE SHOP (NO DATABASE STEP).**
 
 **Your words:** __"store2 is good enough, deploy and replace store"__.
