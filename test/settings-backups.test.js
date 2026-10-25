@@ -45,3 +45,22 @@ test("★★ rowEl is used, not dead code (v642)", () => {
   assert.equal(defs, 1, "rowEl is defined more than once");
   assert.equal(uses, 1, "★ rowEl is defined and never called — that is exactly how the list vanished before");
 });
+
+test("★★★ each copy is COLLAPSED, and opens on its own head (v644)", () => {
+  // Her words: __"there is so many backup copies, should shown collapsed"__. ⭐ The head is one press and names
+  // the copy; the five controls sit inside the body; ⚠️ and what she opened stays open across a refill, or
+  // "Back up to cloud now" would slam the card shut under her thumb.
+  const code = live(src);
+  assert.match(code, /class: "fold-body", hidden: !open\b/,
+    "★ the copies open by themselves again — a long list with every row expanded is what she asked to end");
+  assert.match(code, /class: "fold-head copy-head",/, "the press lost its fold head");
+  assert.match(code, /"aria-expanded": open \? "true" : "false"/, "★ the head does not say whether it is open");
+  assert.match(code, /const openCopies = new Set\(\);/, "★ what she opened is forgotten on the next refill");
+  // ⚠️ and the controls are INSIDE the body, never beside it — a control outside the fold is one a collapsed
+  // row still shows, which is the long list she is trying to avoid.
+  const row = code.slice(code.indexOf("function rowEl(row)"));
+  const body = row.slice(0, row.indexOf("function viewOne"));
+  const bodyAt = body.indexOf("const body = el(\"div\", { class: \"fold-body\"");
+  const buttonsAt = body.indexOf('button("View"');
+  assert.ok(bodyAt > 0 && buttonsAt > bodyAt, "★ the controls are outside the fold body");
+});

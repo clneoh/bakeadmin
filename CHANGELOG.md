@@ -4,6 +4,16 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v644, THE BACKUP COPIES ARE COLLAPSED (NO DATABASE STEP).**
+
+**Your words:** __"there is so many backup copies, should shown collapsed"__.
+
+1. ⭐⭐ **EACH COPY IS NOW ONE LINE, CLOSED**, with its name, its summary and its engine — **Daily · 25 Oct** — and a small arrow. Tap it and the five presses appear underneath: View · Restore · Put back missing orders · Download · Delete. Tap again and it folds away. Three copies now take three lines instead of three screens.
+2. ⭐ **It uses the same fold your Points and delivery days use**, so nothing new to learn: one press on the row, an arrow that turns, and the row says whether it is open.
+3. ⚠️ **What you opened stays open.** Making a new copy or deleting one repaints the list — without that, the card you were working in would snap shut under your thumb.
+
+**No database step and no function deploy.** 3,931 tests green.
+
 **25 Oct 2026 — engine v643, THE WHATSAPP NUMBER SHOWS ON "GOOD TO KNOW" (NO DATABASE STEP).**
 
 **Your words:** __"in the whatsapp box it's 60169601268, correct, but dont show the number on the Good to know"__.
