@@ -1091,6 +1091,55 @@ export async function sendPrintJob(state, payload, { site = printSite() } = {}) 
   } catch { return { ok: false, why: "no-answer" }; }
 }
 
+// ── the waitlist (v648) ──────────────────────────────────────────────────────
+//
+// ⭐ "Tell me when this day frees up": the shop ADDS a request with the public key and can never read one back
+// (supabase/waitlist.sql). Her own signed-in phones read them here, so a full day can name who wanted it.
+// ⚠️ Every answer says whether it really happened — a card that quietly showed nothing would read as "nobody
+// is waiting", which is a claim, not an absence.
+
+export async function fetchWaitlist(state, { today = "" } = {}) {
+  const c = cfg(state);
+  if (!ready(c)) return { ok: false, reason: "not set up", rows: [] };
+  let token = cachedToken();
+  if (!token) {
+    try { token = await login(c.url, c.anonKey, c.email, c.password); }
+    catch { return { ok: false, reason: "sign-in failed", rows: [] }; }
+  }
+  const day = String(today || "").trim();
+  const filter = day ? `&day=gte.${encodeURIComponent(day)}` : "";
+  try {
+    const res = await fetch(
+      `${c.url}/rest/v1/waitlist?select=id,created_at,day,name,whatsapp&handled=eq.false${filter}`
+      + "&order=day.asc,created_at.asc&limit=100",
+      { headers: { apikey: c.anonKey, Authorization: `Bearer ${token}` } });
+    if (!res.ok) return { ok: false, reason: `HTTP ${res.status}`, rows: [] };
+    const rows = await res.json().catch(() => []);
+    return { ok: true, rows: Array.isArray(rows) ? rows : [] };
+  } catch { return { ok: false, reason: "no answer", rows: [] }; }
+}
+
+export async function markWaitlistDone(state, ids) {
+  const list = (Array.isArray(ids) ? ids : [ids]).map(Number).filter((n) => Number.isInteger(n));
+  if (!list.length) return { ok: false };
+  const c = cfg(state);
+  if (!ready(c)) return { ok: false };
+  let token = cachedToken();
+  if (!token) {
+    try { token = await login(c.url, c.anonKey, c.email, c.password); }
+    catch { return { ok: false }; }
+  }
+  try {
+    const res = await fetch(`${c.url}/rest/v1/waitlist?id=in.(${list.join(",")})`, {
+      method: "PATCH",
+      headers: { apikey: c.anonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json",
+        Prefer: "return=minimal" },
+      body: JSON.stringify({ handled: true, handled_at: new Date().toISOString() }),
+    });
+    return { ok: !!(res && res.ok) };
+  } catch { return { ok: false }; }
+}
+
 // ── the register itself (v366) ───────────────────────────────────────────────
 //
 // The whole run of receipt numbers, read straight from the table the numbers live in. It

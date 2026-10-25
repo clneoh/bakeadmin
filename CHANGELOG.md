@@ -4,6 +4,18 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v648, "TELL ME WHEN THIS DAY FREES UP" — THE WAITLIST (ONE DATABASE STEP).**
+
+**From the plan:** __"the not-yet — sold out, or not in your area"__ (P5, the last level).
+
+1. ⚠️ **ONE STEP FIRST: run `supabase/waitlist.sql` once in the SQL editor.** Until it is run, the shop's new form answers honestly that it could not add the request — it never pretends.
+2. ⭐⭐ **A FULL DAY NOW OFFERS "Tell you if it frees up?"** — a name (optional) and a WhatsApp number, and one press. ⚠️ **One ask per day per phone**, so a second press cannot fill your list.
+3. ⭐⭐ **HOME SHOWS "WAITING TO BE TOLD"** — who asked, for which day, with **💬 Message** and **Done**. It appears only when somebody is waiting, and stays silent when sharing is off.
+4. ⚠️⚠️ **THE SHOP CAN ADD A REQUEST AND CAN NEVER READ ONE BACK** — every row is somebody else's phone number, so the public key may insert and nothing more, and only your signed-in phones may read, tick or delete. A test fails if the public key is ever given read access.
+5. ⭐ The words are in all three languages, and every refusal says which thing is wrong — a number too short to reach, a request that did not land, a day already asked about.
+
+**No function deploy.** 3,945 tests green.
+
 **25 Oct 2026 — engine v647, THE NUDGE'S CRITERIA AND ITS WORDS ARE YOURS (NO DATABASE STEP).**
 
 **Your words:** __"can we set the criteria for nudge"__ and __"different nudge message"__.

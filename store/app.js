@@ -21,6 +21,8 @@ import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
 import { ENGINE_VERSION } from "../admin/js/version.js";
 // ★★ the "Good to know" bullets, from her settings when she has written them (v641)
 import { factsLines, DEFAULT_FACTS } from "./facts.js";
+// ★★ "tell me when this day frees" (v648)
+import { waitRow, hasAsked, rememberAsked } from "./waitlist.js";
 // ★★ what this phone ordered last time (v638)
 import { saveLastBasket, readLastBasket, forgetLastBasket, planReorder } from "./last_order.js";
 // ★★ the answer a tapped full day gives (v631_2)
@@ -44,7 +46,7 @@ import { fullDayAnswer } from "./full_day.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "647";
+export const SHOP_BUILD = "648";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -3398,6 +3400,60 @@ function clearFieldMarks() {
     }
   };
 
+  // ★★ "TELL ME WHEN THIS DAY FREES" (v648). ⚠️ The number is the only thing that matters — a name is optional
+  // and the day is the one they tapped. ⭐ Every refusal says which thing is wrong, in the place they pressed.
+  function waitForm(iso, dayText) {
+    const store = shopStorage();
+    if (!iso) return null;
+    if (hasAsked(store, iso)) {
+      return el("p", { class: "full-note-next", style: "margin:10px 0 0" }, t("waitAlready"));
+    }
+    const name = el("input", { class: "input", type: "text", maxlength: "60", placeholder: t("waitName") });
+    const phone = el("input", { class: "input", type: "tel", inputmode: "tel", placeholder: t("waitPhone") });
+    // ⚠️ SET AS A PROPERTY (v643's rule): in this file `el()` writes attributes, so `hidden: true` would work
+    // but `hidden: false` would not — one spelling, so nobody has to remember which values are safe.
+    const said = el("p", { class: "full-note-next", style: "margin:8px 0 0" });
+    said.hidden = true;
+    const say = (text) => { said.textContent = text; said.hidden = false; };
+    const ask = el("button", {
+      type: "button",
+      class: "full-note-go",
+      style: "margin-top:8px",
+      onclick: async () => {
+        const row = waitRow({ day: iso, name: name.value, whatsapp: phone.value }, waNumber);
+        if (!row) return say(t("waitBad"));
+        ask.disabled = true;
+        const ok = await postWait(row);
+        ask.disabled = false;
+        if (!ok) return say(t("waitFail"));
+        rememberAsked(store, iso);
+        ask.hidden = true; name.hidden = true; phone.hidden = true;
+        say(t("waitDone"));
+      },
+    }, t("waitAsk"));
+    return el("div", { class: "wait-ask" },
+      el("p", { class: "full-note-say", style: "margin:12px 0 6px" }, t("waitTitle")),
+      el("div", { style: "display:grid;gap:6px" }, name, phone),
+      ask, said);
+  }
+
+  // ⚠️ WRITE-ONLY, and it answers true only when the row really landed — a waitlist request that silently
+  // vanished is a customer who thinks she was told.
+  async function postWait(row) {
+    const sb = CONFIG.supabase || {};
+    const base = String(sb.url || "").replace(/\/+$/, "");
+    if (!base || !sb.anonKey) return false;
+    try {
+      const res = await fetch(`${base}/rest/v1/waitlist`, {
+        method: "POST",
+        headers: { apikey: sb.anonKey, Authorization: `Bearer ${sb.anonKey}`, "Content-Type": "application/json",
+          Prefer: "return=minimal" },
+        body: JSON.stringify(row),
+      });
+      return !!(res && res.ok);
+    } catch { return false; }
+  }
+
   // ★★ WHAT A TAPPED FULL DAY ANSWERS (v631_2). Her rule that a control which cannot act must say why, in the
   // place it was tapped — and a customer's real question is not "why can't I?" but **"when can I?"**, so the
   // next open day is named AND offered as a press. ⚠️ `next` is read from the SAME `specs` the grid is drawn
@@ -3428,7 +3484,12 @@ function clearFieldMarks() {
             rerender();
           },
         }, sub(t("fullDayChoose"), shortDay(dateKey(next.date))))
-        : null);
+        : null,
+      // ★★ "TELL ME WHEN THIS DAY FREES" (v648) — P5, the customer plan's last level.
+      // ⚠️ IT IS WRITE-ONLY: the shop may ADD a request and can never read the list back, because every row is
+      // somebody else's number (see supabase/waitlist.sql). ⚠️ And one ask per day per phone, latched here, so a
+      // second press cannot fill her list.
+      waitForm(fullIso, day));
   }
 
   // "Sold out: 18 Sep, 25 Sep" — the days on screen that are already full. Empty
