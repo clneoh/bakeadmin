@@ -465,6 +465,11 @@ export function storefrontPayload(state) {
     policy: String(sf.policy || ""),
     policyZh: String(sf.policyZh || ""),
     policyMs: String(sf.policyMs || ""),
+    // ★★ "GOOD TO KNOW", IN HER OWN WORDS (v641). ⚠️ One sentence per line, one line per bullet on the shop.
+    // Blank publishes "" and the shop falls back to its own wording, so this can never empty the panel.
+    facts: String(sf.facts || ""),
+    factsZh: String(sf.factsZh || ""),
+    factsMs: String(sf.factsMs || ""),
     deliveryDays: (state.settings && state.settings.deliveryDays) || [],
     cutoff: (state.settings && state.settings.cutoff) || "",
     capacity: (state.settings && state.settings.defaultCapacity) || 0,

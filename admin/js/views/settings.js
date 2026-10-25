@@ -168,6 +168,44 @@ export function renderSettings(root, state) {
     placeholder: "Auto-translated Bahasa Malaysia — blank keeps English",
     onchange: () => { sf.policyMs = sfPolicyMs.value.trim(); save(state); maybeSyncStorefront(state); } });
 
+  // ★★ "GOOD TO KNOW" IN HER OWN WORDS (v641). ⚠️ One sentence per line, one line per bullet on the shop.
+  // ⭐ The box arrives holding the shop's current five lines, so she edits a sentence rather than writing the
+  // block; blank falls back to those lines, so the panel can never end up empty.
+  const FACTS_DEFAULT = [
+    "We bake on the days the calendar offers, and the bread is made the morning of its day.",
+    "Orders close the evening before your bake day — the exact time is always in the card above the calendar.",
+    "Collect it yourself from the point you choose, or have it delivered — Penang Island only.",
+    "Your order is confirmed when the payment reaches us — we send the payment QR on WhatsApp.",
+    "To move or cancel an order, message us on WhatsApp as early as you can.",
+  ].join("\n");
+  const sfFacts = el("textarea", { class: "input", rows: 5,
+    value: sf.facts || FACTS_DEFAULT,
+    onchange: () => { sf.facts = sfFacts.value.trim(); save(state); maybeSyncStorefront(state); } });
+  const sfFactsZh = el("textarea", { class: "input", rows: 4, value: sf.factsZh || "",
+    placeholder: "Auto-translated 中文 — blank keeps her English, or the shop's own line",
+    onchange: () => { sf.factsZh = sfFactsZh.value.trim(); save(state); maybeSyncStorefront(state); } });
+  const sfFactsMs = el("textarea", { class: "input", rows: 4, value: sf.factsMs || "",
+    placeholder: "Auto-translated Bahasa Malaysia — blank keeps her English",
+    onchange: () => { sf.factsMs = sfFactsMs.value.trim(); save(state); maybeSyncStorefront(state); } });
+
+  async function translateFacts() {
+    const src = sfFacts.value.trim();
+    if (!src) return toast("Write the lines in English first");
+    if (!translateAllowed()) return toast("No connection — translations fill when you're back online");
+    let filled = 0;
+    for (const [lang, box] of [["zh", sfFactsZh], ["ms", sfFactsMs]]) {
+      if (box.value.trim()) continue; // hand-typed → hers, leave it alone
+      try {
+        const out = await translateTo((url) => fetch(url), src, lang);
+        if (out && out.trim()) { box.value = out.trim(); filled++; }
+      } catch { /* leave it blank and try the rest */ }
+    }
+    sf.factsZh = sfFactsZh.value.trim();
+    sf.factsMs = sfFactsMs.value.trim();
+    save(state); maybeSyncStorefront(state);
+    toast(filled ? "Translated — edit it if you like" : "Nothing to translate");
+  }
+
   async function translatePolicy() {
     const src = sfPolicy.value.trim();
     if (!src) return toast("Write the policy in English first");
@@ -234,6 +272,9 @@ export function renderSettings(root, state) {
         sfPolicy.value = sf.policy || "";
         sfPolicyZh.value = sf.policyZh || "";
         sfPolicyMs.value = sf.policyMs || "";
+        sfFacts.value = sf.facts || FACTS_DEFAULT;
+        sfFactsZh.value = sf.factsZh || "";
+        sfFactsMs.value = sf.factsMs || "";
         devName.value = dev.name;
         devWa.value = dev.whatsapp || "";
         renderDevEmails();
@@ -283,6 +324,15 @@ export function renderSettings(root, state) {
       el("div", { class: "form-grid", style: "margin-top:8px" },
         el("div", {}, el("label", {}, "中文"), sfPolicyZh),
         el("div", {}, el("label", {}, "Bahasa Malaysia"), sfPolicyMs))),
+    el("div", { class: "field", style: "margin-top:10px" },
+      el("label", {}, "Good to know (shown on the shop)"),
+      el("p", { class: "card-sub", style: "margin:0 0 5px" },
+        "The lines a customer opens under “Good to know”, above the menu. One sentence per line — each line becomes one bullet. Write them in English, tap Translate for 中文 and Bahasa Malaysia, then edit either. Clearing the box puts the shop's own wording back."),
+      sfFacts,
+      el("div", { class: "btn-row", style: "margin-top:6px" }, button("Translate", translateFacts, "soft")),
+      el("div", { class: "form-grid", style: "margin-top:8px" },
+        el("div", {}, el("label", {}, "中文"), sfFactsZh),
+        el("div", {}, el("label", {}, "Bahasa Malaysia"), sfFactsMs))),
     el("h4", { style: "margin:14px 0 0" }, "Menu"),
     el("p", { class: "card-sub", style: "margin:4px 0 0" },
       "Your menu comes from More → Products — add or hide a product there and it updates here after you publish. WhatsApp is digits only with country code — 012-345 6789 → 60123456789."),

@@ -19,6 +19,8 @@ import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
 // read her phone and know which build the shop is running — and the address fed back with
 // a customer's words names it too. One number, one file, no second copy to forget.
 import { ENGINE_VERSION } from "../admin/js/version.js";
+// ★★ the "Good to know" bullets, from her settings when she has written them (v641)
+import { factsLines } from "./facts.js";
 // ★★ what this phone ordered last time (v638)
 import { saveLastBasket, readLastBasket, forgetLastBasket, planReorder } from "./last_order.js";
 // ★★ the answer a tapped full day gives (v631_2)
@@ -42,7 +44,7 @@ import { fullDayAnswer } from "./full_day.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "640";
+export const SHOP_BUILD = "641";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -834,7 +836,8 @@ export function buildMessage(cfg, order) {
 export function mergeStorefront(base, remote) {
   if (!remote || typeof remote !== "object") return { ...base };
   const out = { ...base };
-  for (const key of ["whatsapp", "name", "tagline", "instagram", "facebook", "cutoff", "policy", "policyZh", "policyMs"]) {
+  for (const key of ["whatsapp", "name", "tagline", "instagram", "facebook", "cutoff", "policy", "policyZh", "policyMs",
+    "facts", "factsZh", "factsMs"]) {
     if (typeof remote[key] === "string" && remote[key].trim()) out[key] = remote[key].trim();
   }
   for (const key of ["capacity", "upcomingCount"]) {
@@ -1468,6 +1471,28 @@ function renderFeedback(cfg) {
 
 // The static header parts (name, tagline, delivery days, social links). Kept
 // separate so a later-published config can re-render just these.
+// ★★ "GOOD TO KNOW" IS HER OWN WORDING NOW (v641). ⚠️ One line per bullet, drawn from what the backoffice
+// published; blank falls back to the shop's own five sentences, so this panel can never be empty. ⭐ The
+// WhatsApp line stays LAST and is structural — it carries whatever number she publishes, and it is not a
+// sentence she has to remember to include.
+function paintFacts(cfg) {
+  const list = document.getElementById("facts-list");
+  if (!list || typeof list.replaceChildren !== "function") return;
+  const fallback = ["factBake", "factCutoff", "factGet", "factPay", "factChange"].map((k) => t(k));
+  const lines = factsLines(CONFIG, loadLang(), fallback);
+  const shown = phoneText(cfg && cfg.whatsapp);
+  list.replaceChildren(
+    ...lines.map((line) => el("li", {}, line)),
+    el("li", {},
+      el("span", {}, `${t("factAsk")} `),
+      el("a", {
+        class: "privacy-wa",
+        href: shown ? `https://wa.me/${waNumber(cfg.whatsapp)}` : "",
+        hidden: !shown,
+      }, shown)));
+}
+
+
 export function renderStatic(cfg) {
   document.title = `${t("titleWord")} · ${cfg.name}`;
   document.getElementById("name").textContent = cfg.name;
@@ -1511,13 +1536,16 @@ export function renderStatic(cfg) {
   // which is better than a link to nowhere.
   // ⚠️ BOTH SHEETS NAME THE SAME NUMBER (v636_2) — one reading, two links, so the two can never disagree.
   const shownWa = phoneText(cfg && cfg.whatsapp);
-  for (const id of ["privacy-wa", "facts-wa"]) {
+  for (const id of ["privacy-wa"]) {
     const link = document.getElementById(id);
     if (!link) continue;
     link.textContent = shownWa;
     link.href = shownWa ? `https://wa.me/${waNumber(cfg.whatsapp)}` : "";
     link.hidden = !shownWa;
   }
+  // ★★ and the Good to know bullets are redrawn with every static repaint — a language switch must swap every
+  // one of them, including any she wrote herself (v641).
+  paintFacts(cfg);
 
   // ⚠️ THE NOTICE'S PRESS IS NOT WIRED HERE — see the foot of this file. renderStatic()
   // runs AGAIN on every render and on every language switch, and a TOGGLE bound in here is

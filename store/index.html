@@ -147,14 +147,11 @@
         aria-controls="facts-sheet" data-i18n="factsLink">Good to know</button></p>
     <div class="facts-sheet" id="facts-sheet" hidden>
       <p class="privacy-sheet-head" data-i18n="factsHead">Before you order</p>
-      <ul class="privacy-sheet-list">
-        <li data-i18n="factBake">We bake on the days the calendar offers, and the bread is made the morning of its day.</li>
-        <li data-i18n="factCutoff">Orders close the evening before your bake day — the exact time is always in the card above the calendar.</li>
-        <li data-i18n="factGet">Collect it yourself from the point you choose, or have it delivered by Lalamove, which serves Penang Island only. Delivery costs what Lalamove charges for the trip.</li>
-        <li data-i18n="factPay">Your order is confirmed when the payment reaches us — we send the payment QR on WhatsApp.</li>
-        <li data-i18n="factChange">To move or cancel an order, message us on WhatsApp as early as you can and we will tell you honestly what can be done.</li>
-        <li><span data-i18n="factAsk">Ask us anything — WhatsApp</span> <a id="facts-wa" class="privacy-wa" href="" hidden></a></li>
-      </ul>
+      <!-- ★★ THE BULLETS ARE DRAWN FROM HER OWN WORDS WHEN SHE HAS WRITTEN THEM (v641). The <li>s are built by
+           `paintFacts()` in app.js from Settings → Storefront → Good to know; blank falls back to the shop's own
+           wording stored in store-lang.js, so the panel is never empty. ⚠️ The WhatsApp line is always last and
+           is NOT hers to type — it carries whatever number she publishes. -->
+      <ul class="privacy-sheet-list" id="facts-list"></ul>
     </div>
     <p class="steps-lede" id="steps-lede"></p>
 

@@ -57,9 +57,14 @@ test("★★★ the shop-wide sheet carries NO food fact — they belong to the 
   assert.ok(!m, `★ the general panel claims "${m && m[0]}" — food facts belong to the product, not to the shop`);
   // and nothing on it is left marked as a draft
   assert.ok(!/data-draft/.test(sheet), "★ a draft marker is left in the panel with nothing to mark");
+  // ⚠️ THE BULLETS ARE DRAWN NOW (v641), not written into the page — so the defaults are checked where they
+  // live: the shop's own painter falls back to these five keys, and the panel is empty-proof.
+  const app = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
   for (const key of ["factBake", "factCutoff", "factGet", "factPay", "factChange"]) {
-    assert.ok(sheet.includes(`data-i18n="${key}"`), `the sheet lost "${key}"`);
+    assert.ok(app.includes(`"${key}"`), `the painter no longer falls back to "${key}"`);
   }
+  assert.match(app, /const fallback = \["factBake", "factCutoff", "factGet", "factPay", "factChange"\]\.map\(\(k\) => t\(k\)\)/,
+    "★ the fallback list changed — an empty panel is one cleared box away");
 });
 
 test("★★★ the product card draws her food facts only where she wrote them (v639)", () => {

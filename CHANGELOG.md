@@ -4,6 +4,18 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v641, "GOOD TO KNOW" IS YOUR OWN WORDING NOW (NO DATABASE STEP).**
+
+**Your question:** __"where do we customise the Good to know message?"__ — the honest answer was *nowhere I could give you*, and that has changed.
+
+1. ⭐⭐ **SETTINGS → STOREFRONT NOW HAS A "GOOD TO KNOW" BOX**, right under Policies. **One sentence per line, and each line becomes one bullet** on the shop. ⚠️ It opens **holding the shop's current five lines**, so you edit a sentence rather than write the block — and clearing it puts those lines back, so the panel can never be empty.
+2. ⭐ **The same Translate press the policy has**: write in English, tap Translate, and 中文 and Bahasa Malaysia fill for you to edit. A translation you typed yourself is never overwritten.
+3. ⚠️ **Your English is used in every language until you translate it** — a reader in 中文 gets *your* sentence rather than a default you no longer stand by. A line of yours in the wrong language is still truer than the line you replaced.
+4. ⚠️ **The WhatsApp line stays last and is not yours to type** — it carries whatever number you publish, so it cannot fall out of date.
+5. ⭐ The editor's own example copy does not name the courier — that word belongs to the courier registry, and naming it in a screen is the seam this app already paid to close.
+
+**No database step and no function deploy.** 3,926 tests green.
+
 **25 Oct 2026 — engine v640, THE TRIAL IS THE SHOP (NO DATABASE STEP).**
 
 **Your words:** __"yes, do it"__ — after the memory was tested on your phone.
