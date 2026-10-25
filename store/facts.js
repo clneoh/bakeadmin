@@ -4,6 +4,19 @@
 // Storefront) and published with everything else. ⚠️ **Blank falls back to the shop's own wording**, so the
 // panel can never end up empty, and a customer always reads something true.
 
+// ★★ THE SHOP'S OWN FIVE LINES (v642) — the SAME words the panel draws when she has written nothing.
+// ⚠️ Her words: __"the Good to know dont reflex what is in the store, what is in the store is better words"__ —
+// ⭐ so the box in Settings opens holding **exactly these**, not a paraphrase typed into the editor. One list,
+// two readers: the shop falls back to it, and the editor shows it.
+// ⚠️ The courier's name lives HERE, in the shop, and not in the editor's own file — the screen never names a
+// courier; the storefront copy is where that word belongs.
+import { STORE } from "../store-lang.js";
+
+const FACT_KEYS = ["factBake", "factCutoff", "factGet", "factPay", "factChange"];
+export const DEFAULT_FACTS = FACT_KEYS
+  .map((k) => String((STORE && STORE.en && STORE.en[k]) || "").trim())
+  .filter(Boolean);
+
 export const FACTS_MAX_LINES = 12;
 export const FACTS_MAX_CHARS = 600;
 

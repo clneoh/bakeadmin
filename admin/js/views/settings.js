@@ -8,6 +8,7 @@ import { parseImport } from "../validate.js";
 import { generateUpcomingDates, todayISO } from "../dates.js";
 import { syncAvailability, cachedToken, signOut, syncStorefront, maybeSync, maybeSyncStorefront, republishEveryCard } from "../supabase.js";
 import * as backups from "../backups.js";
+import { DEFAULT_FACTS } from "../../../store/facts.js";
 import * as sync from "../sync.js";
 import { refreshShareWarn } from "../sharewarn.js";
 import { translateTo, translateAllowed } from "../translate.js";
@@ -171,13 +172,10 @@ export function renderSettings(root, state) {
   // ★★ "GOOD TO KNOW" IN HER OWN WORDS (v641). ⚠️ One sentence per line, one line per bullet on the shop.
   // ⭐ The box arrives holding the shop's current five lines, so she edits a sentence rather than writing the
   // block; blank falls back to those lines, so the panel can never end up empty.
-  const FACTS_DEFAULT = [
-    "We bake on the days the calendar offers, and the bread is made the morning of its day.",
-    "Orders close the evening before your bake day — the exact time is always in the card above the calendar.",
-    "Collect it yourself from the point you choose, or have it delivered — Penang Island only.",
-    "Your order is confirmed when the payment reaches us — we send the payment QR on WhatsApp.",
-    "To move or cancel an order, message us on WhatsApp as early as you can.",
-  ].join("\n");
+  // ★★ THE BOX HOLDS THE SHOP'S OWN LINES (v642). ⚠️ Her words: __"the Good to know dont reflex what is in the
+  // store, what is in the store is better words"__ — ⭐ so this is not a paraphrase typed here: it is the very
+  // list the shop draws when she has written nothing, imported so the two cannot drift.
+  const FACTS_DEFAULT = DEFAULT_FACTS.join("\n");
   const sfFacts = el("textarea", { class: "input", rows: 5,
     value: sf.facts || FACTS_DEFAULT,
     onchange: () => { sf.facts = sfFacts.value.trim(); save(state); maybeSyncStorefront(state); } });
@@ -833,6 +831,15 @@ export function renderSettings(root, state) {
       fillBackups();
     }, "soft");
     const kids = [line(status), el("div", { class: "btn-row", style: "margin-top:8px" }, btn)];
+    // ★★★ THE COPIES THEMSELVES — RESTORED (v642). ⚠️⚠️ **v574 deleted these two lines while lifting the kept
+    // copy out of this function, and nothing noticed for sixty versions**: the card still said "Daily copy saved
+    // today" and listed none, ⭐ so **Restore, Download, Put back missing orders and Delete were unreachable —
+    // the list is the only way to any of them**, and `rowEl` below has been dead code since.
+    // ⭐ Her report, in her own words: __"normally i use to see each backup copies, collapsed, but now no"__.
+    if (rows.length) {
+      kids.push(el("p", { class: "card-sub", style: "margin:12px 0 4px" }, "All your copies (newest first)"));
+      kids.push(...rows.map(rowEl));
+    }
     show(...kids, ...keptCopyKids());
   }
 

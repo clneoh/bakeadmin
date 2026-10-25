@@ -4,6 +4,16 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v642, THE BACKUP COPIES ARE BACK ON SCREEN, AND THE BOX SHOWS THE SHOP'S OWN WORDS (NO DATABASE STEP).**
+
+**Your words:** __"normally i use to see each backup copies, collapsed, but now no"__ and __"the Good to know dont reflex what is in the store, what is in the store is better words"__.
+
+1. ⚠️⚠️ **THE BACKUP LIST HAD BEEN MISSING FOR SIXTY VERSIONS.** The card still said *"Daily copy saved today"* and listed **no copies at all** — **v574 deleted the two lines that draw them** while lifting another block out of the same function, and every test stayed green because nothing asked whether the rows were drawn. ⭐ **And those rows are the only way to Restore, Download, Put back missing orders or Delete a copy** — so the whole ladder was unreachable while the screen looked healthy. It is back, with a test that fails if the rows are removed again.
+2. ⚠️ **AND THE BOX IN SETTINGS WAS SHOWING MY PARAPHRASE, NOT YOUR SHOP'S WORDS.** It now opens holding **exactly the five sentences the shop draws** — imported from the same list the shop falls back to, so the two cannot drift apart. The courier's name lives in the shop's copy, not typed into the editor.
+3. ⭐ Clearing the box still puts those lines back, and a language switch still gives 中文 and BM their own translations.
+
+**No database step and no function deploy.** 3,929 tests green.
+
 **25 Oct 2026 — engine v641, "GOOD TO KNOW" IS YOUR OWN WORDING NOW (NO DATABASE STEP).**
 
 **Your question:** __"where do we customise the Good to know message?"__ — the honest answer was *nowhere I could give you*, and that has changed.

@@ -62,7 +62,7 @@ test("★★★ the sheet is a container the shop fills, and it is filled on eve
   const app = live(read("store/app.js"));
   assert.match(app, /function paintFacts\(cfg\)/, "the painter is gone");
   assert.match(app, /paintFacts\(cfg\);/, "★ the panel is never repainted — a language switch would leave the bullets in the old language");
-  assert.match(app, /const lines = factsLines\(CONFIG, loadLang\(\), fallback\);/, "★ the panel stopped reading her published words");
+  assert.match(app, /const lines = factsLines\(CONFIG, lang, fallback\);/, "★ the panel stopped reading her published words");
 });
 
 test("★★★ the backoffice can publish them, and the shop adopts them (v641)", () => {

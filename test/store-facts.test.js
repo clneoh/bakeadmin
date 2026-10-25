@@ -63,8 +63,12 @@ test("★★★ the shop-wide sheet carries NO food fact — they belong to the 
   for (const key of ["factBake", "factCutoff", "factGet", "factPay", "factChange"]) {
     assert.ok(app.includes(`"${key}"`), `the painter no longer falls back to "${key}"`);
   }
-  assert.match(app, /const fallback = \["factBake", "factCutoff", "factGet", "factPay", "factChange"\]\.map\(\(k\) => t\(k\)\)/,
-    "★ the fallback list changed — an empty panel is one cleared box away");
+  // ⚠️ ENGLISH NOW FALLS BACK TO THE SAME LIST THE EDITOR SHOWS (v642), so the box and the page cannot
+  // disagree; 中文 and BM keep their own translations from the dictionary.
+  assert.match(app, /lang === "en"\s*\n\s*\? DEFAULT_FACTS/,
+    "★ the English fallback stopped coming from the shared list — the box and the page can drift apart");
+  assert.match(app, /\["factBake", "factCutoff", "factGet", "factPay", "factChange"\]\.map\(\(k\) => t\(k\)\)/,
+    "★ the translated fallback list changed — an empty panel is one cleared box away");
 });
 
 test("★★★ the product card draws her food facts only where she wrote them (v639)", () => {

@@ -20,7 +20,7 @@ import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
 // a customer's words names it too. One number, one file, no second copy to forget.
 import { ENGINE_VERSION } from "../admin/js/version.js";
 // ★★ the "Good to know" bullets, from her settings when she has written them (v641)
-import { factsLines } from "./facts.js";
+import { factsLines, DEFAULT_FACTS } from "./facts.js";
 // ★★ what this phone ordered last time (v638)
 import { saveLastBasket, readLastBasket, forgetLastBasket, planReorder } from "./last_order.js";
 // ★★ the answer a tapped full day gives (v631_2)
@@ -44,7 +44,7 @@ import { fullDayAnswer } from "./full_day.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "641";
+export const SHOP_BUILD = "642";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1478,8 +1478,13 @@ function renderFeedback(cfg) {
 function paintFacts(cfg) {
   const list = document.getElementById("facts-list");
   if (!list || typeof list.replaceChildren !== "function") return;
-  const fallback = ["factBake", "factCutoff", "factGet", "factPay", "factChange"].map((k) => t(k));
-  const lines = factsLines(CONFIG, loadLang(), fallback);
+  // ⚠️ ENGLISH FALLS BACK TO THE ONE LIST THE EDITOR ALSO SHOWS (v642); 中文 and BM to their own translations,
+  // which is what makes the box and the page agree in every language she has not written for.
+  const lang = loadLang();
+  const fallback = lang === "en"
+    ? DEFAULT_FACTS
+    : ["factBake", "factCutoff", "factGet", "factPay", "factChange"].map((k) => t(k));
+  const lines = factsLines(CONFIG, lang, fallback);
   const shown = phoneText(cfg && cfg.whatsapp);
   list.replaceChildren(
     ...lines.map((line) => el("li", {}, line)),
