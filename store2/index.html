@@ -150,6 +150,14 @@
         <li data-i18n="factBake">We bake on the days the calendar offers, and the bread is made the morning of its day.</li>
         <li data-i18n="factCutoff">Orders close the evening before your bake day — the exact time is always in the card above the calendar.</li>
         <li data-i18n="factGet">Collect it yourself from the point you choose, or have it delivered by Lalamove, which serves Penang Island only. Delivery costs what Lalamove charges for the trip.</li>
+        <!-- ⚠️⚠️ DRAFT FOOD FACTS (v637) — her words are still to come: "you can just fill in something, i will
+             tell you to update later". ⭐ Every line here is written CONSERVATIVELY — it over-declares rather than
+             under-declares — and each carries `data-draft="food-fact"` so `test/store2-facts.test.js` can find
+             the exact set that must be replaced with her wording. ⚠️ Allergens is the one line that must be
+             checked by her before this meets a customer. -->
+        <li data-i18n="factKeep" data-draft="food-fact">Best on the day it is baked. After that, keep it wrapped at room temperature and warm it for a few minutes before eating.</li>
+        <li data-i18n="factFreeze" data-draft="food-fact">It freezes well: slice it first, wrap each piece, and freeze for up to a month. Warm it through from frozen.</li>
+        <li data-i18n="factAllergen" data-draft="food-fact">Made with wheat (gluten). Our kitchen also handles milk, eggs and nuts, so we cannot promise a loaf that is free of them.</li>
         <li data-i18n="factPay">Your order is confirmed when the payment reaches us — we send the payment QR on WhatsApp.</li>
         <li data-i18n="factChange">To move or cancel an order, message us on WhatsApp as early as you can and we will tell you honestly what can be done.</li>
         <li><span data-i18n="factAsk">Ask us anything — WhatsApp</span> <a id="facts-wa" class="privacy-wa" href="" hidden></a></li>

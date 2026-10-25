@@ -4,6 +4,17 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v637, THE SHOP THIS WEEK, AND THE FOOD FACTS WRITTEN AS DRAFTS (NO DATABASE STEP).**
+
+**Your words:** __"start with the numbers line"__, and for the food facts: __"you can just fill in something, i will tell you to update later"__.
+
+1. ⭐⭐ **HOME NOW SAYS HOW THE SHOP IS DOING, in one quiet card:** *2 orders · 1 first-time · 1 returning · bake days 50% full*, with **last week and the four-week average** underneath — ⚠️ because at your volumes a single quiet week is weather, not a signal, and a number with nothing to compare it to is decoration. It counts **your own book only**: nothing leaves the machine, no pixels, no cookies, no customer's details on screen.
+2. ⚠️ **THREE READINGS MAKE A COUNT LIE, AND EACH IS PINNED BY A TEST:** a two-item shop order is **one sale, not two**; an order is dated by **her own calendar day**, never a UTC one; and "first-time" is about the customer's **whole history** — the same number written two ways still joins as one person.
+3. ⭐ **"Good to know" now carries the three food facts**: keeping, freezing, and what the bread is made with. ⚠️⚠️ **These are DRAFTS** — you said you would give the words later — so each is marked `data-draft` in the page, written **conservatively (over-declared, never under-declared)**, and a test now fails if **any food claim appears without that mark**.
+4. ⚠️ **The allergen sentence is the one that can hurt someone if it is wrong.** It says the bread is made with wheat and that the kitchen also handles milk, eggs and nuts — **please check that line yourself before this meets a customer.**
+
+**No database step and no function deploy.** 3,914 tests green.
+
 **24 Oct 2026 — engine v636_2, THE FIRST STEP OF THE CUSTOMER PLAN: "GOOD TO KNOW" (NO DATABASE STEP).**
 
 **Your words:** __"do it in store2"__, from the plan [customer-levels-plan.md] — which starts with the layer that serves every customer: facts and reassurance.

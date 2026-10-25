@@ -23,7 +23,8 @@ const live = (src) => String(src).split("\n")
   .map((l) => l.replace(/\/\*.*?\*\//g, ""))
   .join("\n");
 
-const KEYS = ["factsLink", "factsHead", "factBake", "factCutoff", "factGet", "factPay", "factChange", "factAsk"];
+const KEYS = ["factsLink", "factsHead", "factBake", "factCutoff", "factGet", "factPay", "factChange", "factAsk",
+  "factKeep", "factFreeze", "factAllergen"];
 
 test("★★★ the sheet exists, starts shut, and is opened by its own link (v636_2)", () => {
   assert.match(HTML, /id="facts-open"[^>]*aria-expanded="false"[^>]*aria-controls="facts-sheet"/,
@@ -46,18 +47,38 @@ test("★★★ one behaviour for both panels, and a language press is not 'away
     "★ measured: switching language SHUT the panel — a customer reading in the wrong language had to open it again");
 });
 
-test("★★★ every sentence is a fact of hers, and none is invented (v636_2)", () => {
-  const sheet = HTML.slice(HTML.indexOf('id="facts-sheet"'), HTML.indexOf('id="facts-sheet"') + 1800);
-  // ⚠️ MATCHED AS A CLASS, not as a phrase. ⭐ BITTEN the first time with "This bread KEEPS FOR three days" —
-  // and the guard, written as "keep for", let it through. A food fact can be spelled many ways; this list
-  // names the ways.
-  const FOOD_CLAIMS = /allergen|freez|frozen|refrigerat|reheat|shelf life|keeps?\s+for|lasts?\s+\d+\s+days?|good\s+for\s+\d+\s+days?|halal|microwav|room temperature/i;
-  const m = FOOD_CLAIMS.exec(sheet);
-  assert.ok(!m, `★ the sheet claims "${m && m[0]}" — **a food fact she has not given us**. Ask her for the words first.`);
-  // And the facts it DOES state are the ones the shop already lives by.
+test("★★★ every FOOD claim is marked as a draft, so her words can be found and swapped in (v637)", () => {
+  // ⚠️⚠️ HER WORDS: __"you can just fill in something, i will tell you to update later"__ — ⭐ so the three food
+  // facts are written CONSERVATIVELY (over-declared, never under-declared) and each carries `data-draft`.
+  // ⚠️ THE GUARD IS NOW "NO UNMARKED FOOD CLAIM", not "no food claim at all": a claim nobody can find is a claim
+  // nobody will replace, and a shop that quietly states a food fact is the fault this file exists for.
+  // ⚠️ HTML COMMENTS OUT FIRST (the house rule): the note explaining the draft foods names allergens too, and a
+  // raw slice made the guard accuse its own documentation. A guard must not trip on its own explanation.
+  const page = HTML.replace(/<!--[\s\S]*?-->/g, "");
+  const sheet = page.slice(page.indexOf('id="facts-sheet"'), page.indexOf('id="facts-sheet"') + 2600);
+  const FOOD_CLAIMS = /allergen|freez|frozen|refrigerat|reheat|shelf life|keeps?\s+for|lasts?\s+\d+\s+days?|good\s+for\s+\d+\s+days?|halal|microwav|room temperature|wheat|gluten/i;
+  const lines = sheet.split("\n").filter((l) => FOOD_CLAIMS.test(l));
+  assert.ok(lines.length > 0, "the food facts went missing — she asked for them to be filled in as drafts");
+  for (const line of lines) {
+    assert.match(line, /data-draft="food-fact"/,
+      `★ an unmarked food claim: ${line.trim().slice(0, 60)} — every one of these must be findable as a draft`);
+  }
+  // Exactly the three she asked to be filled in for now.
+  const drafts = [...sheet.matchAll(/data-i18n="(fact[A-Za-z]+)" data-draft="food-fact"/g)].map((m) => m[1]);
+  assert.deepEqual(drafts.sort(), ["factAllergen", "factFreeze", "factKeep"],
+    "★ the set of draft food facts changed — her words are owed for exactly these three");
+  // And the facts she already lives by are still stated.
   for (const key of ["factBake", "factCutoff", "factGet", "factPay", "factChange"]) {
     assert.ok(sheet.includes(`data-i18n="${key}"`), `the sheet lost "${key}"`);
   }
+});
+
+// ⚠️ AND THE ALLERGEN LINE IS THE ONE THAT MUST BE READ BY HER: it is the only sentence on the page that can
+// hurt someone if it is wrong. It is pinned as DRAFT here so no release can quietly freeze it as final.
+test("★★★ the allergen sentence is a placeholder until she says otherwise (v637)", () => {
+  assert.match(HTML, /data-i18n="factAllergen" data-draft="food-fact"/,
+    "★ the allergen line is no longer marked as a draft — it is now being stated to customers as settled");
+  assert.match(STORE.en.factAllergen, /wheat \(gluten\)/i, "the allergen line stopped naming what it is made with");
 });
 
 test("★★★ and every sentence exists in three languages, not copied (v636_2)", () => {

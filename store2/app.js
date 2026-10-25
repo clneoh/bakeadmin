@@ -40,7 +40,7 @@ import { fullDayAnswer } from "./full_day.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "636";
+export const SHOP_BUILD = "637";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -2560,9 +2560,11 @@ function clearFieldMarks() {
     // than a loop body because a product filed under two categories is drawn
     // TWICE — and a DOM node can only live in one place, so each placement needs
     // a card of its own, with its own stepper.
-    const cardFor = (p) => {
+    // ★★ WHAT A PRODUCT OFFERS ON THIS DAY, COMPUTED ONCE (v638). ⚠️ The card needs it, and "add my last
+    // order again" needs the very same answer — **two computations of one rule is how a reorder came to be
+    // able to add something the card says is sold out.** ⭐ One function, two readers.
+    const offerOf = (p) => {
       const { closed, kept, shown } = menuGate(p);
-      if (!shown) return null;
       const group = groupFor(groups, p);
       const baseLeft = group && byProduct[group.baseName] != null
         ? Number(byProduct[group.baseName]) : undefined;
@@ -2580,7 +2582,13 @@ function clearFieldMarks() {
       const ownLeft = byProduct[p.name] != null ? Number(byProduct[p.name]) : undefined;
       const left = reason ? 0 : (caps ? caps.get(p.name) : ownLeft);
       const qty = cart.get(p.name) || 0;
-      const soldOut = left != null && left <= 0;
+      return { shown, group, caps, reason, unavailable, left, qty, soldOut: left != null && left <= 0 };
+    };
+
+    const cardFor = (p) => {
+      const facts = offerOf(p);
+      if (!facts.shown) return null;
+      const { reason, unavailable, left, qty, soldOut } = facts;
       // ⚠️ THE UPPER BOUND IS DECLARED UP HERE NOW (v458) — above the typed box as well as the "+". It used
       // to sit between the two buttons, which was fine while "+" was the only thing that wanted it.
       const cap = left != null && left > 0 ? left : 99;
