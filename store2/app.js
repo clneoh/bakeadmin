@@ -19,6 +19,8 @@ import { sendFeedback, loadDraft, saveDraft } from "./feedback.js";
 // read her phone and know which build the shop is running — and the address fed back with
 // a customer's words names it too. One number, one file, no second copy to forget.
 import { ENGINE_VERSION } from "../admin/js/version.js";
+// ★★ what this phone ordered last time (v638)
+import { saveLastBasket, readLastBasket, forgetLastBasket, planReorder } from "./last_order.js";
 // ★★ the answer a tapped full day gives (v631_2)
 import { fullDayAnswer } from "./full_day.js";
 
@@ -40,7 +42,7 @@ import { fullDayAnswer } from "./full_day.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "637";
+export const SHOP_BUILD = "638";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1682,6 +1684,17 @@ export function render() {
   const dateWrap = document.getElementById("dates");
   const menu = document.getElementById("menu");
   const cart = new Map();
+
+  // ★★ THE MENU'S OWN ANSWER, FOR THE REORDER (v638). `offerOf` lives inside `renderMenu` because that is
+  // where the day's numbers arrive; this holds the last computed lookup so "add my last order again" asks
+  // the SAME question the cards ask. ⚠️ Reassigned on every menu render; a stale one can never add something
+  // the menu is currently refusing.
+  let offerByName = () => null;
+
+  // ⚠️ The customer's own phone. Best effort everywhere: a private window has no storage and must not break
+  // the shop.
+  const shopStorage = () => (typeof localStorage !== "undefined" ? localStorage : null);
+  let lastBasket = readLastBasket(shopStorage());
   // ⚠️ A second `render()` must not lose it: the first capture wins, and if the line has been torn out of
   // the page since, the node we already hold is the one that goes back.
   stepNoteEl = stepNoteEl || document.getElementById("step-note");
@@ -2585,6 +2598,11 @@ function clearFieldMarks() {
       return { shown, group, caps, reason, unavailable, left, qty, soldOut: left != null && left <= 0 };
     };
 
+    offerByName = (name) => {
+      const hit = (CONFIG.products || []).find((x) => x && x.name === name);
+      return hit ? offerOf(hit) : null;
+    };
+
     const cardFor = (p) => {
       const facts = offerOf(p);
       if (!facts.shown) return null;
@@ -2929,6 +2947,49 @@ function clearFieldMarks() {
     if (!box) return;
     box.replaceChildren(el("p", {}, text));
     box.hidden = false;
+  }
+
+  // ★★ "YOUR LAST ORDER" (v638) — the regular's way back in, and the reassurance that comes with it.
+  // ⚠️ It offers only what TODAY allows: `planReorder` asks `offerByName` — the same answer the cards draw —
+  // and anything the shop would refuse is NAMED, not silently dropped. ⭐ And it says where the memory lives,
+  // because a shop that remembers you should say so, and give you the way out in the same breath.
+  function renderAgain() {
+    const slot = document.getElementById("again-slot");
+    if (!slot) return;
+    lastBasket = readLastBasket(shopStorage());
+    if (!lastBasket) { slot.replaceChildren(); return; }
+    const lines = lastBasket.items.map((i) => {
+      const prod = (CONFIG.products || []).find((x) => x && x.name === i.name);
+      return `${prod ? nameFor(prod, loadLang()) : i.name} ×${i.qty}`;
+    });
+    slot.replaceChildren(el("div", { class: "card again-card" },
+      el("p", { class: "card-title" }, t("againTitle")),
+      el("p", { class: "card-sub" }, lines.join(" · ")
+        + (lastBasket.at ? ` — ${sub(t("againWhen"), fmtDay(new Date(`${lastBasket.at}T00:00:00`)))}` : "")),
+      el("div", { class: "again-actions" },
+        el("button", {
+          type: "button", class: "again-add",
+          onclick: () => {
+            // ⚠️ THE DAY COMES FIRST, exactly as it does for a stepper press (v454): a basket for a day he has
+            // not chosen is the door beside the gate that the step lock exists to close.
+            if (!dayPicked) { sayStepFirst("needDayTitle", "needDayBody", "step1"); return; }
+            const plan = planReorder(lastBasket, offerByName);
+            for (const a of plan.add) cart.set(a.name, a.qty);
+            renderMenu();
+            renderBar();
+            paintSteps();
+            if (plan.skipped.length) {
+              menuNotice(plan.skipped.map((s) => sub(t(s.why === "gone" ? "againGone" : "againFull"), s.name)).join(" "));
+            } else if (plan.add.length) {
+              menuNotice(sub(t("againAdded"), plan.add.length));
+            }
+          },
+        }, t("againAdd")),
+        el("button", {
+          type: "button", class: "again-forget",
+          onclick: () => { forgetLastBasket(shopStorage()); renderAgain(); },
+        }, t("againForget"))),
+      el("p", { class: "card-sub again-saved" }, t("againSaved"))));
   }
 
   function reconcileCart() {
@@ -3581,6 +3642,9 @@ function clearFieldMarks() {
         ? dayRows.some((r) => r && r.date === todayKey)
         : undefined);
     renderMenu();
+    // ★★ AND THE REGULAR'S WAY BACK IN (v638) — repainted with the menu, because what it may offer depends on
+    // the day that has just settled.
+    renderAgain();
     // ⚠️ LAST, and here rather than anywhere else, because EVERYTHING funnels through `rerender`: the day
     // tapped, the menu rebuilt, the 30-second refresh, the availability arriving. One call site covers
     // them all, and the one that is missed is the one that leaves a circle green on a day that has gone.
@@ -4090,6 +4154,9 @@ function clearFieldMarks() {
       // WhatsApp reached no record at all, and counting it would tell the next
       // customer a code had been used when nothing says it had.
       rememberShopOrder(promoApplied);
+      // ⭐ AND WHAT THEY ORDERED, on their own phone (v638) — the regular's way back in. Saved HERE because
+      // this is the one path where the order really landed; a fallback to WhatsApp reached no record.
+      saveLastBasket(shopStorage(), [...cart].map(([name, qty]) => ({ name, qty })), dateKey(new Date()));
       // ★★ AND THE FRIEND'S NUMBER LEAVES THE ADDRESS (v325). It is on the order record now, so
       // from here it is only a phone number sitting in someone else's address bar. **This is the
       // one path where the order really landed** — the same reason `rememberShopOrder` is here and
@@ -4103,6 +4170,7 @@ function clearFieldMarks() {
       // fault this shop has fixed more times than any other, and the steppers are built from `cart`, so
       // they are rebuilt from it here.
       renderMenu();
+      renderAgain();
       // …and with it every note typed against it, or the next customer's first
       // look at the menu would open with the last person's words sitting in the
       // boxes. Nothing else on this page is carried over; neither is this.

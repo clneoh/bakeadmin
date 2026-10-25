@@ -4,6 +4,18 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v638, YOUR LAST ORDER, ONE PRESS (NO DATABASE STEP).**
+
+**Your words:** __"do P2 — memory"__.
+
+1. ⭐⭐ **A CUSTOMER WHO HAS ORDERED BEFORE NOW SEES "YOUR LAST ORDER"** on the shop — what they had, and the day — with **Add these again** and **Forget**. One press puts the same basket back, with the day's limits applied.
+2. ⚠️ **IT IS THEIR OWN PHONE'S MEMORY, NOT AN ACCOUNT.** No login, no password, nothing on our side. The card says *"Saved on this phone only"*, and **Forget** removes it — a memory the customer cannot delete is not theirs.
+3. ⚠️⚠️ **IT CAN NEVER ADD SOMETHING THE SHOP WOULD REFUSE.** The reorder asks the **same question the menu cards ask** (one rule, two readers): a product that has left the menu, is sold out today, or has fewer left than they once took, is **capped to what is left and the rest is named** — *"Croissant is full today"*, *"Nope Gone is not on the menu today"*.
+4. ⚠️ **And the day still comes first.** Pressing Add before choosing a bake day is refused with the same sentence every other basket door uses — *"Choose your bake day first"* — because a basket for a day nobody chose is exactly the door the step lock exists to close.
+5. ⭐ The basket is saved **only on the one path where an order really landed**; an order that fell back to WhatsApp remembers nothing, because nothing arrived.
+
+**No database step and no function deploy.** 3,919 tests green.
+
 **25 Oct 2026 — engine v637, THE SHOP THIS WEEK, AND THE FOOD FACTS WRITTEN AS DRAFTS (NO DATABASE STEP).**
 
 **Your words:** __"start with the numbers line"__, and for the food facts: __"you can just fill in something, i will tell you to update later"__.

@@ -1017,6 +1017,35 @@ button.prod-next.off::after { content: ""; }
    met at the moment the customer starts to wonder — and it borrows the privacy link's look, because a
    second link style on one page is a second thing to learn. */
 .facts-line { margin: 4px 0 14px; }
+
+/* ★★ "YOUR LAST ORDER" (v638). A card, like everything else in the flow, so it reads as part of the shop
+   rather than a banner across it. ⚠️ The two presses are 44px tall: "Add these again" is the one a thumb
+   reaches for, and "Forget" must be reachable too, or the memory is not really the customer's to keep. */
+.again-card { margin: 0 0 14px; }
+.again-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 6px; }
+.again-add {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--brown);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+}
+.again-forget {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--brown-dark);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+.again-saved { margin: 0; font-size: 12px; }
 .facts-line .privacy-link { font-size: 14px; }
 /* ⚠️⚠️ NOT `.privacy-sheet` — THAT ONE IS ABSOLUTE, ANCHORED TO THE ORDER BAR so it opens ABOVE Place order.
    ⭐ MEASURED: given that class, this panel opened with **zero height and nothing on screen** — it was being
