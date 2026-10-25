@@ -700,22 +700,21 @@ export function renderSettings(root, state) {
   // The cloud section loads after the card renders, so the list fetch never
   // blocks the settings screen. `dead` stops a fill that outlives a re-render
   // (app.js treats a returned function as route cleanup, like Reviews does).
-  // ⚠️ WHAT IS OPEN IS REMEMBERED ACROSS A REFILL (v644): "Back up to cloud now" and a Delete both call
-  // `fillBackups()`, and without this the card she had opened would snap shut under her thumb.
-  const openCopies = new Set();
+  // ★★★ ONE FOLD FOR THE WHOLE LIST (v645). Her words: __"what i meant is collapse every copies, it only pop
+  // up upon clicking"__ — ⭐ **not one fold per copy: the LIST itself is the thing that should stay shut.** The
+  // card then reads as three lines of status instead of a screen of copies, and one press opens them all.
+  // ⚠️ What she opened is remembered across a refill — "Back up to cloud now" and Delete both repaint the list,
+  // and without this the list she had opened would snap shut under her thumb.
+  let copiesOpen = false;
 
   function rowEl(row) {
     const meta = [];
     if (row.summary) meta.push(row.summary);
     if (row.engine) meta.push(`Engine ${row.engine}`);
-    const id = String(row.id || "");
-    // ★★ EACH COPY IS COLLAPSED (v644). Her words: __"there is so many backup copies, should shown collapsed"__.
-    // ⭐ The head is the ONE press, and it names the copy and what it holds; the five controls sit inside the
-    // body. ⚠️ Reuses the app's own fold (`.fold-head` / `.fold-body` / `.fold-caret`), so a copy opens exactly
-    // the way a Point or a delivery day does — a second kind of fold would be a second thing to learn.
-    const open = openCopies.has(id);
-    const caret = el("span", { class: "fold-caret" }, open ? "▾" : "▸");
-    const body = el("div", { class: "fold-body", hidden: !open },
+    return el("div", { style: "margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px" },
+      el("p", { class: "card-title", style: "margin:0 0 2px" },
+        String(row.label || row.kind || "Backup")),
+      el("p", { class: "card-sub", style: "margin:0 0 8px" }, meta.join(" · ")),
       el("div", { class: "btn-row", style: "margin:0" },
         button("View", () => viewOne(row), "soft"),
         button("Restore", () => restoreOne(row), "primary"),
@@ -726,25 +725,28 @@ export function renderSettings(root, state) {
         button("Put back missing orders", () => putBackOne(row), "soft"),
         button("Download", () => downloadOne(row), "ghost"),
         button("Delete", () => deleteOne(row), "ghost")));
+  }
+
+  // The list itself, as one fold whose head counts the copies.
+  function copiesFold(rows) {
+    const caret = el("span", { class: "fold-caret" }, copiesOpen ? "▾" : "▸");
+    const body = el("div", { class: "fold-body", hidden: !copiesOpen }, ...rows.map(rowEl));
     const head = el("button", {
       type: "button",
-      class: "fold-head copy-head",
-      style: "margin-bottom:2px",
-      "aria-expanded": open ? "true" : "false",
+      class: "fold-head copies-head",
+      style: "margin:12px 0 2px",
+      "aria-expanded": copiesOpen ? "true" : "false",
       onclick: () => {
-        const nowOpen = openCopies.has(id) ? false : true;
-        if (nowOpen) openCopies.add(id); else openCopies.delete(id);
-        body.hidden = !nowOpen;
-        head.setAttribute("aria-expanded", nowOpen ? "true" : "false");
-        caret.textContent = nowOpen ? "▾" : "▸";
+        copiesOpen = !copiesOpen;
+        body.hidden = !copiesOpen;
+        head.setAttribute("aria-expanded", copiesOpen ? "true" : "false");
+        caret.textContent = copiesOpen ? "▾" : "▸";
       },
     },
-      el("span", { class: "fold-title" }, String(row.label || row.kind || "Backup")),
+      el("span", { class: "fold-title" },
+        `All your copies · ${rows.length} (newest first)`),
       caret);
-    return el("div", { style: "margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px" },
-      head,
-      el("p", { class: "card-sub", style: "margin:4px 0 0" }, meta.join(" · ")),
-      body);
+    return el("div", {}, head, body);
   }
 
   function viewOne(row) {
@@ -863,10 +865,7 @@ export function renderSettings(root, state) {
     // today" and listed none, ⭐ so **Restore, Download, Put back missing orders and Delete were unreachable —
     // the list is the only way to any of them**, and `rowEl` below has been dead code since.
     // ⭐ Her report, in her own words: __"normally i use to see each backup copies, collapsed, but now no"__.
-    if (rows.length) {
-      kids.push(el("p", { class: "card-sub", style: "margin:12px 0 4px" }, "All your copies (newest first)"));
-      kids.push(...rows.map(rowEl));
-    }
+    if (rows.length) kids.push(copiesFold(rows));
     show(...kids, ...keptCopyKids());
   }
 

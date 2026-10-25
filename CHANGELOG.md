@@ -4,6 +4,16 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v645, THE WHOLE LIST IS ONE LINE UNTIL YOU OPEN IT (NO DATABASE STEP).**
+
+**Your words:** __"what i meant is collapse every copies, it only pop up upon clicking"__.
+
+1. ⭐⭐ **"ALL YOUR COPIES · 3 (newest first)"** is now the only thing the card shows — **one line, with an arrow.** Tap it and every copy appears; tap again and the whole list folds away. That is the difference from v644: there, every copy was its own fold; here, **the list itself is the fold**, which is what you asked for.
+2. ⭐ **"Daily copy saved today" and "Back up to cloud now" stay where they were**, above it — so a card that is closed still tells you the one thing worth knowing: a copy was saved today.
+3. ⚠️ **It stays shut** every time the card repaints — and **stays open while you use it**, so making a new copy or deleting one does not fold the list you were reading.
+
+**No database step and no function deploy.** 3,931 tests green.
+
 **25 Oct 2026 — engine v644, THE BACKUP COPIES ARE COLLAPSED (NO DATABASE STEP).**
 
 **Your words:** __"there is so many backup copies, should shown collapsed"__.

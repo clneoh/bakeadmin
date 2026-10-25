@@ -22,10 +22,12 @@ const live = (text) => String(text).split("\n")
 
 test("★★★ the copies are rendered into the card (v642)", () => {
   const code = live(src);
-  assert.match(code, /kids\.push\(\.\.\.rows\.map\(rowEl\)\);/,
-    "★ the rows are gone again — the card will say a copy was saved and list none");
+  // ⚠️ THE ROWS NOW ARRIVE INSIDE A FOLD (v645), so the check follows them one step further — what it forbids is
+  // unchanged: a card that says a copy was saved and draws none.
+  assert.match(code, /if \(rows\.length\) kids\.push\(copiesFold\(rows\)\);/, "★ the rows are gone again");
+  assert.match(code, /\.\.\.rows\.map\(rowEl\)/, "★ the fold body draws none of them");
   // and they are pushed BEFORE the card is shown, or they would be drawn into nothing
-  const pushAt = code.indexOf("kids.push(...rows.map(rowEl))");
+  const pushAt = code.indexOf("kids.push(copiesFold(rows))");
   const showAt = code.indexOf("show(...kids, ...keptCopyKids())");
   assert.ok(pushAt > 0 && showAt > pushAt, "★ the rows are built after the card is drawn — they never appear");
 });
@@ -46,21 +48,20 @@ test("★★ rowEl is used, not dead code (v642)", () => {
   assert.equal(uses, 1, "★ rowEl is defined and never called — that is exactly how the list vanished before");
 });
 
-test("★★★ each copy is COLLAPSED, and opens on its own head (v644)", () => {
-  // Her words: __"there is so many backup copies, should shown collapsed"__. ⭐ The head is one press and names
-  // the copy; the five controls sit inside the body; ⚠️ and what she opened stays open across a refill, or
-  // "Back up to cloud now" would slam the card shut under her thumb.
+test("★★★ the WHOLE LIST is one fold, shut until she clicks (v645)", () => {
+  // Her words: __"what i meant is collapse every copies, it only pop up upon clicking"__ — ⭐ **the list itself is
+  // the thing that stays shut**, not one fold per copy: the card reads as status and one press opens the copies.
   const code = live(src);
-  assert.match(code, /class: "fold-body", hidden: !open\b/,
-    "★ the copies open by themselves again — a long list with every row expanded is what she asked to end");
-  assert.match(code, /class: "fold-head copy-head",/, "the press lost its fold head");
-  assert.match(code, /"aria-expanded": open \? "true" : "false"/, "★ the head does not say whether it is open");
-  assert.match(code, /const openCopies = new Set\(\);/, "★ what she opened is forgotten on the next refill");
-  // ⚠️ and the controls are INSIDE the body, never beside it — a control outside the fold is one a collapsed
-  // row still shows, which is the long list she is trying to avoid.
-  const row = code.slice(code.indexOf("function rowEl(row)"));
-  const body = row.slice(0, row.indexOf("function viewOne"));
-  const bodyAt = body.indexOf("const body = el(\"div\", { class: \"fold-body\"");
-  const buttonsAt = body.indexOf('button("View"');
-  assert.ok(bodyAt > 0 && buttonsAt > bodyAt, "★ the controls are outside the fold body");
+  assert.match(code, /const body = el\("div", \{ class: "fold-body", hidden: !copiesOpen \}, \.\.\.rows\.map\(rowEl\)\);/,
+    "★ the copies are drawn outside a fold — the card is a screen of copies again");
+  assert.match(code, /class: "fold-head copies-head"/, "the list lost its press");
+  assert.match(code, /"aria-expanded": copiesOpen \? "true" : "false"/, "★ the head does not say whether it is open");
+  assert.match(code, /let copiesOpen = false;/, "★ the list opens by itself on every repaint");
+  // The five controls live on each row INSIDE the fold (one level of folding, not two).
+  const fold = code.slice(code.indexOf("function copiesFold(rows)"));
+  assert.ok(fold.indexOf("rows.map(rowEl)") < fold.indexOf("function viewOne"), "the rows are no longer in the fold body");
+  const row = code.slice(code.indexOf("function rowEl(row)"), code.indexOf("function copiesFold(rows)"));
+  for (const label of ["View", "Restore", "Put back missing orders", "Download", "Delete"]) {
+    assert.ok(row.includes(`"${label}"`), `★ a copy lost its ${label} control`);
+  }
 });
