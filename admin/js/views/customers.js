@@ -7,10 +7,11 @@
 
 import { navigate } from "../app.js";
 import { customerList, keyOf, ordersForCustomer, phoneDigits } from "../customers.js";
+import { quietCustomers, nudgeText, QUIET_DAYS } from "../nudge.js";
 import { attachProfiles, customerMatches, customerRowName, forgetCustomer, mergeCustomers, profileFor, removeProfile, upsertProfile } from "../profiles.js";
 import { readPhoto } from "../photo.js";
 import { el, button, select, emptyState, showPopup, copyText, toast, confirmDialog } from "../ui.js";
-import { byId, fmtRM, groupOrders, orderHref, orderLineName, save, waNumber } from "../state.js";
+import { bakeDays, byId, fmtRM, groupOrders, orderHref, orderLineName, save, waNumber } from "../state.js";
 import { longDate, todayISO, weekdayName } from "../dates.js";
 import { maybeSync, publishTracking } from "../supabase.js";
 import {
@@ -197,6 +198,7 @@ export function renderCustomers(root, state, params) {
         drawList,
         { newCustomer: true },
       ), "soft")),
+    nudgeCard(),
     msgCard,
     el("h2", { class: "section" },
       who === "gone30" ? "Quiet customers — no order in 30 days"
@@ -310,6 +312,39 @@ export function renderCustomers(root, state, params) {
   const previewEl = el("div", { class: "msg-preview" });
   const numBtn = button("", () => copyList(rowsPicked()), "soft");
   const greetBtn = button("", () => copyGreetings(rowsPicked()), "primary");
+
+  // ★★ THE QUIET NUDGE (v646) — P4 of the customer plan. ⚠️⚠️ It picks the people FOR her (bought before,
+  // eight weeks quiet, not already coming, never anyone who asked to be forgotten), writes the week's sentence
+  // from her own settings, and drops both straight into the picker she already uses. ⭐ **No discount, no
+  // announcement, no automatic send** — she presses Send in WhatsApp, one chat at a time, exactly as she always
+  // has. See admin/js/nudge.js for the rules.
+  function nudgeCard() {
+    const quiet = quietCustomers(state, { today });
+    const nextDay = bakeDays(state)
+      .filter((d) => d && d.date && d.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date))[0];
+    const text = nudgeText({ dayText: nextDay ? dateLine(nextDay.date) : "", cutoff: state.settings.cutoff });
+    const weeks = Math.round(QUIET_DAYS / 7);
+    return el("div", { class: "card" },
+      el("h2", { style: "margin:0 0 2px" }, "Quiet nudge"),
+      quiet.length
+        ? el("div", {},
+            el("p", { class: "card-sub", style: "margin:0 0 10px" },
+              `${quiet.length} customer${quiet.length === 1 ? " has" : "s have"} bought before and not ordered in `
+              + `${weeks} weeks — and none of them is booked for an upcoming day.`),
+            el("p", { class: "msg-preview" },
+              el("span", { class: "muted" }, `First chat (${quiet[0].name}): `),
+              el("span", { class: "preview-text" }, `Hi ${quiet[0].name}, ${text}`)),
+            el("div", { class: "btn-row", style: "margin-top:8px" },
+              button(`☑ Pick these ${quiet.length}`, () => {
+                picked = new Set(quiet.map((r) => r.key));
+                messageBody = text;
+                nav(true);
+              }, "primary"),
+              button("Copy the note", () => copyText(text, "Note copied — paste it into each chat"), "soft")))
+        : el("p", { class: "card-sub", style: "margin:0" },
+            "Everyone who has bought before is either recent or already booked for an upcoming day — nothing to send."));
+  }
 
   function drawMsgCard() {
     if (!pick) {

@@ -4,6 +4,17 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v646, THE QUIET NUDGE (NO DATABASE STEP).**
+
+**From the plan:** __"the lapsed — a reason to come back, quietly"__ (P4).
+
+1. ⭐⭐ **CUSTOMERS NOW HAS A "QUIET NUDGE" CARD.** It picks the people itself: **bought before, nothing in eight weeks, and not already booked for an upcoming day** — ⚠️ and **never anyone who asked to be forgotten**, because their details were deleted at their request and they are not messaged again.
+2. ⭐ **It writes the sentence from your own settings** — *"we're baking on Wed, 28 Oct 2026. If you'd like some, order by 6pm the day before — jienluv2bake.com.my/store/"* — the bake day and the cut-off read, never typed.
+3. ⚠️⚠️ **THERE IS NO DISCOUNT, NO "SPECIAL", NO ANNOUNCEMENT**, and **nothing is sent automatically**: **Pick these N** drops the people and the words into the message picker you already use, and you press Send in WhatsApp, one chat at a time. A test fails if a discount word ever appears in that sentence.
+4. ⭐ When there is nobody to nudge, the card says so — *"everyone who has bought before is either recent or already booked"* — rather than showing an empty control.
+
+**No database step and no function deploy.** 3,938 tests green.
+
 **25 Oct 2026 — engine v645, THE WHOLE LIST IS ONE LINE UNTIL YOU OPEN IT (NO DATABASE STEP).**
 
 **Your words:** __"what i meant is collapse every copies, it only pop up upon clicking"__.
