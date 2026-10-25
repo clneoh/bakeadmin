@@ -20,6 +20,14 @@ create table if not exists public.waitlist (
 -- ⚠️⚠️ A CUSTOMER IS NOT SIGNED IN, SO `anon` MUST BE ABLE TO INSERT — and ⚠️ **nothing more.**
 -- ⭐ THE ASYMMETRY IS THE WHOLE DESIGN: **anyone may add themselves; nobody anonymous may read the list**,
 -- because every other row is somebody else's phone number.
+--
+-- ⚠️⚠️ AND THE REVOKE MUST COME FIRST — MEASURED ON HER PROJECT, 25 Oct: after the first version of this file,
+-- the read-back said **`anon_can_read = true`**. ⭐ **Supabase grants `ALL` to `anon` on every new table in
+-- `public` by DEFAULT**, so the grant was there without one line in this file asking for it. RLS still refused
+-- the rows (no anon policy), so nothing leaked — ⚠️ **but a grant that exists is one careless policy away from a
+-- leak of every customer's phone number.** ⭐ So the default is taken away first and the one permission she
+-- needs is given back by name.
+revoke all on public.waitlist from anon;
 grant insert on public.waitlist to anon;
 -- ⚠️ The identity column draws from this sequence, and an INSERT without a grant on it fails with 42501.
 grant usage on sequence public.waitlist_id_seq to anon;

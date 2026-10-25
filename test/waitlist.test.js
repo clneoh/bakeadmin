@@ -57,6 +57,11 @@ test("★★★ the shop can ADD but never READ — and she can read (v648)", ()
     "★ the shop cannot add a request — the form would silently fail");
   assert.ok(!/grant select[^;]*to anon/i.test(sql),
     "★ the public key can READ the waitlist — every row is somebody else's phone number");
+  // ⚠️⚠️ MEASURED on her project (25 Oct): Supabase grants ALL to `anon` on a new table BY DEFAULT, so the
+  // read-back said `anon_can_read = true` with no line in the file asking for it. ⭐ **The revoke is not belt
+  // and braces — it is the only thing standing between a default grant and every customer's phone number.**
+  assert.match(sql, /revoke all on public\.waitlist from anon;/,
+    "★ no revoke — Supabase's default grant leaves the public key able to read the list");
   assert.match(sql, /grant select, update, delete on public\.waitlist to authenticated;/, "she cannot read or tick them");
   assert.match(sql, /has_table_privilege\('anon', 'public\.waitlist', 'SELECT'\)\s+as anon_can_read/,
     "the read-back no longer asks the question that matters");

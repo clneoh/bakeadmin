@@ -13,6 +13,7 @@ always tell which build a phone is running.
 3. ⭐⭐ **HOME SHOWS "WAITING TO BE TOLD"** — who asked, for which day, with **💬 Message** and **Done**. It appears only when somebody is waiting, and stays silent when sharing is off.
 4. ⚠️⚠️ **THE SHOP CAN ADD A REQUEST AND CAN NEVER READ ONE BACK** — every row is somebody else's phone number, so the public key may insert and nothing more, and only your signed-in phones may read, tick or delete. A test fails if the public key is ever given read access.
 5. ⭐ The words are in all three languages, and every refusal says which thing is wrong — a number too short to reach, a request that did not land, a day already asked about.
+6. ⚠️⚠️ **CORRECTED THE SAME DAY, from your own read-back.** Running the SQL showed **`anon_can_read = true`** — **Supabase grants the public key `ALL` on every new table by default**, so a permission I never asked for was there. Nothing leaked (the row rules still refused it), but it is one careless rule away from exposing every customer's phone number. **The file now takes that default away first and gives back only "add a request".** ⚠️ **Re-run `supabase/waitlist.sql` once**; the read-back should then say `anon_can_read = false`.
 
 **No function deploy.** 3,945 tests green.
 
