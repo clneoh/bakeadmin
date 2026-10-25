@@ -14,6 +14,9 @@
   <!-- ★★ THE TRIAL IS THE SHOP NOW (v634). ⚠️ It was `noindex, nofollow` while it shared the shop's place in
        search with /store/; the moment it BECAME the shop, it had to be findable again — ⭐ **an unindexed shop
        is a shop a customer cannot search for.** -->
+  <!-- ★★ THE TRIAL IS THE SHOP AGAIN (v640). ⚠️ It was `noindex, nofollow` while it shared the shop's place
+       in search; the moment it BECAME the shop it had to be findable — ⭐ an unindexed shop is a shop a
+       customer cannot search for. -->
   <meta name="robots" content="index, follow">
   <title>Order · Jienluv2bake</title>
   <!-- The chalk hand used by the bakery's own sentence in the shelf strip (v274).
@@ -136,6 +139,23 @@
     <!-- ★★ THE THREE STEPS (v405). Her words: __"first you might mention that it is a 3 step ordering
          process, name the 1st by 1 in a circle, big one"__. ⚠️ The lede promises it ENDS, which is the
          part a nervous customer wants; the circles say which one they are on. -->
+    <!-- ★★ "GOOD TO KNOW" (v636_2) — the layer of reassurance the plan calls for, at the one moment a
+         customer starts to wonder how this works: after the day is offered, before the items.
+         ⚠️ It reuses the privacy sheet's own shape (a link, a panel, a press to open, a press away to close),
+         because a second way of showing a panel on this page is a second thing to keep working. -->
+    <p class="facts-line"><button id="facts-open" class="privacy-link" type="button" aria-expanded="false"
+        aria-controls="facts-sheet" data-i18n="factsLink">Good to know</button></p>
+    <div class="facts-sheet" id="facts-sheet" hidden>
+      <p class="privacy-sheet-head" data-i18n="factsHead">Before you order</p>
+      <ul class="privacy-sheet-list">
+        <li data-i18n="factBake">We bake on the days the calendar offers, and the bread is made the morning of its day.</li>
+        <li data-i18n="factCutoff">Orders close the evening before your bake day — the exact time is always in the card above the calendar.</li>
+        <li data-i18n="factGet">Collect it yourself from the point you choose, or have it delivered by Lalamove, which serves Penang Island only. Delivery costs what Lalamove charges for the trip.</li>
+        <li data-i18n="factPay">Your order is confirmed when the payment reaches us — we send the payment QR on WhatsApp.</li>
+        <li data-i18n="factChange">To move or cancel an order, message us on WhatsApp as early as you can and we will tell you honestly what can be done.</li>
+        <li><span data-i18n="factAsk">Ask us anything — WhatsApp</span> <a id="facts-wa" class="privacy-wa" href="" hidden></a></li>
+      </ul>
+    </div>
     <p class="steps-lede" id="steps-lede"></p>
 
     <div class="step-head" id="step1"><span class="step-num">1</span>
@@ -155,6 +175,9 @@
          can no longer be torn out of the page** — which is what let v493 retire the re-hanging machinery
          v460 needed. -->
     <p class="step-note" id="step-note" role="status" hidden></p>
+    <!-- ★★ "YOUR LAST ORDER" (v638) — the regular's way back in. ⚠️ Filled from the customer's own phone at
+         boot; empty (and so invisible) for anyone who has not ordered here before. -->
+    <div id="again-slot"></div>
     <div class="step-head" id="step2"><span class="step-num">2</span>
       <h2 class="section" data-i18n="sWhat">What would you like?</h2></div>
     <div id="menu-note" class="menu-note" role="status" hidden></div>

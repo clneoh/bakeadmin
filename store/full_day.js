@@ -1,4 +1,4 @@
-// store2/full_day.js — what a tapped FULL bake day answers.
+// store/full_day.js — what a tapped FULL bake day answers.
 //
 // ⚠️ WHY THIS IS ITS OWN FILE. The answer is one sentence and one press, and the press must choose the SAME
 // day the sentence names — so the day is found ONCE, here, and returned for both. ⭐ It is also the only part

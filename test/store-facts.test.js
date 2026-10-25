@@ -1,4 +1,4 @@
-// test/store2-facts.test.js — the second gateway's "Good to know" sheet: the reassurance layer of the
+// test/store-facts.test.js — the shop's "Good to know" sheet: the reassurance layer of the
 // customer-levels plan, at the one moment a customer starts to wonder how the shop works.
 //
 // ⚠️⚠️ AND THE RULE THAT KEEPS IT HONEST: **every sentence here is a fact of hers.** Allergens, keeping and
@@ -13,9 +13,9 @@ import { STORE } from "../store-lang.js";
 import { LANGS } from "../i18n.js";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
-const HTML = read("store2/index.html");
-const APP = read("store2/app.js");
-const CSS = read("store2/app.css");
+const HTML = read("store/index.html");
+const APP = read("store/app.js");
+const CSS = read("store/app.css");
 
 // comments out before any match — a commented-out line has fooled this repo before
 const live = (src) => String(src).split("\n")
@@ -63,7 +63,7 @@ test("★★★ the shop-wide sheet carries NO food fact — they belong to the 
 });
 
 test("★★★ the product card draws her food facts only where she wrote them (v639)", () => {
-  const app = readFileSync(new URL("../store2/app.js", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
   assert.match(app, /p\.allergens \? el\("p", \{ class: "prod-fact" \}/,
     "★ the product's allergen line is not drawn at all");
   assert.match(app, /p\.keeping \? el\("p", \{ class: "prod-fact" \}/,

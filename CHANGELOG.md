@@ -4,6 +4,18 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v640, THE TRIAL IS THE SHOP (NO DATABASE STEP).**
+
+**Your words:** __"yes, do it"__ — after the memory was tested on your phone.
+
+1. ⭐⭐ **`/store/` IS NOW THE SHOP YOU HAVE BEEN TESTING.** Customers get **Good to know** — bake days, the cut-off, collecting or delivery, paying, changing an order, WhatsApp — and **Your last order**, one press to repeat, with Forget and *"saved on this phone only"*. **`/store2/` is gone** (the address answers 404).
+2. ⭐ **And the food facts are per product**, written by you: *What is in it* and *Keeping it* under Description in the product editor. ⚠️ **Blank draws nothing** — no line reaches a customer until you write one.
+3. ⚠️⚠️ **THE SHOP IS FINDABLE AGAIN** (`index, follow`). It was hidden from search only while it shared the shop's place with `/store/`; **an unindexed shop is a shop nobody can search for.**
+4. ⭐ **One gateway, one name:** the footer reads **Engine v640** — the `_2` belonged to the trial and went with it.
+5. ⚠️ **A test had to be re-anchored, and it was right to complain.** Moving the basket-save beside the other order clean-ups pushed it outside a 500-character window that another test used to prove "the order really landed" — that window measured a comment's length, not the code. It now asks the order of the two lines instead.
+
+**No database step and no function deploy.** 3,919 tests green.
+
 **25 Oct 2026 — engine v639, THE FOOD FACTS BELONG TO THE PRODUCT (NO DATABASE STEP).**
 
 **Your words:** __"this should not be as general but on the product specific"__.

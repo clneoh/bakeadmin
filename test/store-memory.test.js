@@ -1,4 +1,4 @@
-// test/store2-memory.test.js — P2 of the customer plan: this phone remembers what it ordered.
+// test/store-memory.test.js — P2 of the customer plan: this phone remembers what it ordered.
 //
 // ⚠️⚠️ TWO RULES SHAPE ALL OF IT:
 //   1 · **NO ACCOUNTS AND NO PASSWORDS** — her rule. The memory is on the customer's own phone, holds only the
@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { LAST_KEY, saveLastBasket, readLastBasket, forgetLastBasket, planReorder } from "../store2/last_order.js";
+import { LAST_KEY, saveLastBasket, readLastBasket, forgetLastBasket, planReorder } from "../store/last_order.js";
 
 const store = (initial = {}) => {
   const map = new Map(Object.entries(initial));
@@ -68,10 +68,16 @@ test("★★★ the reorder offers only what TODAY allows, and names what it can
 });
 
 test("★★★ the shop saves it on the one path where an order landed, and the day comes first (v638)", () => {
-  const app = readFileSync(new URL("../store2/app.js", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../store/app.js", import.meta.url), "utf8");
   // the save sits beside the other "the order really landed" bookkeeping
-  assert.match(app, /rememberShopOrder\(promoApplied\);\s*\n[\s\S]{0,400}?saveLastBasket\(shopStorage\(\)/,
-    "★ the basket is not saved where an order lands — a fallback to WhatsApp would remember an order that never arrived");
+  // ⚠️ ANCHORED ON THE BRANCH, NOT ON ONE NEIGHBOUR (v640): `forgetVia()` and the basket save are both clean-ups
+  // of the same moment, and requiring them within 400 characters of `rememberShopOrder` made a comment's length
+  // a test. ⭐ The rule is the ORDER of them: after the order landed, before the basket is emptied.
+  const rememberAt = app.indexOf("rememberShopOrder(promoApplied)");
+  const saveAt = app.indexOf("saveLastBasket(shopStorage()");
+  const clearAt = app.indexOf("cart.clear()", rememberAt);
+  assert.ok(rememberAt > -1 && saveAt > rememberAt && clearAt > saveAt,
+    "★ the basket is not saved on the branch where an order lands, before it is emptied — a fallback to WhatsApp would remember an order that never arrived");
   // the card is drawn at boot and after the reset
   assert.match(app, /renderMenu\(\);\s*\n\s*renderAgain\(\);/,
     "the last-order card is never repainted with the menu");

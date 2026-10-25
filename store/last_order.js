@@ -1,4 +1,4 @@
-// store2/last_order.js — what this phone ordered last time, so a regular does not retype or re-pick.
+// store/last_order.js — what this phone ordered last time, so a regular does not retype or re-pick.
 //
 // ⭐ FROM THE CUSTOMER PLAN (marketing/customer-levels-plan.md, P2): "the regular — same as last time, and
 // reassurance". ⚠️ **NO ACCOUNTS AND NO PASSWORDS** — her rule. The memory lives on the customer's own phone,
