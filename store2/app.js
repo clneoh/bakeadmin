@@ -42,7 +42,7 @@ import { fullDayAnswer } from "./full_day.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "638";
+export const SHOP_BUILD = "639";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1027,6 +1027,13 @@ export function mergeStorefront(base, remote) {
         // adopted, so "yes", 1 and a missing key all read as "do not ask" and the
         // card is drawn exactly as it is today.
         if (p.askNote === true) out.askNote = true;
+        // ★★ THIS PRODUCT'S OWN FOOD FACTS (v639) — hers, and re-checked here like everything else that
+        // crosses this boundary: a string, trimmed, and only when written. ⚠️ An absent key leaves the card
+        // drawn exactly as it is today, with no line and no guess.
+        for (const k of ["allergens", "keeping"]) {
+          const v = p && typeof p[k] === "string" && p[k].trim();
+          if (v) out[k] = String(p[k]).trim().slice(0, 200);
+        }
         // The thumbnail the baker set on the product. Checked against the
         // same rule the publisher used (storefront-fields.js), so anything that
         // is not a small JPEG data URL is dropped rather than drawn.
@@ -2821,7 +2828,14 @@ function clearFieldMarks() {
               el("p", { class: "card-title" }, nameFor(p, lang)),
               el("p", { class: "card-sub" }, unitFor(p, lang)),
               stamp,
-              desc ? el("p", { class: "prod-desc" }, desc) : null),
+              desc ? el("p", { class: "prod-desc" }, desc) : null,
+              // ★★ THIS PRODUCT'S OWN FACTS (v639) — ⚠️ her words, drawn only when she has written them, and
+              // labelled so a customer knows what they are reading. Blank means no line at all: the shop must
+              // never fill a food fact in itself.
+              p.allergens ? el("p", { class: "prod-fact" },
+                `${t("allergenLabel")}: ${String(p.allergens).trim()}`) : null,
+              p.keeping ? el("p", { class: "prod-fact" },
+                `${t("keepingLabel")}: ${String(p.keeping).trim()}`) : null),
             el("div", { class: "card-side" },
               el("p", { class: "card-price" }, `RM${p.price.toFixed(2)}`),
               el("div", { class: "stepper" }, dec, qtyBox, inc))),

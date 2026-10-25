@@ -4,6 +4,17 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v639, THE FOOD FACTS BELONG TO THE PRODUCT (NO DATABASE STEP).**
+
+**Your words:** __"this should not be as general but on the product specific"__.
+
+1. ⭐⭐ **EACH PRODUCT NOW CARRIES ITS OWN TWO LINES — "What is in it" and "Keeping it"** — written by you in the product editor, published with the product, and drawn on its card on the shop. A ham sandwich and a plain focaccia no longer share one allergen sentence.
+2. ⚠️⚠️ **AND THE GENERAL "GOOD TO KNOW" PANEL NOW CARRIES NO FOOD FACT AT ALL.** It says how to order — bake days, the cut-off, collecting or delivery, paying, changing an order. Anything about what is *in* the bread or how long it *keeps* lives on the product, where it is true.
+3. ⚠️ **BLANK SHOWS NOTHING, AND NOTHING IS EVER GUESSED.** A product you have not written for draws no line; the app has no default sentence it can fall back on. Clearing a box removes the fact — no orphan line stays behind on the shop.
+4. ⭐ **The three draft facts I wrote for you are gone**, replaced by the two fields you fill in per product. Their labels are in all three languages (*What is in it* / 成分 / Kandungan, *Keeping it* / 保存 / Penyimpanan).
+
+**No database step and no function deploy.** 3,919 tests green.
+
 **25 Oct 2026 — engine v638, YOUR LAST ORDER, ONE PRESS (NO DATABASE STEP).**
 
 **Your words:** __"do P2 — memory"__.

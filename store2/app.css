@@ -789,6 +789,9 @@ html, body {
   padding: 2px 9px;
   letter-spacing: .04em;
 }
+/* ★★ THIS PRODUCT'S OWN FOOD FACTS (v639) — a quiet line under the description, in the shop's own ink and a
+   size a customer can read. ⚠️ It is her sentence, not a label with a guess after it. */
+.prod-fact { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--ink); }
 .card-words .prod-stamp.soldout { background: #fbe9e7; color: var(--red); }
 
 .card-head {

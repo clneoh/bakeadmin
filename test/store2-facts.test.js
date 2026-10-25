@@ -23,8 +23,7 @@ const live = (src) => String(src).split("\n")
   .map((l) => l.replace(/\/\*.*?\*\//g, ""))
   .join("\n");
 
-const KEYS = ["factsLink", "factsHead", "factBake", "factCutoff", "factGet", "factPay", "factChange", "factAsk",
-  "factKeep", "factFreeze", "factAllergen"];
+const KEYS = ["factsLink", "factsHead", "factBake", "factCutoff", "factGet", "factPay", "factChange", "factAsk"];
 
 test("★★★ the sheet exists, starts shut, and is opened by its own link (v636_2)", () => {
   assert.match(HTML, /id="facts-open"[^>]*aria-expanded="false"[^>]*aria-controls="facts-sheet"/,
@@ -47,38 +46,31 @@ test("★★★ one behaviour for both panels, and a language press is not 'away
     "★ measured: switching language SHUT the panel — a customer reading in the wrong language had to open it again");
 });
 
-test("★★★ every FOOD claim is marked as a draft, so her words can be found and swapped in (v637)", () => {
-  // ⚠️⚠️ HER WORDS: __"you can just fill in something, i will tell you to update later"__ — ⭐ so the three food
-  // facts are written CONSERVATIVELY (over-declared, never under-declared) and each carries `data-draft`.
-  // ⚠️ THE GUARD IS NOW "NO UNMARKED FOOD CLAIM", not "no food claim at all": a claim nobody can find is a claim
-  // nobody will replace, and a shop that quietly states a food fact is the fault this file exists for.
-  // ⚠️ HTML COMMENTS OUT FIRST (the house rule): the note explaining the draft foods names allergens too, and a
-  // raw slice made the guard accuse its own documentation. A guard must not trip on its own explanation.
+test("★★★ the shop-wide sheet carries NO food fact — they belong to the products (v639)", () => {
+  // ⚠️⚠️ HER WORDS: __"this should not be as general but on the product specific"__ — a ham sandwich and a plain
+  // focaccia do not share an allergen line. ⭐ So the general panel says how to ORDER; the food facts live on the
+  // product card, written by her, and the shop draws nothing where she has written nothing.
   const page = HTML.replace(/<!--[\s\S]*?-->/g, "");
   const sheet = page.slice(page.indexOf('id="facts-sheet"'), page.indexOf('id="facts-sheet"') + 2600);
-  const FOOD_CLAIMS = /allergen|freez|frozen|refrigerat|reheat|shelf life|keeps?\s+for|lasts?\s+\d+\s+days?|good\s+for\s+\d+\s+days?|halal|microwav|room temperature|wheat|gluten/i;
-  const lines = sheet.split("\n").filter((l) => FOOD_CLAIMS.test(l));
-  assert.ok(lines.length > 0, "the food facts went missing — she asked for them to be filled in as drafts");
-  for (const line of lines) {
-    assert.match(line, /data-draft="food-fact"/,
-      `★ an unmarked food claim: ${line.trim().slice(0, 60)} — every one of these must be findable as a draft`);
-  }
-  // Exactly the three she asked to be filled in for now.
-  const drafts = [...sheet.matchAll(/data-i18n="(fact[A-Za-z]+)" data-draft="food-fact"/g)].map((m) => m[1]);
-  assert.deepEqual(drafts.sort(), ["factAllergen", "factFreeze", "factKeep"],
-    "★ the set of draft food facts changed — her words are owed for exactly these three");
-  // And the facts she already lives by are still stated.
+  const FOOD_CLAIMS = /allergen|freez|frozen|refrigerat|reheat|shelf life|keeps?\s+(?:for|well)|best (?:on|before)|use by|good for \d+|lasts?\s+\d+\s+days?|halal|microwav|room temperature|wheat|gluten|slice it|wrap (?:it|each)/i;
+  const m = FOOD_CLAIMS.exec(sheet);
+  assert.ok(!m, `★ the general panel claims "${m && m[0]}" — food facts belong to the product, not to the shop`);
+  // and nothing on it is left marked as a draft
+  assert.ok(!/data-draft/.test(sheet), "★ a draft marker is left in the panel with nothing to mark");
   for (const key of ["factBake", "factCutoff", "factGet", "factPay", "factChange"]) {
     assert.ok(sheet.includes(`data-i18n="${key}"`), `the sheet lost "${key}"`);
   }
 });
 
-// ⚠️ AND THE ALLERGEN LINE IS THE ONE THAT MUST BE READ BY HER: it is the only sentence on the page that can
-// hurt someone if it is wrong. It is pinned as DRAFT here so no release can quietly freeze it as final.
-test("★★★ the allergen sentence is a placeholder until she says otherwise (v637)", () => {
-  assert.match(HTML, /data-i18n="factAllergen" data-draft="food-fact"/,
-    "★ the allergen line is no longer marked as a draft — it is now being stated to customers as settled");
-  assert.match(STORE.en.factAllergen, /wheat \(gluten\)/i, "the allergen line stopped naming what it is made with");
+test("★★★ the product card draws her food facts only where she wrote them (v639)", () => {
+  const app = readFileSync(new URL("../store2/app.js", import.meta.url), "utf8");
+  assert.match(app, /p\.allergens \? el\("p", \{ class: "prod-fact" \}/,
+    "★ the product's allergen line is not drawn at all");
+  assert.match(app, /p\.keeping \? el\("p", \{ class: "prod-fact" \}/,
+    "★ the product's keeping line is not drawn at all");
+  // ⚠️ and the shop must never write one itself: the line is her text, not a sentence of ours with a hole in it.
+  assert.ok(!/allergens[^\n]{0,40}default|keeping[^\n]{0,40}default/i.test(live(app)),
+    "★ the shop has a fallback food fact — the app is guessing about food again");
 });
 
 test("★★★ and every sentence exists in three languages, not copied (v636_2)", () => {

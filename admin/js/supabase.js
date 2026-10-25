@@ -378,6 +378,12 @@ export function storefrontPayload(state) {
       // shop-side recheck of its own lives in store/app.js's merge, as with
       // every other field that crosses this boundary.
       if (p.askNote === true) out.askNote = true;
+      // ★★ THE PRODUCT'S OWN FOOD FACTS (v639) — hers, never generated. ⚠️ Published only when written, so a
+      // product that has none crosses this boundary byte-for-byte as it always did.
+      for (const k of ["allergens", "keeping"]) {
+        const v = p && p[k];
+        if (typeof v === "string" && v.trim()) out[k] = v.trim().slice(0, 200);
+      }
       // Optional translated names for 中文 / BM shoppers. Published only when
       // written — blank falls back to the English name on the shop (nameFor).
       for (const k of ["nameZh", "nameMs"]) {
