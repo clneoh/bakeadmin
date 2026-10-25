@@ -4,6 +4,16 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v643, THE WHATSAPP NUMBER SHOWS ON "GOOD TO KNOW" (NO DATABASE STEP).**
+
+**Your words:** __"in the whatsapp box it's 60169601268, correct, but dont show the number on the Good to know"__.
+
+1. ⚠️⚠️ **THE NUMBER WAS THERE AND INVISIBLE — a real fault, not a settings problem.** The line was drawn with the number *and* a `hidden` mark on itself: **this page's `el()` writes every key it is given straight onto the element, so `hidden: false` still SET the attribute, and a `hidden` attribute hides the element whatever its value.** It is now hidden only when there is genuinely no number.
+2. ⭐ So the last line reads **"Ask us anything — WhatsApp +60 16-960 1268"** again, taken from **Settings → Storefront → WhatsApp number**, and tapping it opens your chat.
+3. ⭐ **A test now forbids the whole class** in the shop: no `hidden:` may be passed to `el()` at all — only set as a property — because this file's own tip bubble has warned about it for years and it still caught one of mine.
+
+**No database step and no function deploy.** 3,930 tests green.
+
 **25 Oct 2026 — engine v642, THE BACKUP COPIES ARE BACK ON SCREEN, AND THE BOX SHOWS THE SHOP'S OWN WORDS (NO DATABASE STEP).**
 
 **Your words:** __"normally i use to see each backup copies, collapsed, but now no"__ and __"the Good to know dont reflex what is in the store, what is in the store is better words"__.

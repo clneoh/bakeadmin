@@ -44,7 +44,7 @@ import { fullDayAnswer } from "./full_day.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "642";
+export const SHOP_BUILD = "643";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild } from "./build.js";
@@ -1490,11 +1490,19 @@ function paintFacts(cfg) {
     ...lines.map((line) => el("li", {}, line)),
     el("li", {},
       el("span", {}, `${t("factAsk")} `),
-      el("a", {
-        class: "privacy-wa",
-        href: shown ? `https://wa.me/${waNumber(cfg.whatsapp)}` : "",
-        hidden: !shown,
-      }, shown)));
+      // ⚠️⚠️ `hidden` IS SET AS A PROPERTY, NEVER PASSED TO `el()` (v643). ⭐ MEASURED on her own shop: the
+      // number was there and invisible — **`el()` writes every key it is given straight onto the element, so
+      // `hidden: false` still SET the attribute, and a `hidden` attribute hides the element whatever its
+      // value.** ⭐ This file's own tip bubble carries the same warning; it is the trap that catches whoever
+      // writes a boolean-looking attribute in an object.
+      (() => {
+        const link = el("a", {
+          class: "privacy-wa",
+          href: shown ? `https://wa.me/${waNumber(cfg.whatsapp)}` : "",
+        }, shown);
+        if (!shown) link.hidden = true;
+        return link;
+      })()));
 }
 
 

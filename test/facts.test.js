@@ -77,3 +77,15 @@ test("★★★ the backoffice can publish them, and the shop adopts them (v641)
   assert.match(settings, /el\("label", \{\}, "Good to know \(shown on the shop\)"\)/, "the box is not in Settings");
   assert.match(settings, /button\("Translate", translateFacts, "soft"\)/, "the translate press is gone");
 });
+
+test("★★★ the shop never hides the number with an ATTRIBUTE (v643)", () => {
+  // ⚠️⚠️ MEASURED ON HER OWN SHOP: the number was drawn and invisible. ⭐ **The shop's `el()` writes every key
+  // it is given straight onto the element, so `hidden: false` still SET the attribute — and a `hidden` attribute
+  // hides the element whatever its value.** ⭐ The shop's own tip bubble has carried this warning for years; this
+  // is the test that stops the next one being written.
+  const app = live(read("store/app.js"));
+  assert.ok(!/\bhidden\s*:/.test(app),
+    "★ a `hidden:` key is passed to el() — in this file it writes an ATTRIBUTE, so even `false` hides the thing");
+  assert.match(app, /if \(!shown\) link\.hidden = true;/,
+    "★ the way out when there is no number to show is gone");
+});
