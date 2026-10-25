@@ -7,7 +7,7 @@
 
 import { navigate } from "../app.js";
 import { customerList, keyOf, ordersForCustomer, phoneDigits } from "../customers.js";
-import { quietCustomers, nudgeText, QUIET_DAYS } from "../nudge.js";
+import { quietCustomers, nudgeText, nudgeCfg, NUDGE_LIMITS, NUDGE_TEXT } from "../nudge.js";
 import { attachProfiles, customerMatches, customerRowName, forgetCustomer, mergeCustomers, profileFor, removeProfile, upsertProfile } from "../profiles.js";
 import { readPhoto } from "../photo.js";
 import { el, button, select, emptyState, showPopup, copyText, toast, confirmDialog } from "../ui.js";
@@ -145,6 +145,9 @@ export function renderCustomers(root, state, params) {
   const who = WHOS.some((w) => w.value === whoRaw) ? whoRaw : "all";
   const pick = params.get("pick") === "1";
   const today = todayISO();
+  // ⚠️ DECLARED BEFORE THE CARD IS BUILT (v647): a `let` used above its own line is a TDZ error — the card
+  // is assembled in the argument list below, and this is where the reference lives.
+  let nudgeEl = null;
 
   const shown = customerList(state, sort, who, today);
   const all = who === "all" ? shown : customerList(state, sort, "all", today);
@@ -198,7 +201,7 @@ export function renderCustomers(root, state, params) {
         drawList,
         { newCustomer: true },
       ), "soft")),
-    nudgeCard(),
+    (nudgeEl = el("div", {}, nudgeCard())),
     msgCard,
     el("h2", { class: "section" },
       who === "gone30" ? "Quiet customers — no order in 30 days"
@@ -319,19 +322,61 @@ export function renderCustomers(root, state, params) {
   // announcement, no automatic send** — she presses Send in WhatsApp, one chat at a time, exactly as she always
   // has. See admin/js/nudge.js for the rules.
   function nudgeCard() {
+    const cfg = nudgeCfg(state);
     const quiet = quietCustomers(state, { today });
     const nextDay = bakeDays(state)
       .filter((d) => d && d.date && d.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date))[0];
-    const text = nudgeText({ dayText: nextDay ? dateLine(nextDay.date) : "", cutoff: state.settings.cutoff });
-    const weeks = Math.round(QUIET_DAYS / 7);
+    const text = nudgeText({ dayText: nextDay ? dateLine(nextDay.date) : "", cutoff: state.settings.cutoff,
+      template: cfg.text });
+    // ★★ THE CRITERIA ARE HERS (v647) — two numbers, saved with her settings and carried to her other phone.
+    // ⚠️ Clamped by `nudgeCfg`: a nudge every week is not a nudge, and "at least 0 orders" would include people
+    // who never bought. Changing one redraws the card, so she sees who it picks before she sends anything.
+    const setCfg = (key, raw) => {
+      const lim = NUDGE_LIMITS[key];
+      const n = Math.round(Number(raw));
+      const safe = Number.isFinite(n) ? Math.min(lim.max, Math.max(lim.min, n)) : cfg[key];
+      state.settings.nudge = { ...(state.settings.nudge || {}), ...cfg, [key]: safe };
+      save(state);
+      // ⚠️ IN PLACE, not a page reload: this view has no render() of its own, and the numeric field she just
+      // typed in must not lose its place. The card is rebuilt around it and swapped for itself.
+      // ⚠️ `replaceChildren` on a wrapper, not `replaceWith`: the test shims carry one and not the other, and a
+      // shim that cannot express what the view does is the fault this repo keeps paying for.
+      if (nudgeEl) nudgeEl.replaceChildren(nudgeCard());
+    };
+    const numField = (key, label) => el("label", { class: "card-sub", style: "display:flex;align-items:center;gap:6px" },
+      label,
+      el("input", {
+        class: "input", type: "number", inputmode: "numeric", style: "width:74px",
+        min: String(NUDGE_LIMITS[key].min), max: String(NUDGE_LIMITS[key].max), value: String(cfg[key]),
+        onchange: function () { setCfg(key, this.value); },
+      }));
+    const criteria = el("div", { class: "btn-row", style: "margin:0 0 10px;align-items:center;gap:12px" },
+      numField("weeks", "quiet for (weeks)"), numField("minOrders", "at least (orders)"));
+    // ★★ HER OWN WORDS (v647). ⚠️ `{day}`, `{by}` and `{link}` are filled from her settings each time, so a
+    // sentence she writes once stays true every week — ⭐ and if she writes it her own way, it is sent exactly
+    // as typed.
+    const words = el("textarea", {
+      class: "input", rows: 2, value: cfg.text,
+      onchange: function () {
+        state.settings.nudge = { ...(state.settings.nudge || {}), ...cfg, text: this.value.trim() || NUDGE_TEXT };
+        save(state);
+        if (nudgeEl) nudgeEl.replaceChildren(nudgeCard());
+      },
+    });
     return el("div", { class: "card" },
       el("h2", { style: "margin:0 0 2px" }, "Quiet nudge"),
+      criteria,
+      el("label", {}, "Your words"),
+      el("p", { class: "card-sub", style: "margin:0 0 5px" },
+        "{day}, {by} and {link} are filled in from your settings — leave them and the sentence says this week's "
+        + "bake day and cut-off every time. Write it your own way and it is sent exactly as typed."),
+      words,
       quiet.length
         ? el("div", {},
             el("p", { class: "card-sub", style: "margin:0 0 10px" },
               `${quiet.length} customer${quiet.length === 1 ? " has" : "s have"} bought before and not ordered in `
-              + `${weeks} weeks — and none of them is booked for an upcoming day.`),
+              + `${cfg.weeks} weeks — and none of them is booked for an upcoming day.`),
             el("p", { class: "msg-preview" },
               el("span", { class: "muted" }, `First chat (${quiet[0].name}): `),
               el("span", { class: "preview-text" }, `Hi ${quiet[0].name}, ${text}`)),

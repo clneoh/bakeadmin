@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { quietCustomers, nudgeText, clockWords, QUIET_DAYS } from "../admin/js/nudge.js";
+import { quietCustomers, nudgeText, clockWords, nudgeCfg, QUIET_DAYS } from "../admin/js/nudge.js";
 
 const d = (n) => {
   const dt = new Date(2026, 9, 25);
@@ -86,4 +86,37 @@ test("★★ a time reads the way she writes it (v646)", () => {
   assert.equal(clockWords("06:30"), "6.30am");
   assert.equal(clockWords("12:00"), "12pm");
   assert.equal(clockWords("by 6pm"), "by 6pm", "words she typed are left alone");
+});
+
+test("★★★ the criteria are hers, clamped, and travel with her settings (v647)", () => {
+  const st = book([
+    order({ customerName: "Once", whatsapp: "60111111111", orderDate: d(70), deliveryDate: d(70) }),
+    order({ customerName: "Twice", whatsapp: "60222222222", orderDate: d(70), deliveryDate: d(70) }),
+    order({ customerName: "Twice", whatsapp: "60222222222", orderDate: d(80), deliveryDate: d(80) }),
+  ]);
+  // ⚠️ both last ordered on the same day, so the order is the list's own stable tie — what matters is that BOTH
+  // are here under "at least one order" and only one survives under "at least two".
+  assert.deepEqual(quietCustomers(st, { today: TODAY }).map((r) => r.name).sort(), ["Once", "Twice"],
+    "the default asks for at least one order");
+  st.settings.nudge = { weeks: 8, minOrders: 2 };
+  assert.deepEqual(quietCustomers(st, { today: TODAY }).map((r) => r.name), ["Twice"],
+    "★ 'at least two orders' did not narrow the list");
+  st.settings.nudge = { weeks: 30, minOrders: 1 };
+  assert.equal(quietCustomers(st, { today: TODAY }).length, 0,
+    "★ a 30-week quiet stretch still listed people who ordered ten weeks ago");
+  // ⚠️ clamped: nonsense is pulled back into a range that means something
+  st.settings.nudge = { weeks: 0, minOrders: 0 };
+  const cfg = nudgeCfg(st);
+  assert.equal(cfg.weeks, 2, "★ a nudge every week is not a nudge");
+  assert.equal(cfg.minOrders, 1, "★ 'at least zero orders' would message people who never bought");
+});
+
+test("★★★ the sentence is hers too — tokens are filled, her own words are sent as typed (v647)", () => {
+  const filled = nudgeText({ dayText: "Monday, 26 Oct", cutoff: "18:00", template: "Baking {day}. Order by {by} — {link}" });
+  assert.equal(filled, "Baking Monday, 26 Oct. Order by 6pm — https://jienluv2bake.com.my/store/");
+  const own = nudgeText({ dayText: "Monday, 26 Oct", cutoff: "18:00", template: "We are back this week — same as always." });
+  assert.equal(own, "We are back this week — same as always.",
+    "★ her sentence was rewritten by a template she did not use");
+  // and with no template at all, the shop's own default sentence is used
+  assert.match(nudgeText({ dayText: "Monday, 26 Oct", cutoff: "18:00" }), /^we're baking on Monday, 26 Oct/);
 });

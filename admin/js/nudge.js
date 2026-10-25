@@ -14,7 +14,28 @@ import { keyOf, orderDateOf } from "./customers.js";
 import { groupOrders } from "./state.js";
 import { PROJECT_URL } from "./devmail.js";
 
-export const QUIET_DAYS = 56; // eight weeks — long enough to be quiet, short enough to still be a customer
+export const QUIET_DAYS = 56; // the default: eight weeks — long enough to be quiet, short enough to still be a customer
+// ★★ THE CRITERIA ARE HERS TO SET (v647). Stored in `settings.nudge`, so they travel to her other phone with
+// every other setting. ⚠️ Clamped: a nudge every week is not a nudge, and "at least 0 orders" would include
+// people who never bought.
+export const NUDGE_LIMITS = { weeks: { min: 2, max: 52 }, minOrders: { min: 1, max: 20 } };
+export const NUDGE_DEFAULTS = { weeks: 8, minOrders: 1 };
+// ★★ THE SENTENCE IS HERS TOO (v647). `{day}`, `{by}` and `{link}` are filled from her own settings; ⚠️ if she
+// writes it a different way it is sent EXACTLY as typed, tokens or not — ⭐ her words, not a template's.
+export const NUDGE_TEXT = "we're baking on {day}. If you'd like some, order by {by} the day before — {link}";
+
+export function nudgeCfg(state) {
+  const raw = (state && state.settings && state.settings.nudge) || {};
+  const pick = (v, lim, dflt) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) ? Math.min(lim.max, Math.max(lim.min, n)) : dflt;
+  };
+  return {
+    weeks: pick(raw.weeks, NUDGE_LIMITS.weeks, NUDGE_DEFAULTS.weeks),
+    minOrders: pick(raw.minOrders, NUDGE_LIMITS.minOrders, NUDGE_DEFAULTS.minOrders),
+    text: typeof raw.text === "string" && raw.text.trim() ? raw.text.trim() : NUDGE_TEXT,
+  };
+}
 
 const addDays = (iso, n) => {
   const [y, m, d] = String(iso).split("-").map(Number);
@@ -31,7 +52,10 @@ const has = (v) => typeof v === "string" && v.trim() !== "";
  * @returns {Array<{key:string, name:string, whatsapp:string, lastPlaced:string, days:number}>}
  *          oldest first — the longest-quiet are the ones most worth remembering.
  */
-export function quietCustomers(state, { today = "", quietDays = QUIET_DAYS } = {}) {
+export function quietCustomers(state, { today = "", quietDays, minOrders } = {}) {
+  const cfg = nudgeCfg(state);
+  const quiet = Number.isFinite(quietDays) && quietDays > 0 ? quietDays : cfg.weeks * 7;
+  const atLeast = Number.isFinite(minOrders) && minOrders > 0 ? minOrders : cfg.minOrders;
   if (!has(today)) return [];
   const groups = groupOrders((state && state.orders) || []);
   const byKey = new Map();
@@ -54,9 +78,9 @@ export function quietCustomers(state, { today = "", quietDays = QUIET_DAYS } = {
     if (day && day >= today) rec.upcoming = true;
     byKey.set(key, rec);
   }
-  const cutoff = addDays(today, -Math.max(1, quietDays));
+  const cutoff = addDays(today, -Math.max(1, quiet));
   return [...byKey.values()]
-    .filter((r) => r.orders >= 1 && r.lastPlaced && r.lastPlaced < cutoff && !r.upcoming)
+    .filter((r) => r.orders >= atLeast && r.lastPlaced && r.lastPlaced < cutoff && !r.upcoming)
     .map((r) => ({ key: r.key, name: r.name, whatsapp: r.whatsapp, lastPlaced: r.lastPlaced,
       days: Math.round((Date.parse(`${today}T00:00:00`) - Date.parse(`${r.lastPlaced}T00:00:00`)) / 864e5) }))
     .sort((a, b) => a.lastPlaced.localeCompare(b.lastPlaced));
@@ -78,10 +102,16 @@ export function clockWords(cutoff) {
  * The words. ⚠️ The bake day and the cut-off are READ, never typed — the same two facts the shop states.
  * ⭐ No coupon, no urgency, no "special": a customer who has bought before is being told the week, not sold to.
  */
-export function nudgeText({ dayText = "", cutoff = "", url = `${PROJECT_URL}/store/` } = {}) {
+export function nudgeText({ dayText = "", cutoff = "", url = `${PROJECT_URL}/store/`, template = "" } = {}) {
   const when = String(dayText || "").trim();
   const by = clockWords(cutoff);
   if (!when) return "";
+  const own = typeof template === "string" && template.trim() ? template.trim() : "";
+  if (own) {
+    // ⭐ HER SENTENCE, filled where she asked. ⚠️ A template with no tokens is sent exactly as written.
+    return own.replace(/\{day\}/g, when).replace(/\{by\}/g, by || "the day before")
+      .replace(/\{link\}/g, url).replace(/\s+—\s+$/, "").trim();
+  }
   return by
     // ⚠️ LOWERCASE START, ON PURPOSE: this sentence is written to follow a greeting — the app's own composer
     // builds "Hi {name}, {body}", so a capital here reads as "Hi Mei, We're baking…". ⭐ One convention, and the

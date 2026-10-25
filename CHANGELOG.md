@@ -4,6 +4,17 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**25 Oct 2026 — engine v647, THE NUDGE'S CRITERIA AND ITS WORDS ARE YOURS (NO DATABASE STEP).**
+
+**Your words:** __"can we set the criteria for nudge"__ and __"different nudge message"__.
+
+1. ⭐⭐ **TWO NUMBERS NOW SET WHO GETS NUDGED**, on the card itself: **quiet for (weeks)** and **at least (orders)**. Change one and the card redraws, so you see exactly who it picks before anything is sent. ⚠️ Both are saved with your settings, so they follow you to your other phone.
+2. ⚠️ **They are clamped to something that means something** — 2 to 52 weeks, 1 to 20 orders. A nudge every week is not a nudge, and "at least 0 orders" would message people who never bought.
+3. ⭐⭐ **AND THE SENTENCE IS YOURS.** A **Your words** box on the card, holding the message as it stands. **{day}, {by} and {link} are filled in from your settings** every time — so a sentence you write once still says this week's bake day and cut-off next week. ⚠️ Write it your own way and it is sent **exactly as typed**.
+4. The rules that do not move, whatever the numbers say: **never someone who asked to be forgotten**, **never someone already booked**, **no discount, no announcement**, and **nothing sent automatically**.
+
+**No database step and no function deploy.** 3,940 tests green.
+
 **25 Oct 2026 — engine v646, THE QUIET NUDGE (NO DATABASE STEP).**
 
 **From the plan:** __"the lapsed — a reason to come back, quietly"__ (P4).
