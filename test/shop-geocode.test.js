@@ -260,15 +260,22 @@ test("with a key set, BOTH sides ask Google FIRST, and it is the only ask when i
     assert.match(q, /components=country:MY/);
     assert.match(q, /language=en/);
     assert.match(q, /address=12%20Jalan%20Bunga/);
-    // ⚠️⚠️ AND THE KEY IS NOT IN THE ADDRESS (v561). It used to be `&key=...`, and Deno's request
-    // errors EMBED THE URL — so a Google that could not be reached wrote the key into the function's
-    // own log. ⭐ Google accepts `X-Goog-Api-Key`, so it travels in a header, on BOTH sides' ask.
-    assert.doesNotMatch(q, /key=/,
-      "★ the key is back in the URL — **an unreachable Google puts it into the function's log**, which "
-      + "is why it moved to a header");
-    assert.deepEqual(sent.map((s) => s.headers["X-Goog-Api-Key"]), ["test-key", "test-key"],
-      "★ the key is not on the header of BOTH sides' ask, so one of the two lookups sends none — "
-      + "**Google answers REQUEST_DENIED and the good answer is never asked for**");
+    // ⚠️⚠️ THE KEY IS IN THE ADDRESS, WHICH IS THE ONLY PLACE GOOGLE READS IT (v650). ⭐ THIS ASSERTION USED
+    // TO SAY THE OPPOSITE, and it was pinning a fault: v561 moved the key to `X-Goog-Api-Key` on the belief
+    // that Google accepted it there. **The Geocoding API takes `key` as a REQUIRED QUERY PARAMETER** (its own
+    // documentation lists no header form), so ⚠️ **every Google ask since v561 was refused, and the lookup
+    // quietly answered from the free services — which hold Malaysian roads and no house numbers.**
+    assert.match(q, /[?&]key=test-key/,
+      "★ the key is not in the address — **Google refuses the ask and the lookup falls back to a service "
+      + "with no house numbers, without anything looking wrong**");
+    assert.deepEqual(sent.map((s) => s.headers["X-Goog-Api-Key"]), [undefined, undefined],
+      "★ the key is still being sent as a header — Google ignores it there, so this reads as a second key "
+      + "that does nothing");
+    // ⭐ and the protection v561 wanted is now the scrub, not the hiding place
+    const { scrubKey } = await import("../supabase/functions/shop-geocode/geocode.ts");
+    assert.equal(scrubKey("error sending request for url (https://maps.googleapis.com/maps/api/geocode/json?address=x&key=AIzaSECRET)"),
+      "error sending request for url (https://maps.googleapis.com/maps/api/geocode/json?address=x&key=***)",
+      "★ a key survives into a log message — **the exact reason v561 moved it, now answered properly**");
   });
 });
 

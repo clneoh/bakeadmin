@@ -4,6 +4,19 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**27 Oct 2026 — engine v652, THE ADDRESS LOOKUP WAS SECRETLY ASKING THE WRONG SERVICE (ONE FUNCTION DEPLOY).**
+
+**Why 652 and not 650:** ⚠️ **munchies is at 651** — it took our v649 and then used 650 and 651 for its own work. Its rule is that on every sync it takes *our* number, ⭐ so ours has to be **above theirs**, or that sync would count it backwards. 650 and 651 are spent; this version is 652.
+
+**From the munchies session's note, then re-measured here on Google's own documentation.**
+
+1. ⚠️⚠️ **EVERY GOOGLE ADDRESS LOOKUP SINCE v561 HAS BEEN REFUSED — and nothing ever looked broken.** v561 moved the key out of the address into an `X-Goog-Api-Key` header, on the belief that Google accepted it there. **It does not: the Geocoding API takes `key` as a required query parameter**, and its documentation lists no header form. So Google refused every ask, the lookup treated a refusal as *"ask the free services next"* — ⭐ **and the free services hold Malaysian roads but no house numbers.** The lookup answered every time, from the wrong place. **A silent fallback is a fault that survives every test** — and our own test was pinning it.
+2. ⭐ **The key is back where Google reads it**, on both the shop's lookup and the courier's (which had the identical fault).
+3. ⚠️ **And the thing v561 was protecting is now protected properly:** Deno's request errors embed the address, so **the key is scrubbed out of every message the function logs** (`key=***`), and a test proves it. Hiding the key also hid the fault; scrubbing it does not.
+4. ⚠️ **One deploy needed:** `supabase functions deploy shop-geocode` and `supabase functions deploy courier`. Until they are deployed, nothing changes.
+
+**3,946 tests green.**
+
 **26 Oct 2026 — engine v649, EVERY STOP ON THE RUN NAMES ITS ORDER (NO DATABASE STEP).**
 
 **Your words:** __"the delivery run shown a delivery on 30 sept, which order does not exist … there is no way for me to know which order it belongs to, there is no link up and no order number"__.

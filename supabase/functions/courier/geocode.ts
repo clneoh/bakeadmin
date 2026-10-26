@@ -233,6 +233,16 @@ export function placesFromGoogle(data: unknown): Place[] {
 // (OVER_QUERY_LIMIT, OVER_DAILY_LIMIT), a malformed ask (INVALID_REQUEST), a Google-side
 // fault (UNKNOWN_ERROR) — is the service not doing its job, and every one of them makes
 // the lookup fall through to the free pair rather than stop.
+// ⚠️⚠️ THE KEY NEVER REACHES A LOG (v650) — the protection v561 was really asking for. ⭐ The key has to be in
+// the address now, and Deno's request errors EMBED the address, so every message this file logs passes through
+// here first. ⭐ `***` rather than removal: a truncated URL that still names the parameter is what makes a
+// future reader see that a key was meant to be there and was taken out.
+export function scrubKey(text: unknown): string {
+  // ⚠️ THE KEY'S OWN ALPHABET, not "everything until a space": a broader class swallowed the closing
+  // parenthesis of Deno's own message, and a log line that eats punctuation reads as corruption.
+  return String(text == null ? "" : text).replace(/([?&]key=)[A-Za-z0-9_\-]+/gi, "$1***");
+}
+
 export function googleTrouble(data: unknown): boolean {
   const status = ((data && typeof data === "object")
     ? String((data as Record<string, unknown>).status || "")
@@ -299,7 +309,7 @@ async function ask(
     }
     return { replied: true, places };
   } catch (err) {
-    console.error(`[courier] ${service.name} failed:`, (err as Error)?.message || err);
+    console.error(`[courier] ${service.name} failed:`, scrubKey((err as Error)?.message || err));
     return { aborted: (err as Error)?.name === "AbortError" };
   } finally {
     clearTimeout(timer);
@@ -342,12 +352,17 @@ function servicesFor(): Service[] {
   if (key) {
     queue.push({
       name: "google",
-      // ⚠️⚠️ THE KEY RIDES IN A HEADER, NOT THE ADDRESS (v561). ⭐ In the query string it is part of the
-      // URL — and Deno's request errors routinely EMBED the URL, so an unreachable Google put the key in
-      // the function's own log. ⭐ `suggest.ts` already kept its key out of the address for exactly this
-      // reason; geocoding did not. ⚠️ Google accepts `X-Goog-Api-Key` on this API.
-      url: (q: string) => `${GOOGLE}?address=${encodeURIComponent(q)}&components=country:MY&language=en`,
-      headers: { "X-Goog-Api-Key": key },
+      // ⚠️⚠️ THE KEY RIDES IN THE ADDRESS AGAIN (v650), AND THE CLAIM THAT REPLACED IT WAS WRONG.
+      // ⭐ v561 moved it into a header on the belief that "Google accepts `X-Goog-Api-Key` on this API".
+      // ⚠️ **IT DOES NOT: the Geocoding API takes `key` as a REQUIRED QUERY PARAMETER** (Google's own
+      // documentation lists no header form), so every Google ask since v561 was refused — ⚠️ **and the
+      // lookup treats a refusal as "ask the free services next", which have Malaysian roads and no house
+      // numbers.** ⭐ **A silent fallback is a fault that survives every test: nothing looked broken, the
+      // lookup still answered, and the answer came from the wrong service.**
+      // ⚠️ The risk v561 was avoiding is real — Deno's errors EMBED the URL — so it is met by SCRUBBING the
+      // key out of every message this file logs (`scrubKey`), which is where the protection belongs.
+      url: (q: string) => `${GOOGLE}?address=${encodeURIComponent(q)}&components=country:MY&language=en`
+        + `&key=${encodeURIComponent(key)}`,
       read: placesFromGoogle,
       trouble: googleTrouble,
     });
