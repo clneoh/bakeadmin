@@ -4,6 +4,16 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**26 Oct 2026 — engine v649, EVERY STOP ON THE RUN NAMES ITS ORDER (NO DATABASE STEP).**
+
+**Your words:** __"the delivery run shown a delivery on 30 sept, which order does not exist … there is no way for me to know which order it belongs to, there is no link up and no order number"__.
+
+1. ⚠️ **THE RUN WAS RIGHT AND COULD NOT PROVE IT.** A day on that screen only exists because an order points at it — **the day you type on an order (the van's day) wins over its bake day** — so a 30 Sep on the run is a real order carrying 30 Sep as its van day. ⭐ **The screen simply had no way to say WHICH order.**
+2. ⭐⭐ **EVERY DOORSTEP STOP NOW WEARS ITS ORDER CODE** — `#D4E5F6` — **and it is a link: press it and that order opens.** A Point stop carries several customers' orders, so it keeps none.
+3. ⚠️ **AND THE ROW NOW WRAPS INSTEAD OF CRUSHING THE NAME.** Measured while adding the code: at phone width the customer's name column collapsed to **0 pixels** and "Mei Ling" broke to one letter per line. A control that does not fit goes on the next line.
+
+**No database step and no function deploy.** 3,946 tests green.
+
 **25 Oct 2026 — engine v648, "TELL ME WHEN THIS DAY FREES UP" — THE WAITLIST (ONE DATABASE STEP).**
 
 **From the plan:** __"the not-yet — sold out, or not in your area"__ (P5, the last level).
