@@ -392,6 +392,33 @@ export function localChecks(state) {
       : pass("readable", "This phone could read its saved copy"));
   }
 
+  // ── A VAN SENT BEFORE THE BREAD EXISTS (v663) ───────────────────────────
+  //
+  // ⚠️⚠️ HER OWN ORDER, FOUND AND NOT EXPLAINED UNTIL NOW: #D4E5F6 is baked on **28 Oct** and carries a van day
+  // of **30 Sep** — a month before it is made. ⭐ That one typed day is why her **Delivery run showed a delivery
+  // on 30 Sep** and she read it as an order that does not exist: the run is keyed by the van's day, so the van
+  // was being sent to a door for bread that had not been baked.
+  // ⚠️ **THE RULE IS A FACT, NOT A PREFERENCE**: bread cannot leave on a day it does not exist on. ⭐ And it is
+  // reported rather than blocked — a guide, not a gate — because the day is hers to type and only she knows
+  // whether the entry or the bake day is the wrong half.
+  {
+    const wrong = orders.filter((o) => {
+      if (!o || o.fulfillment !== "courier") return false;
+      const van = String(o.courierDay || "").trim();
+      if (!van) return false;
+      // ⚠️ THE BAKE DAY IS READ EXACTLY AS the order now reads it (v572's rule): the day it carries first, the
+      // calendar record when the order itself has none. Nothing is derived from the van day.
+      const del = byId(days, o.deliveryDateId);
+      const bake = String(o.deliveryDate || (del && del.date) || "").trim();
+      return bake && van < bake;
+    });
+    out.push(wrong.length
+      ? fail("vanday", "No van day is before its bake day", wrong.map((o) => `#${codeOf(o)}`),
+        "These orders have a courier day EARLIER than the day they are baked, so the van would be sent for bread that does not exist yet — and the Delivery run shows them on that earlier day, which reads as an order out of nowhere.",
+        "Open each order and clear its Courier delivery date (or correct it to the real day). The day travels to the run, the messages and the label, so correcting it here settles every screen at once.")
+      : pass("vanday", "No van day is before its bake day"));
+  }
+
   return out;
 }
 

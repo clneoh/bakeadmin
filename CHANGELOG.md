@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v662)
+# Jienluv2bake — change history (v54 → v663)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v663, A VAN CANNOT BE SENT BEFORE THE BREAD EXISTS (NO DATABASE STEP).**
+
+**Your order, and the answer to a question from two days ago:** #D4E5F6 is baked on **28 Oct** and carried a courier day of **30 Sep** — a month before it is made. That one typed day is why the **Delivery run showed a delivery on 30 Sep** and you read it as an order that did not exist.
+
+1. ⭐ **The card now says it while you type.** Type a courier day earlier than the bake day and the box reads: *"This is before the bake day (Wed, 28 Oct) — the van would be sent for bread that does not exist yet."* It is a guide, not a gate — the day stays yours to type.
+2. ⭐ **And "Check my system" now finds every one of them**, naming the order codes, with the fix: open the order and clear its Courier delivery date.
+3. ⚠️ **To clear your own order:** open #D4E5F6 → Edit → empty **Courier delivery date** → Save. The day travels to the run, the messages and the label, so clearing it settles every screen at once. If the van really is coming, type the real day instead.
+
+**No database step and no function deploy.** 3,975 tests green.
 
 **27 Oct 2026 — engine v662, EVERY DOOR ONTO AN ORDER IS CHECKED THE SAME WAY (NO DATABASE STEP, NOTHING VISIBLE CHANGES).**
 

@@ -914,3 +914,33 @@ test("★★★ the Note / tracking card keeps what she types, through a Save an
     .filter(Boolean);
   assert.deepEqual(lost, [], "★ the Note / tracking card lost what she typed");
 });
+
+// ── v663: the card says when a van day cannot be right ──────────────────────
+//
+// ⚠️ Her own order carried a van day a MONTH before its bake day and nothing on the card said so. ⭐ Guide, not
+// gate: the day is hers to type, and the sentence only says the day cannot be right.
+test("★★★ the van-day box says so when the day is before the bake day (v663)", () => {
+  const st = state();
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  tap(buttonByText(all(root).find((n) => n.dataset && n.dataset.order === "o1"), "Edit"));
+  const pop = layers["popup-layer"];
+  // the order is a collection; switch it to courier so the van boxes appear
+  const sel = all(pop).find((n) => n.tagName === "SELECT"
+    && (n.children || []).some((o) => o.value === "courier"));
+  sel.value = "courier";
+  (sel._listeners.change || []).forEach((f) => f.call(sel));
+
+  const vanDay = all(layers["popup-layer"]).find((n) => n.tagName === "INPUT"
+    && n.attrs && n.attrs["aria-label"] === "The day the courier delivers");
+  assert.ok(vanDay, "the van-day box is on the card");
+  vanDay.value = "2026-09-01";           // the order is baked 2026-09-10
+  (vanDay._listeners.input || []).forEach((f) => f.call(vanDay, { target: vanDay }));
+  const said = layers["popup-layer"].textContent;
+  assert.match(said, /before the bake day/, "★ a van day before the bake day was not flagged");
+
+  vanDay.value = "2026-09-11";
+  (vanDay._listeners.input || []).forEach((f) => f.call(vanDay, { target: vanDay }));
+  assert.doesNotMatch(layers["popup-layer"].textContent, /before the bake day/,
+    "and a correct day is not nagged about");
+});

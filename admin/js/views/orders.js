@@ -2033,13 +2033,27 @@ function collectWhenFields(box) {
     day, time);
 }
 
-function courierWhenFields(box) {
+// ⭐ `bakeIso` IS WHAT MAKES THE VAN DAY CHECKABLE (v663). ⚠️ Her own order carried a van day a MONTH before its
+// bake day, and nothing on the card said so — the run then showed a delivery on that earlier day, which she read
+// as an order out of nowhere. ⭐ **A guide, not a gate**: the day is hers to type, and this only says the day
+// cannot be right while she is looking at it.
+function courierWhenFields(box, bakeIso = "") {
   // ⚠️ The three handlers read the NODE, not `this`. A real DOM sets `this` to the element, but a
   // test's shim does not have to — and a handler that only works under one of those two conventions
   // is a handler half the suite cannot exercise. Reading the node is right under both.
+  const daySaid = el("p", { class: "card-sub", style: "margin:4px 0 0" });
   const day = el("input", { class: "input", type: "date", value: box.day || "",
     "aria-label": "The day the courier delivers",
-    oninput: () => { box.day = day.value; } });
+    oninput: () => { box.day = day.value; paintDay(); } });
+  // ⚠️ THE ONE THING A VAN DAY CANNOT BE: earlier than the day the bread is made.
+  function paintDay() {
+    const wants = String(box.day || "").trim();
+    const bake = String(bakeIso || "").trim();
+    daySaid.textContent = (wants && bake && wants < bake)
+      ? `This is before the bake day (${shortDate(bake)}) — the van would be sent for bread that does not exist yet.`
+      : "";
+  }
+  paintDay();
   // ★★ THE PICKUP TIME (v341). Her distinction: *"for courier lalamove, there is no delivery window
   // open and delivery window closes promise… Pickup time is something user should specify."*
   // It is the time the van collects FROM HER — the one clock a single van delivery actually fixes —
@@ -2068,6 +2082,7 @@ function courierWhenFields(box) {
   return el("div", { class: "field" },
     el("label", {}, "Courier delivery date"),
     day,
+    daySaid,
     el("p", { class: "hint" }, "The day the van comes — often the morning after the bake day. Leave it blank until you know it."),
     el("label", { style: "margin-top:12px" }, "Pickup time"),
     pickup,
@@ -2467,7 +2482,7 @@ function orderForm(state, dateId, root, selectDate, onReady) {
       courierKind("van"),
       // When the van comes (v338). Under the "van" heading and above the charge, so the block reads
       // in the order she thinks in: whose door, then when, then what it costs.
-      courierWhenFields(draft.courierWhen),
+      courierWhenFields(draft.courierWhen, (date && date.date) || ""),
       charge.el,
       quote,
     ];
@@ -3245,7 +3260,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // in the order she thinks in. Drawn only for a courier order, because a collection happens ON the
     // bake day and has no van to promise. Seeded from the order's own record, so her typed day and
     // window come back exactly as she left them.
-    draft.fulfillment === "courier" ? courierWhenFields(draft.courierWhen) : null,
+    draft.fulfillment === "courier" ? courierWhenFields(draft.courierWhen, (date && date.date) || "") : null,
     parkedCharge ? parkedChargeNote(state, first) : null,
     showCharge ? charge.el : null,
     // Same price section as the Note / tracking box carries, for the same reason that

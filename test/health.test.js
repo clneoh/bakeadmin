@@ -78,9 +78,9 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  assert.equal(res.total, 24, `the check list is no longer twenty-four checks (it is ${res.total})`);
-  // 17 since v548: "This phone could read its saved copy" joins the page.
-  assert.equal(res.passedChecks, 24);
+  // ⚠️ 25 since v663: "No van day is before its bake day" joins the page.
+  assert.equal(res.total, 25, `the check list is no longer twenty-five checks (it is ${res.total})`);
+  assert.equal(res.passedChecks, 25);
   assert.equal(res.failed, 0);
 });
 
@@ -221,7 +221,8 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
     "★ shared data that could not be read was reported as a pass by the reverse check too");
   assert.equal(resultOf(res, "waiting").status, "pass",
     "the waiting count is a local number and does not need the cloud to be readable");
-  assert.equal(res.passedChecks, 15, "a skipped check was counted among the passes");
+  // ⚠️ 16 since v663: the van-day check passes here, and it is not one of the skipped ones.
+  assert.equal(res.passedChecks, 16, "a skipped check was counted among the passes");
   assert.equal(res.skippedChecks, 9, "the skipped checks were not counted separately");
   assert.equal(resultOf(res, "refunded").status, "skipped",
     "★ an unreadable register was reported as a pass by the refund check");
@@ -297,8 +298,8 @@ test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 24, "the checks did not all run on an empty book");
-  assert.equal(localChecks(bare).length, 13, "the local checks are not thirteen");
+  assert.equal(res.total, 25, "the checks did not all run on an empty book");
+  assert.equal(localChecks(bare).length, 14, "the local checks are not fourteen");
   assert.equal(registerChecks(bare, []).length, 3, "the register checks are not three");
   assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");
 });
@@ -1093,4 +1094,35 @@ test("★★★ the orphan removal asks first and uses the shelf's own removal (
   assert.match(src, /removeOrders\(state, todo, "removed from Check my system"\)/,
     "★ the removal does not use the shelf");
   assert.match(src, /codes\.join\("  "\)/, "★ the confirmation does not name the orders");
+});
+
+// ── v663: a van day before the bread exists ─────────────────────────────────
+//
+// ⚠️ Her own order: **baked 28 Oct, van day 30 Sep** — a month before it is made. ⭐ That is why her Delivery
+// run showed a delivery on 30 Sep, which she read as an order out of nowhere: the run is keyed by the van's day.
+test("★★★ an order whose van day is BEFORE its bake day is reported, by code (v663)", () => {
+  const st = healthy();
+  const o = st.orders.find((x) => x) || st.orders[0];
+  o.fulfillment = "courier";
+  o.deliveryDate = "2026-10-28";
+  o.courierDay = "2026-09-30";
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "vanday");
+  assert.equal(r.status, "fail", "★ a van sent before the bake was not reported");
+  assert.ok(r.detail.some((d) => /#[0-9A-F]{6}/i.test(d)), "★ it does not name the order");
+  assert.match(r.fix, /Courier delivery date/, "and it does not say which box to clear");
+});
+
+test("★★★ a van day ON or AFTER the bake day is not reported (v663)", () => {
+  const st = healthy();
+  const o = st.orders.find((x) => x) || st.orders[0];
+  o.fulfillment = "courier";
+  o.deliveryDate = "2026-10-28";
+  o.courierDay = "2026-10-29";
+  assert.equal(resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "vanday").status, "pass");
+  o.courierDay = "2026-10-28";
+  assert.equal(resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "vanday").status, "pass",
+    "a van on the bake day itself is ordinary");
+  // ⚠️ And an order with NO van day is never a fault — the day is hers to leave blank until she knows it.
+  delete o.courierDay;
+  assert.equal(resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "vanday").status, "pass");
 });
