@@ -427,6 +427,20 @@ export function localChecks(state) {
       // day; nothing else on the order is touched, and the real day can still be typed afterwards.
       : pass("vanday", "No van day is before its bake day"));
 
+    // ⚠️⚠️ AND A PASS MUST SAY WHAT IT LOOKED AT (v666). ⭐ Her own words, twice: __"check my system shows no
+    // error"__ — ⚠️ **which is not evidence of anything if the check cannot say how many days it examined.** ⭐
+    // This page's own oldest rule is that a verdict counting "I could not look" as "it is fine" is worse than
+    // no verdict; a verdict that CANNOT BE INSPECTED is the same trap one step quieter. ⭐ So the passing line
+    // carries its own count, and "0 days looked at" is visible as the answer it is.
+    // ⚠️ ONLY ON A PASS — on a FAILURE the detail is the list of order codes, and this must not overwrite it.
+    if (!wrong.length) {
+      const checked = out[out.length - 1];
+      const carrying = orders.filter((o) => o && String(o.courierDay || "").trim());
+      checked.detail = [carrying.length
+        ? `${carrying.length} order${carrying.length === 1 ? " carries" : "s carry"} a courier day — every one is on or after its bake day`
+        : "No order carries a courier day, so there is nothing to be before a bake day"];
+    }
+
     if (wrong.length) {
       const failing = out[out.length - 1];
       failing.repair = "clearVanDays";

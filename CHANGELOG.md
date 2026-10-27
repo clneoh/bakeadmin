@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v665)
+# Jienluv2bake — change history (v54 → v666)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v666, A PASS NOW SAYS WHAT IT LOOKED AT (NO DATABASE STEP).**
+
+**Your words:** __"check my system shows no error"__ — twice — and then __"the order is not in system anymore"__.
+
+1. ⭐⭐ **A green check now carries its own count.** The van-day check reads: *"12 orders carry a courier day — every one is on or after its bake day"*, or *"No order carries a courier day, so there is nothing to be before a bake day"*. ⚠️ **"No error" was never evidence of anything if the check could not say how many days it examined** — and that is this page's own oldest rule, one step quieter.
+2. ⭐ **And a check that finds nothing must not look like one that found nothing to look at.** The two sentences above are different facts, and now they read differently.
+3. ⚠️ **About #D4E5F6:** an order that leaves your list is kept on the **Removed** card on the Orders screen for 30 days, with the date and the reason it was taken off, and a **Put it back** press. If it is not there either, tell me and that becomes the fault to chase — it would mean an order left without a trace.
+
+**No database step and no function deploy.** 3,977 tests green.
 
 **27 Oct 2026 — engine v665, THE VAN-DAY CHECK LOOKS AT EVERY ORDER, NOT ONLY THE COURIER ONES (NO DATABASE STEP).**
 
