@@ -1112,6 +1112,20 @@ test("★★★ an order whose van day is BEFORE its bake day is reported, by co
   assert.match(r.fix, /Courier delivery date/, "and it does not say which box to clear");
 });
 
+test("★★★⚠️ a SELF COLLECT order carrying a van day is checked too (v665)", () => {
+  // ⚠️⚠️ HER OWN ORDER, AND MY OWN NARROW RULE: #D4E5F6 is a SELF COLLECT order carrying a van day, and the
+  // check asked `fulfillment === "courier"` — so it never looked, reported nothing, and the run still showed
+  // the phantom day. ⭐ `runDayOf` puts ANY order on the run by its van day, whatever its fulfilment.
+  const st = healthy();
+  const o = st.orders.find((x) => x) || st.orders[0];
+  o.fulfillment = "collect";
+  o.deliveryDate = "2026-10-28";
+  o.courierDay = "2026-09-30";
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "vanday");
+  assert.equal(r.status, "fail", "★ a collection carrying a van day before its bake day was not reported");
+  assert.equal(r.repair, "clearVanDays", "and it must offer the same press");
+});
+
 test("★★★ a van day ON or AFTER the bake day is not reported (v663)", () => {
   const st = healthy();
   const o = st.orders.find((x) => x) || st.orders[0];

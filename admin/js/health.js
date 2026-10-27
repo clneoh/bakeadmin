@@ -402,8 +402,14 @@ export function localChecks(state) {
   // reported rather than blocked — a guide, not a gate — because the day is hers to type and only she knows
   // whether the entry or the bake day is the wrong half.
   {
+    // ⚠️⚠️ THE RULE IS ABOUT THE DAY, NOT ABOUT HOW THE ORDER LEAVES (v665). ⭐ This asked
+    // `fulfillment === "courier"` and so **never looked at her own order**: #D4E5F6 is a SELF COLLECT order that
+    // carries a van day — a Point order gets one the moment a run is booked — and `runDayOf` puts it on the
+    // Delivery run on that day whatever the fulfilment says. ⭐ **So the check passed while the run still showed
+    // the phantom day.** ⚠️ The same class as v303's wrong gate: a condition copied from one door and applied to
+    // a question that is not about that door.
     const wrong = orders.filter((o) => {
-      if (!o || o.fulfillment !== "courier") return false;
+      if (!o) return false;
       const van = String(o.courierDay || "").trim();
       if (!van) return false;
       // ⚠️ THE BAKE DAY IS READ EXACTLY AS the order now reads it (v572's rule): the day it carries first, the
@@ -415,7 +421,7 @@ export function localChecks(state) {
     out.push(wrong.length
       ? fail("vanday", "No van day is before its bake day", wrong.map((o) => `#${codeOf(o)}`),
         "These orders have a courier day EARLIER than the day they are baked, so the van would be sent for bread that does not exist yet — and the Delivery run shows them on that earlier day, which reads as an order out of nowhere.",
-        "Open each order and clear its Courier delivery date (or correct it to the real day). The day travels to the run, the messages and the label, so correcting it here settles every screen at once.")
+        "Open each order and clear its Courier delivery date — on a self-collect order it sits in the van block, under the charge — or press Clear below. The day travels to the Delivery run, the messages and the label, so clearing it here settles every screen at once.")
       // ⭐ AND ONE PRESS RATHER THAN FOUR A TAP (v664). ⚠️ She asked me to clear hers and I cannot reach her
       // cloud — ⭐ **so the app does it, on her press, after naming every order.** It clears ONLY the impossible
       // day; nothing else on the order is touched, and the real day can still be typed afterwards.

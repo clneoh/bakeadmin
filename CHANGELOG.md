@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v664)
+# Jienluv2bake — change history (v54 → v665)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v665, THE VAN-DAY CHECK LOOKS AT EVERY ORDER, NOT ONLY THE COURIER ONES (NO DATABASE STEP).**
+
+**Your words:** __"Check my System, there is no error"__ — ⚠️ and you were right to say so, because the check was wrong.
+
+1. ⚠️⚠️ **IT ONLY LOOKED AT COURIER ORDERS.** #D4E5F6 is a **Self collect** order that carries a van day, and the **Delivery run puts ANY order on the run by its van day** — so the phantom 30 Sep was still there while the check said nothing.
+2. ⭐ **It now looks at every order that carries a van day**, however it leaves, and offers the same **Clear the courier day** press.
+3. ⚠️ **The same class of mistake as an older one**: a condition copied from one door and asked of a question that is not about that door. The rule is about the DAY, not about how the order travels.
+
+**No database step and no function deploy.** 3,977 tests green.
 
 **27 Oct 2026 — engine v664, CHECK MY SYSTEM CAN CLEAR A WRONG VAN DAY FOR YOU (NO DATABASE STEP).**
 
