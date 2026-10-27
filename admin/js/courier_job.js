@@ -40,7 +40,7 @@ import {
   pickupPlace, doorSpotOf, dropAddress, validPlace, strictNumber,
 } from "./courier_place.js";
 import { byId, waNumber, orderLineName, orderDone, orderCode } from "./state.js";
-import { collectionWindowText, pointById } from "./points.js";
+import { collectionWindowText, pointById, pointWindowText } from "./points.js";
 // The window's own reading - see time_window.js for why it is a leaf of its own (v304).
 import { fmtWindow, validWindow } from "./time_window.js";
 // A date in her words ("Thu, 8 Oct"). dates.js imports nothing, so this cannot cycle.
@@ -718,6 +718,18 @@ export function vanLine(day, order) {
 // while the van's own day sat below the payment block, where it read as an afterthought.
 // ⚠️ A courier order with NO van day typed names the BAKE day, which is her instruction; the two are still TWO
 // LINES, which is v337's rule and the reason a customer once asked whether it was Wednesday or Thursday.
+// ★ WHEN A CUSTOMER COLLECTS, IN ONE PLACE (v659). ⚠️ The Point's own hours used to be appended to the BAKE day
+// string by two builders, which is how a real confirmation came to read **"Baking day: Wed, 28 Oct, 6-7:09 pm"** —
+// the time was the van's, left on a self-collect order from an earlier courier round trip. ⭐ Only a POINT has
+// hours that are a promise a customer can act on; the order's own `deliveryWindow` is the VAN's and is never a
+// collection time.
+export function collectTimeText(state, order) {
+  const typed = String(courierCollectTimeOf(order) || "").trim();
+  if (typed) return typed;
+  const point = pointById(state, order && order.pointId);
+  return point ? pointWindowText(point) : "";
+}
+
 export function dayBlock(state, order, bakeDate) {
   const day = dayLine(state, order);
   const when = String(bakeDate || "").trim();
@@ -739,7 +751,7 @@ export function dayBlock(state, order, bakeDate) {
   // field for us to input collection date and time, so that this reflex in whatsapp message"__. ⚠️ With nothing
   // typed it is the bake day, which is what a collection on the day has always been.
   const cd = String(courierCollectDayOf(order) || "").trim();
-  const ct = String(courierCollectTimeOf(order) || "").trim();
+  const ct = collectTimeText(state, order);
   return first + `Collection: ${cd ? shortDate(cd) : when}${ct ? `, ${ct}` : ""}\n`;
 }
 

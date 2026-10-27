@@ -1,8 +1,19 @@
-# Jienluv2bake — change history (v54 → v658)
+# Jienluv2bake — change history (v54 → v659)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v659, THE BAKE DAY IS A DAY, AND THE MESSAGES ARE CHECKED FOR SENSE (NO DATABASE STEP).**
+
+**Your words:** __"what is the point of having time on the bake day?"__ — on a real confirmation that read **Baking day: Wed, 28 Oct, 6-7:09 pm** — then __"the problem is logical, you should be able to detect if you check"__ and __"make it systemic as well"__.
+
+1. ⚠️⚠️ **A DELIVERY WINDOW WAS BEING GLUED ONTO THE BAKE DAY.** The van's window was appended to the bake-day date before the line was built, so a **Self collect** order was promised the van's time — and that window was left on the order from when it was a courier delivery. The bake day now says only the day.
+2. ⭐ **A collection's time now lives with the collection**: **Collection: Thu, 29 Oct, 6pm** — the time you typed, or the collection Point's own hours. ⚠️ The order's van window is never used as a collection time, because it is the van's.
+3. ⭐ **The pickup reminder names it too**, on the same line as the day.
+4. ⭐⭐ **AND THE MESSAGES ARE NOW CHECKED FOR SENSE, NOT SPELLING.** A new sweep builds **every** customer message (confirmation, payment reminder, pickup reminder) for **eight order shapes** — kitchen collection, Point with hours, Point without, a collection carrying a stale van window, a typed collection time, a courier with a van day, a courier without — and asserts the logic: **the bake day never carries a time**, **a collection is never told a delivery window or about a courier**, **a courier order is never given a collection line**, and a time is said **only when there is one to say**. ⚠️ **That is the check that would have caught this before you saw it.**
+
+**No database step and no function deploy.** 3,967 tests green.
 
 **27 Oct 2026 — engine v658, THE COLLECTION IS NO LONGER DRAWN AS PART OF A VAN JOB (NO DATABASE STEP).**
 

@@ -10,7 +10,7 @@ import { byId, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
 import { customerTotal, moneyLines } from "./courier.js";
 import { fulfillmentText, orderPointName } from "./points.js";
-import { courierDayOf, dayBlock, dayLine, defaultWindow, promisedWindowSuffix, trackingLine, vanLine } from "./courier_job.js";
+import { collectTimeText, courierDayOf, dayBlock, dayLine, defaultWindow, promisedWindowSuffix, trackingLine, vanLine } from "./courier_job.js";
 
 // The opening line, in the voice she chose on Settings (2 Oct 2026). WhatsApp
 // carries no fonts at all — the letters always come from the customer's own phone
@@ -64,7 +64,9 @@ function basics(state, group, trackUrl) {
   // day and its window is the VAN's, so they are not the same day and must not share a line —
   // see the helper for the customer who asked whether it was Wednesday or Thursday.
   const day = dayLine(state, first);
-  const date = `${del ? shortDate(del.date) : String(first.deliveryDate || "")}${day.window}`;
+  // ⚠️⚠️ NO WINDOW ON THE BAKE DAY (v659) — see the confirmation's own note. It read "Baking day: Wed, 28 Oct,
+  // 6-7:09 pm" on a self-collect order, the time being the van's, left over from a courier round trip.
+  const date = `${del ? shortDate(del.date) : String(first.deliveryDate || "")}`;
   const courier = first.fulfillment === "courier";
   // The same ONE wording the confirmation uses (v299), so the four messages and the
   // confirmation cannot tell a customer two different things about where to go.
@@ -175,9 +177,12 @@ export function buildPickupReminder(state, group, trackUrl) {
   // **this message is byte-for-byte what it was.**
   const vanDay = courierDayOf(b.first);
   const readyOn = vanDay ? shortDate(vanDay) : b.date;
+  // ⭐ AND WHEN, ON THE SAME LINE AS THE DAY (v659) — the Point's hours (or the time she typed) belong with the
+  // collection, and they used to ride on the bake day instead.
+  const at = collectTimeText(state, b.first);
   msg += place
-    ? `Packed and ready to collect from ${place} on ${readyOn}.\n`
-    : `Packed and ready for pickup on ${readyOn}.\n`;
+    ? `Packed and ready to collect from ${place} on ${readyOn}${at ? `, ${at}` : ""}.\n`
+    : `Packed and ready for pickup on ${readyOn}${at ? `, ${at}` : ""}.\n`;
   msg += `\nTrack your order: ${b.trackUrl}`;
   return { recipient: b.recipient, message: msg };
 }

@@ -172,7 +172,11 @@ test("the two messages a collecting customer gets name the place and when (v304)
   ]) {
     assert.ok(built.message.includes("Farlim, Air Itam"), `${name}: names the place`);
     assert.ok(!/ready for pickup/.test(built.message), `${name}: and never a bare "pickup" with no place`);
-    assert.ok(built.message.includes("collect 2-6 pm"), `${name}: when`);
+    // ⚠️ v659: the Point's hours moved ONTO the collection, where a collection's time belongs — they used to be
+    // glued to the BAKE day, so a real message read "Baking day: Wed, 28 Oct, 6-7:09 pm". The confirmation-style
+    // builders say it on a Collection line; the pickup reminder says it on the same line as the day.
+    assert.match(built.message, /(Collection: .+, 2-6 pm|on .+, 2-6 pm)/, `${name}: when, with the collection`);
+    assert.ok(!/^Baking day: .*\d/.test(built.message), `${name}: the bake day carries no time`);
     assert.ok(!built.message.includes("10-12"), `${name}: and never the van's arrival window`);
   }
 });

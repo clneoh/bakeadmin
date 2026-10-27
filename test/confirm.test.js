@@ -142,8 +142,14 @@ test("a customer collecting at a Point is told the place, the address AND when (
   const built = buildConfirmation(state({ points: [FARLIM] }), atPoint(), "");
   assert.ok(built.message.includes("Self collect at Farlim, Air Itam"), "WHERE — named");
   assert.ok(built.message.includes("Where: Lebuhraya Thean Teik, 11500 Air Itam"), "and the address");
-  assert.ok(built.message.includes("collect 2-6 pm"), "and WHEN — the place's own hours");
+  // ⚠️ v659: the hours moved ONTO the Collection line, where a collection's time belongs — they used to be glued
+  // onto the BAKE day, which read "Baking day: Wed, 28 Oct, 6-7:09 pm".
+  assert.match(built.message, /Collection: .+, 2-6 pm/, "and WHEN — the place's own hours, on the collection line");
   assert.ok(!built.message.includes("10-12"), "never the van's arrival window");
+  // ⭐ AND THE BAKE DAY CARRIES NO TIME AT ALL (v659) — it read "Baking day: Wed, 28 Oct, 6-7:09 pm" on a real
+  // order because the window was appended to the date before the line was built.
+  const bakeLine = built.message.split("\n").find((l) => l.startsWith("Baking day:"));
+  assert.match(bakeLine, /^Baking day: [A-Z][a-z]{2}, \d{1,2} [A-Z][a-z]{2}$/, `read "${bakeLine}"`);
 });
 
 test("★★ the address switch does NOT silence the confirmation (v410)", () => {
@@ -169,7 +175,7 @@ test("a Point with no hours set promises the day and says nothing about a time (
   const noHours = { ...FARLIM, collectWindow: "" };
   const built = buildConfirmation(state({ points: [noHours] }), atPoint(), "");
   assert.ok(built.message.includes("Self collect at Farlim, Air Itam"), "still told where to go");
-  assert.ok(!/collect \d/.test(built.message), "and nothing about a time");
+  assert.ok(!/\d\s*-\s*\d+\s*(am|pm)|collect \d/.test(built.message), "and nothing about a time");
   assert.ok(!built.message.includes("10-12"), "nor the van's window, even though the order carries one");
 });
 
@@ -216,4 +222,40 @@ test("★★★ a collection with no Point still says WHERE (v569)", () => {
   // ⚠️ And no invented place when she has typed no address.
   const bare = buildConfirmation(state(), group, "https://bake.app/store/?track=445566");
   assert.equal(bare.message.includes("Where:"), false, "★ a place was invented for a bakery with no address on file");
+});
+
+// ═══ THE LOGIC OF THE TWO DAY LINES (v659) ═════════════════════════════════
+//
+// Her words on a real confirmation: __"what is the point of having time on the bake day?"__ — it read
+// "Baking day: Wed, 28 Oct, 6-7:09 pm" on a SELF COLLECT order, the time being the van's, left on the order from
+// when it was a courier delivery. ⭐ **The fault is a contradiction, not a typo: a collection cannot be promised a
+// delivery window.** These assert the rule over every shape rather than the wording of one message.
+
+const bakeLineOf = (msg) => msg.split("\n").find((l) => l.startsWith("Baking day:")) || "";
+const WINDOWISH = /\d\s*[-–]\s*\d+(:\d\d)?\s*(am|pm)/i;
+
+test("★★★ the bake day line never carries a time, and a collection is never told a delivery window (v659)", () => {
+  const shapes = [
+    ["kitchen collection", {}, "collect"],
+    ["Point with hours", { pointId: "pt_farlim" }, "collect"],
+    ["collection with a time typed", { collectDay: "2026-09-08", collectTime: "6pm" }, "collect"],
+    // ⚠️ HER ORDER: self collect, and a van window still sitting on it from an earlier courier round trip.
+    ["collection carrying a stale van window", { deliveryWindow: "18:00-19:09" }, "collect"],
+    ["courier with a van day", { fulfillment: "courier", courierDay: "2026-09-08", deliveryWindow: "18:00-19:09" }, "courier"],
+  ];
+  for (const [name, extra, how] of shapes) {
+    const built = buildConfirmation(state({ points: [FARLIM] }), atPoint(extra), "");
+    const msg = built.message;
+    const bake = bakeLineOf(msg);
+    assert.ok(bake, `${name}: there is a bake line`);
+    assert.ok(!WINDOWISH.test(bake), `${name}: ★ the bake day carries a time — "${bake}"`);
+    if (how === "collect") {
+      // ⭐ The contradiction she spotted: no delivery window on a collection, however it got onto the order.
+      assert.ok(!/18-7:09 pm|6-7:09 pm/.test(msg), `${name}: ★ a collection was told a delivery window`);
+      assert.ok(!/Courier delivery/.test(msg), `${name}: ★ a collection was told about a courier`);
+      assert.ok(/^Collection: /m.test(msg), `${name}: and it says when they collect`);
+    } else {
+      assert.ok(/^Courier delivery: /m.test(msg), `${name}: a courier order says when the van comes`);
+    }
+  }
 });

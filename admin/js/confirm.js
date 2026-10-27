@@ -54,8 +54,12 @@ export function buildConfirmation(state, group, trackUrl) {
   // BAKE day and its window belongs to the van, so the two never share a line. See the helper
   // for the customer who asked whether his delivery was Wednesday or Thursday.
   const day = dayLine(state, first);
-  const date = `${del ? shortDate(del.date) : String(first.deliveryDate || "")}`
-    + day.window;
+  // ⚠️⚠️ THE BAKE DAY CARRIES NO TIME (v659). Her question, on a real confirmation: __"what is the point of
+  // having time on the bake day?"__ — it read **"Baking day: Wed, 28 Oct, 6-7:09 pm"**, ⭐ **because this line
+  // appended `day.window` to the bake date**, and on a self-collect order that window was the VAN's, left on the
+  // order from when it was a courier delivery. ⭐ The bake day is a day. A collection's time goes on the
+  // Collection line (where it is now typed) and a van's window on the Courier delivery line — never here.
+  const date = `${del ? shortDate(del.date) : String(first.deliveryDate || "")}`;
   const courier = first.fulfillment === "courier";
   // ONE wording for how the order reaches them (v299) — the confirmation and every later
   // message read the same helper, so a customer cannot be told two different things.
