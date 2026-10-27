@@ -1126,3 +1126,22 @@ test("★★★ a van day ON or AFTER the bake day is not reported (v663)", () =
   delete o.courierDay;
   assert.equal(resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "vanday").status, "pass");
 });
+
+// ── v664: the van-day fault can be CLEARED from the page ────────────────────
+//
+// ⭐ She asked me to clear her own order; I cannot reach her cloud, so the APP does it on her press. ⚠️ A button
+// that renders and does nothing is the dead-control fault, so the check must carry the ids the press acts on.
+test("★★★ the van-day fault arrives with the orders it is about, so one press can clear them (v664)", () => {
+  const st = healthy();
+  const o = st.orders.find((x) => x) || st.orders[0];
+  o.fulfillment = "courier";
+  o.deliveryDate = "2026-10-28";
+  o.courierDay = "2026-09-30";
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "vanday");
+  assert.equal(r.status, "fail");
+  assert.equal(r.repair, "clearVanDays", "★ the fault offers no press to clear it");
+  assert.deepEqual(r.repairIds, [o.id], "★ the press does not know which orders to clear");
+  // ⚠️ And a healthy book offers no repair at all — a button on a passing check would be a button that does nothing.
+  const ok = healthy();
+  assert.equal(resultOf(runChecks(ok, { register: REGISTER, copies: COPIES }), "vanday").repair, undefined);
+});

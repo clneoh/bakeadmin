@@ -19,6 +19,7 @@ import * as backups from "../backups.js";
 import * as sync from "../sync.js";
 import { save, saveFailure, duplicateIngredientPlan, removeOrders, updateOrderBadge, orderCode } from "../state.js";
 import { fmtStockAmount } from "../purchasing.js";
+import { shortDate } from "../dates.js";
 import { STOCK_LOG_CAP, reconcileCards } from "../stock.js";
 
 const MARK = { pass: "✓", fail: "✗", skipped: "—" };
@@ -97,6 +98,11 @@ export function renderHealth(root, state) {
             button(`Remove the ${r.repairIds.length} order${r.repairIds.length === 1 ? "" : "s"} with no bake day`,
               () => removeOrphans(r.repairIds), "danger"))
         : null,
+      r.status === "fail" && r.repair === "clearVanDays" && (r.repairIds || []).length
+        ? el("div", { class: "btn-row", style: "margin:8px 0 0" },
+            button(`Clear the courier day on ${r.repairIds.length} order${r.repairIds.length === 1 ? "" : "s"}`,
+              () => clearVanDays(r.repairIds), "primary"))
+        : null,
       r.status === "fail" && r.repair === "receiptStamps" && (r.repairIds || []).length
         ? el("div", { class: "btn-row", style: "margin:8px 0 0" },
             button(`Put the ${r.repairIds.length} number${r.repairIds.length === 1 ? "" : "s"} back`,
@@ -138,6 +144,40 @@ export function renderHealth(root, state) {
         run(true);
       },
       { danger: true, yesLabel: "Remove them" });
+  }
+
+  // ⭐⭐ CLEAR A COURIER DAY THAT IS EARLIER THAN THE BAKE DAY (v664). ⚠️ Her own #D4E5F6 carried 30 Sep on a
+  // 28 Oct bake, and that one day put a delivery on the run a month before the bread existed. ⭐ She asked me to
+  // clear it; I cannot reach her cloud, so the APP does it — on her press, after the confirmation NAMES EVERY
+  // ORDER. ⚠️ It deletes only `courierDay`; the bake day, the money and the customer are untouched, and if the
+  // van really is coming she types the real day on the order as before.
+  function clearVanDays(ids) {
+    const todo = [...new Set((ids || []).map(String))];
+    if (!todo.length) return toast("Nothing to clear");
+    const rows = todo.map((id) => (state.orders || []).find((x) => x && String(x.id) === id)).filter(Boolean);
+    const codes = rows.map((o) => `#${orderCode(o)}`);
+    // ⚠️ NOT an arrow: "30 Sep → 28 Oct" reads as a change it is about to make. These are two FACTS — the day the
+    // van was told to come, and the day the bread is made.
+    const when = rows.map((o) => `van day ${shortDate(o.courierDay || "")}, bake day ${shortDate(o.deliveryDate || "")}`).join("  ·  ");
+    confirmDialog(
+      `Clear the courier day on ${rows.length} order${rows.length === 1 ? "" : "s"}?\n\n${codes.join("  ")}\n${when}`
+      + "\n\nThe courier day goes; the bake day, the customer and the money stay exactly as they are."
+      + " If a van really is coming, type the real day on the order afterwards.",
+      () => {
+        let cleared = 0;
+        for (const o of rows) {
+          if (!o.courierDay) continue;
+          delete o.courierDay;
+          cleared += 1;
+        }
+        save(state);
+        maybeSync(state);
+        toast(cleared
+          ? `Courier day cleared on ${cleared} order${cleared === 1 ? "" : "s"}`
+          : "Those orders had no courier day left to clear");
+        run(true);
+      },
+      { yesLabel: "Clear it" });
   }
 
   function repairReceiptStamps(ids) {

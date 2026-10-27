@@ -416,7 +416,16 @@ export function localChecks(state) {
       ? fail("vanday", "No van day is before its bake day", wrong.map((o) => `#${codeOf(o)}`),
         "These orders have a courier day EARLIER than the day they are baked, so the van would be sent for bread that does not exist yet — and the Delivery run shows them on that earlier day, which reads as an order out of nowhere.",
         "Open each order and clear its Courier delivery date (or correct it to the real day). The day travels to the run, the messages and the label, so correcting it here settles every screen at once.")
+      // ⭐ AND ONE PRESS RATHER THAN FOUR A TAP (v664). ⚠️ She asked me to clear hers and I cannot reach her
+      // cloud — ⭐ **so the app does it, on her press, after naming every order.** It clears ONLY the impossible
+      // day; nothing else on the order is touched, and the real day can still be typed afterwards.
       : pass("vanday", "No van day is before its bake day"));
+
+    if (wrong.length) {
+      const failing = out[out.length - 1];
+      failing.repair = "clearVanDays";
+      failing.repairIds = wrong.map((o) => o.id).filter(Boolean);
+    }
   }
 
   return out;

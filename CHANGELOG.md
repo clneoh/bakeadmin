@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v663)
+# Jienluv2bake — change history (v54 → v664)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v664, CHECK MY SYSTEM CAN CLEAR A WRONG VAN DAY FOR YOU (NO DATABASE STEP).**
+
+**Your words:** __"clear the 30 sep on #D4E5F6"__ — and I cannot reach your cloud from here, so the app does it, on your press.
+
+1. ⭐ **The van-day check now carries a press:** **Clear the courier day on N orders**. It asks first, **naming every order and both dates** — *"#D4E5F6 — van day Wed, 30 Sep, bake day Wed, 28 Oct"* — and says what stays: the bake day, the customer and the money.
+2. ⚠️ **It clears only the courier day.** Nothing else on the order is touched, and if a van really is coming you type the real day afterwards, exactly as before.
+3. ⚠️ **The wording is deliberate:** not an arrow between the two dates, because *"30 Sep → 28 Oct"* reads as a change it is about to make. They are two facts, stated.
+
+**No database step and no function deploy.** 3,976 tests green.
 
 **27 Oct 2026 — engine v663, A VAN CANNOT BE SENT BEFORE THE BREAD EXISTS (NO DATABASE STEP).**
 
