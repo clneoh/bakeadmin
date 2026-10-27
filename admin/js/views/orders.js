@@ -2012,13 +2012,19 @@ import { addressSuggester } from "../address_suggest.js";
 // reflex in whatsapp message"__. ⚠️ Empty means the bake day, which is the only day a kitchen collection has
 // ever had, so an order she never touches reads exactly as it did.
 function collectWhenFields(box) {
+  // ⚠️⚠️ BOTH EVENTS, ON PURPOSE (v656). A phone keyboard, an autofill or a paste can leave a text box firing
+  // `change` on blur and NO `input` at all — ⭐ **her report was a collection whose DAY saved and whose TIME did
+  // not, which is exactly the shape of a value that never reached the draft.** Writing the field on either event
+  // is idempotent, so listening to both costs nothing and closes the gap on the phone where it happens.
+  const putDay = () => { box.day = day.value; };
+  const putTime = () => { box.time = time.value; };
   const day = el("input", { class: "input", type: "date", value: box.day || "",
     "aria-label": "The day they collect",
-    oninput: () => { box.day = day.value; } });
+    oninput: putDay, onchange: putDay });
   const time = el("input", { class: "input", type: "text", value: box.time || "",
     placeholder: "e.g. 10am-12pm",
     "aria-label": "The time they collect",
-    oninput: () => { box.time = time.value; } });
+    oninput: putTime, onchange: putTime });
   return el("div", { class: "field" },
     el("label", {}, "Collection day and time"),
     el("p", { class: "card-sub", style: "margin:0 0 5px" },

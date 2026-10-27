@@ -698,3 +698,26 @@ test("★★★ and a courier order is still saved with no Point on it (v656)", 
   assert.equal(added.fulfillment, "courier");
   assert.equal(added.pointId || "", "", "★ a courier order still carries no collection Point");
 });
+
+test("★★★ a collection time typed on a phone that only fires `change` is still saved (v656)", () => {
+  // ⚠️ Her report: the collection DAY came back and the TIME did not. ⭐ A text box can fire `change` on blur
+  // and never fire `input` — an Android keyboard, an autofill, a paste — so a handler on `input` alone reads an
+  // empty box at Place Order. Both events write the same field now; this fires ONLY the one that used to be
+  // ignored.
+  const st = state();
+  const root = openNewCollectCard(st);
+  const day = collectDayBox(root);
+  const time = collectTimeBox(root);
+  day.value = "2026-10-29";
+  (day._listeners.change || []).forEach((f) => f.call(day));
+  time.value = "10am-12pm";
+  (time._listeners.change || []).forEach((f) => f.call(time));
+
+  pickProduct(root);
+  tap(buttonByText(root, "Place Order"));
+
+  const added = st.orders.find((o) => o.id !== "o1");
+  assert.ok(added, "the order landed");
+  assert.equal(added.collectDay, "2026-10-29");
+  assert.equal(added.collectTime, "10am-12pm", "★ the time her phone never fired `input` for");
+});

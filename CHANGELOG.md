@@ -1,18 +1,27 @@
-# Jienluv2bake — change history (v54 → v656)
+# Jienluv2bake — change history (v54 → v657)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**27 Oct 2026 — engine v657, A COLLECTION TIME TYPED ON A PHONE IS NO LONGER THROWN AWAY (NO DATABASE STEP).**
+
+**Your words:** __"the collection date and time din come back"__ — with a screenshot showing the **day filled in and the time box empty**, which is the shape of the fault.
+
+1. ⚠️⚠️ **THE TIME BOX ONLY LISTENED FOR ONE BROWSER EVENT.** A phone keyboard, an autofill or a paste can report typing with the OTHER one — so **the day saved and the time never did.** It listens to both now.
+2. ⭐ **A test types with the event that used to be ignored and checks what the order is saved with**, so the half-lost collection cannot come back.
+3. ⭐ **On an order where this already happened, type the time once more** — from this version it sticks.
+
+**No database step and no function deploy.** 3,960 tests green.
+
 **27 Oct 2026 — engine v656, SWITCHING TO COURIER NO LONGER THROWS YOUR COLLECTION AWAY (NO DATABASE STEP).**
 
 **Your words:** __"for an order initially i select self collect, later i change it to courier and key in the details, after that i change back to self collect and the collection times field disappear?"__ — **it did, and you found it exactly right.**
 
-1. ⚠️⚠️ **A SELF COLLECTION POINT WAS WIPED THE MOMENT YOU CHOSE COURIER.** v303 cleared the chosen Point from the card, and nothing ever put it back — so switching back to Self collect found **"Collect from" empty (My kitchen) and the Point's own collection hours gone**. That was your "collection times field".
-2. ⭐ **The Point stays in the card now**, so switching back restores what you picked. ⚠️ **The rule it was protecting still holds where it belongs — on the saved order:** a courier order is still saved with no Point on it, which is tested.
-3. ⭐ **And the collection day and time you type are kept through the same round trip**, so a switch you thought better of costs you nothing.
+1. ⚠️⚠️ **A SELF COLLECTION POINT WAS WIPED THE MOMENT YOU CHOSE COURIER.** An older rule cleared the chosen Point from the card and nothing ever put it back — so switching back to Self collect found **"Collect from" on My kitchen and the Point's own collection hours gone**.
+2. ⭐ **The Point stays in the card now**, so switching back restores what you picked. The rule it was protecting still holds on the saved order: a courier order is still saved with no Point on it.
 
-**No database step and no function deploy.** 3,959 tests green.
+**No database step and no function deploy.**
 
 **27 Oct 2026 — engine v655, THE CUSTOMER'S PAPER NAMES BOTH DAYS (NO DATABASE STEP).**
 
