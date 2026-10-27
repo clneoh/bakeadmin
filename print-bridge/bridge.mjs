@@ -11,6 +11,7 @@
 
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
+import { pickPrinterHost } from "./printer.mjs";
 import { readFileSync, writeFileSync, existsSync, chmodSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -203,11 +204,41 @@ async function pollOnce(cfg, session) {
   return {};
 }
 
+// ⭐ THE ADDRESS SHE SET ON HER PHONE (v670). ⚠️ The phone cannot print — a web page has no raw socket and this
+// printer has no print page — but it can TELL THIS MAC where the printer is, so a moved address is fixed in
+// Settings instead of in a file here. ⚠️ Read once a minute, not once a poll: her setting changes when she says,
+// and a queued label must never wait on it.
+async function readPrinterHost(cfg, session) {
+  try {
+    const res = await rest(cfg, session, "bakery?kind=eq.settings&id=eq.default&select=data");
+    if (!res.ok) return "";
+    const rows = await res.json();
+    const data = Array.isArray(rows) && rows[0] ? rows[0].data : null;
+    return data && typeof data.printerHost === "string" ? data.printerHost : "";
+  } catch {
+    return ""; // ⚠️ an unreadable setting is NO setting — the Mac's own address keeps printing
+  }
+}
+
 async function main() {
-  say("Bakeadmin label bridge — Ctrl-C to stop.");
-  const cfg = readConfig() || await askConfig();
+  say("Bakeadmin print bridge for GP1326D Gprinter — Ctrl-C to stop.");
+  // ⚠️⚠️ IT MUST NOT PROMPT WHERE THERE IS NOBODY TO ANSWER (v671). ⚠️ The first-run questions read from a
+  // terminal; on a SERVER — her UGREEN box, a Pi, or inside Docker — there is no terminal, and a prompt would
+  // hang for ever looking exactly like a bridge that is running. ⭐ So with `BRIDGE_NO_PROMPT` set it says what
+  // is missing and stops, rather than waiting for a keystroke that will never come.
+  let cfg = readConfig();
+  if (!cfg && String(process.env.BRIDGE_NO_PROMPT || "") === "1") {
+    say(`No bridge config at ${CONFIG_PATH}. On a server this is written by hand — see print-bridge/README.md, "Running it on a server".`);
+    process.exit(1);
+  }
+  const cfgOrAsked = cfg || await askConfig();
+  // ⚠️ The file's own address is kept as the FALLBACK: a blank or mistyped setting must never stop a label.
+  cfg = cfgOrAsked;
+  const ownHost = cfg.printerHost;
   let session = null;
   let tidiedAt = 0;
+  let saidHost = "";
+  let settingCheckedAt = 0;
   for (;;) {
     try {
       if (!session || Date.now() >= session.expiresAt) {
@@ -217,6 +248,19 @@ async function main() {
       if (Date.now() - tidiedAt > 3600 * 1000) {
         tidiedAt = Date.now();
         await tidyOldJobs(cfg, session);
+      }
+      let cloudHost = "";
+      if (Date.now() - settingCheckedAt > 60 * 1000) {
+        settingCheckedAt = Date.now();
+        cloudHost = await readPrinterHost(cfg, session);
+      }
+      const pick = pickPrinterHost(cloudHost, ownHost);
+      if (pick.host && pick.host !== cfg.printerHost) {
+        cfg.printerHost = pick.host;
+        if (saidHost !== pick.host) {
+          saidHost = pick.host;
+          say(`printing to ${pick.host} (${pick.from})`);
+        }
       }
       const out = await pollOnce(cfg, session);
       if (out.relogin) session = null;

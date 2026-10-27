@@ -434,6 +434,7 @@ const SETTINGS_TRIP = {
   "Good to know (shown on the shop)": "Test fact",
   "Developer WhatsApp (optional)": "60133334444",
   "Label printer name for this device": "printer2",
+  "Label printer address (for the bridge)": "192.168.51.61",
 };
 // ⚠️ Excused, each for a stated reason — never silently.
 const SETTINGS_NOT_TRIPPED = [

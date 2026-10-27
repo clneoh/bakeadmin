@@ -189,3 +189,53 @@ test("★★ the status command only READS the queue (v622)", () => {
   assert.equal(/method:\s*"DELETE"/.test(src), false, "★ the status command can delete a job");
   assert.equal(/\/rpc\//.test(src), false, "★ the status command calls a function");
 });
+
+// ⭐ WHERE IS THE PRINTER, WHEN ITS ADDRESS HAS MOVED (v669).
+// ⚠️ The printer's address comes from the router's DHCP unless a reservation is set, so one morning it can be
+// at a different number — and the bridge fails every job while the printer itself is perfectly well.
+import { addressForMac } from "../print-bridge/printer.mjs";
+
+test("★★★ the printer's own MAC is found in this Mac's address table (v669)", () => {
+  const arp = [
+    "? (192.168.51.1) at 44:1c:a8:11:22:33 on en0 ifscope [ethernet]",
+    "? (192.168.51.48) at a4:83:e7:01:02:03 on en0 ifscope [ethernet]",
+    "? (192.168.51.61) at 38:44:be:88:37:a0 on en0 ifscope [ethernet]",
+  ].join("\n");
+  assert.equal(addressForMac(arp), "192.168.51.61", "★ the printer's address was not found");
+  // ⚠️ An address the table does not hold is "" — never a guess, and never another device's number.
+  assert.equal(addressForMac("? (192.168.51.5) at aa:bb:cc:dd:ee:ff on en0 ifscope [ethernet]"), "");
+  assert.equal(addressForMac(""), "");
+  // ⚠️ And a MAC match must be the WHOLE address, not a prefix of another device's.
+  const near = "? (192.168.51.70) at 38:44:be:88:37:a1 on en0 ifscope [ethernet]";
+  assert.equal(addressForMac(near), "", "★ a neighbour's MAC was read as the printer's");
+});
+
+// ── v670: the address she types on her PHONE ────────────────────────────────
+//
+// ⚠️ The phone still cannot print — a web page has no raw socket and this printer has no print page — but it can
+// tell the Mac where to print. ⭐ So a printer that came up on a different number is fixed in Settings, not in a
+// file on the Mac.
+import { cleanPrinterHost, pickPrinterHost } from "../print-bridge/printer.mjs";
+
+test("★★★ a typed address is used only when it looks like one (v670)", () => {
+  assert.equal(cleanPrinterHost(" 192.168.51.32 "), "192.168.51.32");
+  assert.equal(cleanPrinterHost("printer.local"), "printer.local");
+  // ⚠️ An impossible address is NOT a hostname — it must be refused, not passed through as a name.
+  assert.equal(cleanPrinterHost("192.168.51.999"), "", "★ an impossible address was accepted");
+  assert.equal(cleanPrinterHost("http://192.168.51.32/print"), "");
+  assert.equal(cleanPrinterHost("192.168.51.32:9100"), "", "the port is not part of the address");
+  assert.equal(cleanPrinterHost(""), "");
+  assert.equal(cleanPrinterHost(null), "");
+});
+
+test("★★★ the app's address wins, and the Mac's own is the fallback that keeps printing (v670)", () => {
+  assert.deepEqual(pickPrinterHost("192.168.51.61", "192.168.51.32"),
+    { host: "192.168.51.61", from: "the address set in the app" });
+  // ⚠️ A blank or mistyped setting must never stop a label — the Mac's own address carries on.
+  assert.deepEqual(pickPrinterHost("", "192.168.51.32"),
+    { host: "192.168.51.32", from: "this Mac's own config" });
+  assert.deepEqual(pickPrinterHost("nonsense!!", "192.168.51.32"),
+    { host: "192.168.51.32", from: "this Mac's own config" });
+  // And with neither, it says so rather than printing to nothing.
+  assert.equal(pickPrinterHost("", "").host, "");
+});

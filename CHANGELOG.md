@@ -1,8 +1,42 @@
-# Jienluv2bake — change history (v54 → v668)
+# Jienluv2bake — change history (v54 → v671)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v671, THE PRINTER CAN RUN ON THE SERVER IN YOUR HOUSE (NO DATABASE STEP, NO FUNCTION DEPLOY).**
+
+**Your setup, found rather than assumed:** `192.168.51.90` — `OpenSSH 9.6p1 Ubuntu-3ubuntu13.20`, the only machine on your network answering SSH. ⭐ **That server is always on, so it prints your labels** — no Mac awake, no Raspberry Pi, nothing new to buy.
+
+1. ⭐ **`print-bridge/install-linux.sh`** — starts the bridge at boot and restarts it if it stops (the Mac's installer uses `launchd`; a Linux box uses `systemd`). ⚠️ **A bridge that only knows how to start on one operating system is a bridge that stops when you move it.**
+2. ⭐ **`print-bridge/Dockerfile`** — the same bridge as a container, for a server that prefers one. ⚠️ **Containers survive a NAS firmware update**, and the config is **mounted**, never baked into an image.
+3. ⚠️⚠️ **`BRIDGE_NO_PROMPT`** — on a server or in a container there is no terminal, and the first-run questions would **hang for ever looking exactly like a bridge that is running**. It now says what is missing and stops.
+4. ⭐ **It is named after your printer** — *Bakeadmin print bridge for GP1326D Gprinter* — in the service's description, its own first line, and the container's name, so the machine it runs on says which printer it is for. The service's own short name stays `bakeadmin-print`, so any command you have already written still works.
+5. ⭐ **README: "Running it on a server"** — the config file written by hand, both install routes, and the one thing that matters: ⚠️ **the server needs NO fixed address; the PRINTER's address is the one to fix**, and since v670 you set that from the phone.
+
+**No database step and no function deploy.** 3,982 tests green.
+
+**27 Oct 2026 — engine v670, THE PRINTER'S ADDRESS IS SET FROM YOUR PHONE (NO DATABASE STEP, NO FUNCTION DEPLOY).**
+
+**Your question:** __"can I just put that printer ip address into the apps?"__ — ⚠️ **the phone still cannot print** (a web page has no raw connection to a printer, and this printer has no print page), ⭐ **but it can now tell the Mac where the printer is.**
+
+1. ⭐ **Settings → Label printer address (for the bridge).** Type the address the printer was given on your Wi-Fi. It travels with your settings, so it works from either phone.
+2. ⭐ **The bridge reads it** within a minute and prints to it, saying in its log which address it is using and where that address came from. **A printer that came up on a different number is now fixed in Settings, not in a file on the Mac.**
+3. ⚠️⚠️ **A blank or mistyped address never stops a label** — an address that cannot be an address (a URL, an impossible number like `192.168.51.999`, or a port stuck on the end) is refused, and the Mac falls back to the address it was set up with.
+4. ⚠️ **It is a fallback, never an overwrite:** the Mac's own config stays, so one bad keystroke on a phone cannot silence the printer.
+
+**No database step and no function deploy.** 3,982 tests green.
+
+**27 Oct 2026 — engine v669, THE BRIDGE CAN TELL YOU WHERE THE PRINTER IS WHEN ITS ADDRESS MOVES (NO DATABASE STEP).**
+
+**Your question:** can the printer's address be set in Settings? ⚠️ **Not today, and here is why:** your **phone never talks to the printer** — the **Mac bridge** opens the connection, and the address lives in its own config (`~/.bakeadmin-print.json`). The Settings field *Label printer name for this device* is **which name the bridge prints for**, not an address.
+
+1. ⭐ **`node print-bridge/status.mjs` now ends with where the printer is:** it opens one connection (which is also what wakes the printer) and says either *"answered at 192.168.51.32 — that is where it is right now"*, or *"nothing answered"*.
+2. ⚠️⚠️ **And if the address has moved, it says so and names the fix:** it looks the printer's own **MAC** (`38:44:be:88:37:a0`) up in this Mac's address table, prints **the address it is at now**, and gives the one line to change plus the restart command.
+3. ⚠️ **A MAC match must be the whole address** — a prefix would hand back a neighbour's number. Tested.
+4. ⭐ **The permanent fix is still the router's:** a DHCP reservation for that MAC. This makes a moving address **diagnosable in one command** instead of a morning of failed labels.
+
+**No database step and no function deploy.** 3,980 tests green.
 
 **27 Oct 2026 — engine v668, THE SHOP'S RELOAD PRESS NOW ACTUALLY RELOADS THE SHOP (NO DATABASE STEP).**
 
