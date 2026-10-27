@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v654)
+# Jienluv2bake — change history (v54 → v655)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v655, THE CUSTOMER'S PAPER NAMES BOTH DAYS (NO DATABASE STEP).**
+
+**Your words:** __"for customer side, their concern is post date, not order date, order date is for merchant"__ · __"order date is not for customer. collect date and delivery date is customer concern and it has to appear where it is appropriate"__ · and, asked how the two should read: __"both named separately, like the parcel label"__.
+
+1. ⚠️⚠️ **THE INVOICE PRINTED YOUR DATE, NOT THEIRS.** The line under "Invoice #…" carried **the day the order was placed** — the one date your own note says is the merchant's. It now carries **the bake day**, and when the day it actually reaches the customer is a different one, that day is named too, in the shape the parcel label has used since v429:
+   - ordinary order: **Bake 28 Oct 2026**
+   - courier: **Bake 28 Oct 2026 · Delivery 29 Oct 2026**
+   - self collect: **Bake 28 Oct 2026 · Collection 29 Oct 2026**
+2. ⭐ **The second day is named ONLY when it differs** — a collection typed on the bake day prints one day, never the same date twice under two names.
+3. ⭐ **One sheet, so nothing can disagree:** the screen, **Print**, **Share** (the PDF) and the **Wi-Fi label** all draw this same line. Measured on the real PDF: `Bake 28 Oct 2026 · Collection 29 Oct 2026` under the invoice number.
+4. ⭐ **The invoice screen now shows that line too**, under "Mei Ling · placed 20 Oct 2026" — ⚠️ the paper carries the customer's days and the screen used to show only yours, so a printed invoice and the screen could say different things about the same order. Your placed date stays where you work; it is off the customer's paper.
+
+**No database step and no function deploy.** 3,957 tests green.
 
 **27 Oct 2026 — engine v654, THE COLLECTION DAY, THE WINDOW, AND A CHARGE THAT IS FINAL (NO DATABASE STEP).**
 

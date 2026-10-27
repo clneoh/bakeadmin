@@ -4419,6 +4419,11 @@ async function openInvoice(state, group) {
     el("p", { class: "card-sub", style: "margin:0 0 10px" },
       [`${String(first.customerName || "").trim() || "No name"}`,
         orderDateOf(first) ? `placed ${longDate(orderDateOf(first))}` : ""].filter(Boolean).join(" · ")),
+    // ⭐ AND THE DAYS THE PAPER ITSELF CARRIES (v655). ⚠️ `journalBodyEl` skips a sheet's subtitle, so without
+    // this line the screen showed the order's placed date while the paper in her hand showed the BAKE day and,
+    // when they differ, the delivery or collection day too — the document and the screen disagreeing about the
+    // same invoice. ⭐ Shown as the sheet holds it, so there is no second wording to keep in step.
+    sheet.subtitle ? el("p", { class: "card-sub", style: "margin:0 0 10px" }, sheet.subtitle) : null,
     // ★ THE RECEIPT'S SERIAL ON SCREEN TOO (v360), so what she reads here is what the paper
     // says. ⚠️ AND WHEN THERE IS NO NUMBER IT SAYS WHY — never a blank, and never a made-up
     // zero, which would be the app inventing a receipt the books do not have.

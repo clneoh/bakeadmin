@@ -48,15 +48,22 @@ const line = (over = {}) => ({
   unitPrice: 15, status: "ready", ...over,
 });
 
-test("★★★ an order with no date prints NO date, never NaN (v592)", () => {
+test("★★★ an order with no day at all prints NO day, never NaN (v592, widened v655)", () => {
   // ⚠️⚠️ MEASURED: `longDate("")` is "NaN undefined NaN", and the invoice passed `orderDateOf` straight into
   // it — ⚠️ **an imported or hand-edited row with no date printed that under the title**, while the screen
   // showed nothing.
+  // ⚠️⚠️ AND SINCE v655 "NO DATE" MEANS NO DAY OF EITHER KIND. The line under the title became the BAKE day,
+  // not the placed day — ⭐ so a row with no placed date but a real bake day is an ordinary order and MUST
+  // print that day; the old reading of this test failed the moment the fix worked.
   const st = state();
-  const g = group([line({ orderDate: "", createdAt: "", deliveryDate: "" })]);
+  const g = group([line({ orderDate: "", createdAt: "", deliveryDate: "", deliveryDateId: "" })]);
   const inv = invoiceSheet(st, g);
-  assert.equal(inv.subtitle, "", "★ an undated order printed a subtitle");
+  assert.equal(inv.subtitle, "", "★ an order with no day at all printed a subtitle");
   assert.equal(journalSheet(inv).subtitle, "", "and the sheet the PDF reads carries it too");
+  // …and the day it does have is the one it prints.
+  const dated = invoiceSheet(st, group([line({ orderDate: "", createdAt: "" })]));
+  assert.equal(dated.subtitle, "18 Sep 2026",
+    "★ a row with a bake day and no placed date prints the bake day — the customer's day, not hers");
 });
 
 test("★★★ the printed lines add up to the printed Total, even at half a cent a loaf", () => {
@@ -205,7 +212,8 @@ test("an invoice is one order: the items at the price they were SOLD at, then th
   const { st, g } = cart();
   const s = journalSheet(invoiceSheet(st, g, { bakery: "Jien Luv 2 Bake" }));
   assert.equal(s.title, "Invoice #ABC123");
-  assert.equal(s.subtitle, "15 Sep 2026", "the day the order was placed, which a reprint keeps");
+  // ⚠️ v655: this is the BAKE day now — the customer's day. The placed day is hers and left the paper.
+  assert.equal(s.subtitle, "18 Sep 2026", "the day it is baked, which a reprint keeps");
   assert.deepEqual(s.lines.map((l) => [l.what, l.amount]), [["2 × Focaccia", 30]]);
   assert.deepEqual(s.totals, [{ label: "Total", amount: 30, cls: "pl-total" }]);
 });
@@ -326,4 +334,34 @@ test("every other journal is unchanged by the letterhead", () => {
   const s = journalSheet({ title: "Sales", bakery: "Jien Luv 2 Bake", lines: [{ what: "Focaccia", amount: 30 }] });
   assert.equal(s.from, "");
   assert.deepEqual(fromLines(s.from, s.bakery), []);
+});
+
+// ── v655: the customer's two days, each named ───────────────────────────────
+//
+// Her words: __"for customer side, their concern is post date, not order date, order date is for merchant"__,
+// then __"collect date and delivery date is customer concern and it has to appear where it is appropriate"__,
+// then, asked how they should read: __"both named separately, like the parcel label"__.
+
+test("★★★ a courier order's paper names the bake day AND the van's day, each named (v655)", () => {
+  const { st, g } = cart([{ fulfillment: "courier", courierDay: "2026-09-19" }]);
+  const s = journalSheet(invoiceSheet(st, g));
+  assert.equal(s.subtitle, "Bake 18 Sep 2026 · Delivery 19 Sep 2026",
+    "★ both days, separately, in the shape the parcel label has used since v429");
+});
+
+test("★★★ a self-collect order names its collection day, when it is a different day (v655)", () => {
+  const { st, g } = cart([{ fulfillment: "collect", collectDay: "2026-09-20", collectTime: "10am-12pm" }]);
+  assert.equal(journalSheet(invoiceSheet(st, g)).subtitle, "Bake 18 Sep 2026 · Collection 20 Sep 2026");
+});
+
+test("★★★ and one day is never printed twice under two names (v655)", () => {
+  // ⚠️ A collection typed ON the bake day, and a van day that matches it: both are the same day, so the paper
+  // says it once. A sheet that reads "Bake 18 Sep · Collection 18 Sep" is a customer asking why.
+  const same = cart([{ fulfillment: "collect", collectDay: "2026-09-18" }]);
+  assert.equal(journalSheet(invoiceSheet(same.st, same.g)).subtitle, "18 Sep 2026");
+  const van = cart([{ fulfillment: "courier", courierDay: "2026-09-18" }]);
+  assert.equal(journalSheet(invoiceSheet(van.st, van.g)).subtitle, "18 Sep 2026");
+  // …and a collection with nothing typed prints the bake day alone.
+  const blank = cart([{ fulfillment: "collect" }]);
+  assert.equal(journalSheet(invoiceSheet(blank.st, blank.g)).subtitle, "18 Sep 2026");
 });

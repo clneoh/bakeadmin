@@ -46,7 +46,8 @@
 // Pure module: no DOM, no storage. Runs under Node for tests.
 
 import { customerTotal } from "./courier.js";
-import { orderDateOf } from "./customers.js";
+import { orderDateOf, deliveryDateOf } from "./customers.js";
+import { courierDayOf, courierCollectDayOf } from "./courier_job.js";
 import { fmtRM } from "./state.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { orderCode, orderLineName, orderLinePrice, round2 } from "./state.js";
@@ -138,6 +139,18 @@ export function invoiceSheet(state, group, { from = "", bakery = "", printed = "
   // invoice; the same rule `receiptRows` states, and the same fault when it is broken.
   if (t.coupon > 0) lines.push({ what: t.couponRole === "reward" ? "Bring-a-friend reward" : "Bring-a-friend discount", amount: t.coupon, dir: "out" });
 
+  // The two days the customer cares about, built once. See the `subtitle` comment below for whose they are.
+  const bakeIso = deliveryDateOf(state, first);
+  const secondIso = first.fulfillment === "courier" ? courierDayOf(first) : courierCollectDayOf(first);
+  const bakeDay = bakeIso ? longDate(bakeIso) : "";
+  const secondDay = secondIso && secondIso !== bakeIso ? longDate(secondIso) : "";
+  // ⚠️ THE WORD FOLLOWS HOW THE ORDER LEAVES, the same reading `courierDeliveryText` and the collection line
+  // take: a van brings a delivery, a customer comes for a collection. It is never the packer's word "Van" —
+  // this sheet is read by the person receiving the food, not by the person who packed it.
+  const secondWord = first.fulfillment === "courier" ? "Delivery" : "Collection";
+  const subtitle = !bakeDay ? ""
+    : secondDay ? `Bake ${bakeDay} · ${secondWord} ${secondDay}` : bakeDay;
+
   return {
     // ★ THE REGISTER'S SERIAL when the sale has one, the order's own code until then (v577) — the same
     // number the consolidated filing page's Invoice column shows, so one sale cannot be quoted two ways.
@@ -149,15 +162,20 @@ export function invoiceSheet(state, group, { from = "", bakery = "", printed = "
     // number belongs, which is the fault this app treats as a bug everywhere else.
     receipt,
     receiptNote: receipt ? "" : receiptStatus,
-    // ⚠️⚠️ THE PLACED DAY, READ THE ONE WAY THE APP READS IT (v572). ⭐ This passed the RAW value to
-    // `longDate`, and an order with no `orderDate` fell through to a full ISO timestamp — ⭐ **which prints
-    // "NaN undefined NaN"** (measured). `orderDateOf` takes the date it has, in her clock, and answers "" when
-    // there is none, so the line is either a real day or absent.
-    // ⚠️⚠️ AND AN ORDER WITH NO DATE PRINTS NO DATE (v592). ⚠️ `longDate("")` is **"NaN undefined NaN"**
-    // (measured) — the comment above claimed `orderDateOf` answered "", and it does, but the CALL was still
-    // made: ⚠️ **an imported or hand-edited row with no order date printed that under the title**, while the
-    // screen showed nothing. ⭐ The line is either a real day or absent.
-    subtitle: orderDateOf(first) ? longDate(orderDateOf(first)) : "",
+    // ⚠️⚠️ THE CUSTOMER'S DAYS, NOT HERS (v655). Her words: __"for customer side, their concern is post date,
+    // not order date, order date is for merchant"__ and, about this app, __"order date is not for customer.
+    // collect date and delivery date is customer concern and it has to appear where it is appropriate"__ — then,
+    // asked how they should read: __"both named separately, like the parcel label"__.
+    // ⭐ So this line carries the BAKE day, and when the day the order actually reaches them is a DIFFERENT one,
+    // that day is named as well — the same shape the parcel label has used since v429 (`Bake Wed 7 Oct · Van
+    // Thu 8 Oct`), with the customer's own word for the second half rather than the packer's.
+    // ⚠️⚠️ THE PLACED DAY IS GONE FROM THE PAPER, and that is the point of the version: it is hers, and it was
+    // the only day this sheet ever printed. ⚠️ Nothing is deleted from the app — the order's row and card still
+    // show "Placed".
+    // ⚠️⚠️ AN ORDER WITH NO DAY PRINTS NO DAY (v592's rule, kept): `longDate("")` is "NaN undefined NaN", so every
+    // reading below is guarded rather than called and hoped for.
+    // ⚠️ AND A DAY IS NEVER PRINTED TWICE UNDER TWO NAMES — the second day is named only when it really differs.
+    subtitle,
     // ⚠️⚠️ AND WHO IT IS FOR, ON PAPER (v572). ⭐ The screen said "Aunty Bee · placed …" and the sheet said
     // nothing, so a printed invoice could only be matched to an order by its code. The address rides with it
     // for a courier order, because that is the document that goes in the parcel.
