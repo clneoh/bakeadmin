@@ -92,3 +92,44 @@ export function newerBuild(servedText, running) {
 // ⚠️ The key names the site, so the bakery's shop and munchies' shop on the same phone can never
 // read each other's flag.
 export const BUILD_TRIED_KEY = "bakeadmin.shop.build";
+
+// ★★★ THE RELOAD PRESS MUST RE-ASK FOR THE FILES, NOT ONLY FOR THE PAGE (v668).
+//
+// ⚠️⚠️ The fault, found by the munchies session on its own shop and true here word for word: **a plain page
+// reload takes the page fresh and everything beside it from the browser's own ten-minute copy.** ⭐ GitHub Pages
+// serves `/store/` with `max-age=600`, so a press right after a push can bring back **the new page with the old
+// stylesheet still beside it** — and a second press repeats it. ⭐ Her words on that shop, and they apply to this
+// one: __"it fail to refresh again on browser"__ — with nothing wrong with the build.
+//
+// ⚠️ **THE LIST IS THE PAGE'S OWN.** `performance.getEntriesByType("resource")` is what this page actually
+// fetched — never a hand-kept list, which goes stale the first time anyone adds a file.
+// ⚠️ **PHOTOGRAPHS ARE LEFT ALONE.** A build number never names one, so re-downloading the bakes would spend a
+// customer's data to fix nothing.
+// ⚠️ **`cache: "reload"` IS THE WHOLE FIX** — a plain `fetch` is answered from the very cache that is the fault.
+const BUILDABLE = /\.(?:js|mjs|css|woff2?|ttf|otf)(?:\?|$)/i;
+
+// The addresses worth re-asking for, newest list first: same origin, code and fonts only, each once.
+export function assetsToRefresh(entries, origin) {
+  const keep = [];
+  const seen = new Set();
+  for (const e of Array.isArray(entries) ? entries : []) {
+    const name = e && typeof e.name === "string" ? e.name : "";
+    if (!/^https?:/i.test(name)) continue;
+    let url;
+    try { url = new URL(name); } catch { continue; }
+    if (origin && url.origin !== origin) continue;
+    if (!BUILDABLE.test(url.pathname)) continue;
+    if (seen.has(url.href)) continue;
+    seen.add(url.href);
+    keep.push(url.href);
+  }
+  return keep;
+}
+
+// …and the press itself, kept out of the page so it can be tested without a browser. `doFetch` is passed in for
+// the same reason: a test drives it with a recorder and asserts exactly what was asked for.
+export async function freshenAssets(entries, origin, doFetch = fetch) {
+  const list = assetsToRefresh(entries, origin);
+  await Promise.all(list.map((u) => doFetch(u, { cache: "reload" }).catch(() => {})));
+  return list;
+}

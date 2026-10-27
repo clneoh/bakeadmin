@@ -1,8 +1,19 @@
-# Jienluv2bake — change history (v54 → v667)
+# Jienluv2bake — change history (v54 → v668)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v668, THE SHOP'S RELOAD PRESS NOW ACTUALLY RELOADS THE SHOP (NO DATABASE STEP).**
+
+**From the munchies session's note about its own shop — and it was true here, word for word.**
+
+1. ⚠️⚠️ **A PLAIN RELOAD DOES NOT REFRESH THE FILES BESIDE THE PAGE.** The page came back new while the stylesheet, the scripts and the font came from the browser's own **ten-minute copy** — so a press right after a push could show you the new page wearing the old stylesheet, and **a second press repeated it**.
+2. ⭐ **The press now re-asks for this page's own code files first** — its scripts, stylesheet and fonts — with a cache-busting request, then reloads. ⚠️ **The list is the page's own record of what it fetched**, never a written-out list that would go stale.
+3. ⚠️ **And it leaves the photographs alone** — a build number never names one, and re-downloading the bakes would spend a customer's data to fix nothing. Measured on the live shop: **35 of its 40 files re-asked; the product photo untouched.**
+4. ⚠️ **Raced with a 2.5-second beat**, so a slow connection cannot leave the customer pressing a button that does nothing visible.
+
+**No database step and no function deploy.** 3,979 tests green.
 
 **27 Oct 2026 — engine v667, A CORRECTION TO WHAT THE CHANGELOG SAID ABOUT ONE ORDER (NOTHING ELSE CHANGES).**
 

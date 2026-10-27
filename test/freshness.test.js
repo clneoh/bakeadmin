@@ -320,3 +320,52 @@ test("★★★ the app registers its worker even when the page is already loade
   const bootBody = app.slice(app.indexOf("function bootApp()"), app.indexOf("window.addEventListener(\"hashchange\""));
   assert.ok(!/registerSW\(\)/.test(bootBody), "★ bootApp still registers it as well — two call sites");
 });
+
+// ── v668: the Reload press re-asks for the FILES, not only the page ─────────
+//
+// ⚠️ Found by the munchies session on its own shop and true here word for word: GitHub Pages serves `/store/`
+// with a ten-minute cache, so a plain reload comes back with the NEW page and the OLD stylesheet beside it — and
+// a second press repeats it. ⭐ Her words there: "it fail to refresh again on browser", with nothing wrong with
+// the build.
+const { assetsToRefresh, freshenAssets } = await import("../store/build.js");
+
+const ORIGIN = "https://jienluv2bake.com.my";
+
+test("★★★ the reload press re-asks for this page's own code files, never its photographs (v668)", () => {
+  const entries = [
+    { name: `${ORIGIN}/store/app.css` },
+    { name: `${ORIGIN}/store/app.js` },
+    { name: `${ORIGIN}/store-lang.js` },
+    { name: `${ORIGIN}/store/fonts/chalk.woff2` },
+    { name: `${ORIGIN}/img/focaccia.jpg` },          // ⚠️ a photograph: a build number never names one
+    { name: `${ORIGIN}/img/hero.webp` },
+    { name: "https://fonts.gstatic.com/x.woff2" },    // ⚠️ another origin: not this page's to re-ask
+    { name: `${ORIGIN}/store/app.css` },              // a repeat is asked once
+    { name: "data:text/css,body{}" },                 // not an address at all
+  ];
+  const kept = assetsToRefresh(entries, ORIGIN);
+  assert.deepEqual(kept, [
+    `${ORIGIN}/store/app.css`,
+    `${ORIGIN}/store/app.js`,
+    `${ORIGIN}/store-lang.js`,
+    `${ORIGIN}/store/fonts/chalk.woff2`,
+  ], "★ the list is wrong — a photo or a foreign address would spend a customer's data for nothing");
+});
+
+test("★★★ and each one is asked with cache: reload — a plain fetch is answered by the very cache at fault (v668)", async () => {
+  const asked = [];
+  const doFetch = (u, opts) => {
+    asked.push({ u, cache: opts && opts.cache });
+    if (/broken\.js/.test(u)) return Promise.reject(new Error("offline"));
+    return Promise.resolve({ ok: true });
+  };
+  const list = await freshenAssets([
+    { name: `${ORIGIN}/store/app.css` },
+    { name: `${ORIGIN}/store/broken.js` },
+  ], ORIGIN, doFetch);
+  assert.deepEqual(list, [`${ORIGIN}/store/app.css`, `${ORIGIN}/store/broken.js`]);
+  assert.deepEqual(asked.map((a) => a.cache), ["reload", "reload"],
+    "★ a file was asked for without cache: reload — the press would change nothing");
+  // ⚠️ And one file failing does not stop the others, nor throw into the press: the reload still goes.
+  assert.equal(asked.length, 2, "a failed file must not stop the rest");
+});
