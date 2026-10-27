@@ -121,3 +121,21 @@ test("★★★ a courier order still names the van's day and window, and never 
   assert.ok(!/^Collection: /m.test(built.message), "★ a courier order was given a collection line");
   assert.equal(bakeLines(built.message).length, 1, "and exactly one bake-day line");
 });
+
+test("★★★ the bake-day line refuses a time even when it is HANDED one (v660)", async () => {
+  // ⚠️ Her second report came from a build whose callers had been fixed, so the guard has to live in the line
+  // itself: a date is a STRING assembled somewhere else, and a string can carry anything. This hands `dayBlock`
+  // exactly what produced her message.
+  const { dayBlock } = await import("../admin/js/courier_job.js");
+  const st = state();
+  const o = order({ collectDay: "2026-10-29", collectTime: "6pm" });
+  const block = dayBlock(st, o, "Wed, 28 Oct, 6-7:09 pm");
+  assert.equal(block.split("\n")[0], "Baking day: Wed, 28 Oct",
+    "★ a window handed in as part of the date still reached the bake-day line");
+  assert.equal(block.split("\n")[1], "Collection: Thu, 29 Oct, 6pm", "and the collection keeps its own time");
+  // A day with no time is passed through untouched.
+  assert.equal(dayBlock(st, o, "Wed, 28 Oct").split("\n")[0], "Baking day: Wed, 28 Oct");
+  // A plain window form is refused too, and a date is never mangled.
+  assert.equal(dayBlock(st, o, "Wed, 28 Oct, 2-5 pm").split("\n")[0], "Baking day: Wed, 28 Oct");
+  assert.equal(dayBlock(st, o, "Wed, 28 Oct 2026").split("\n")[0], "Baking day: Wed, 28 Oct 2026");
+});

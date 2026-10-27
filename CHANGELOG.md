@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v659)
+# Jienluv2bake — change history (v54 → v660)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v660, THE BAKE-DAY LINE CANNOT CARRY A TIME, WHOEVER BUILDS IT (NO DATABASE STEP).**
+
+**Your words:** __"are you sure you have check?"__ after the engine said 659 and a message in your hand still read **Baking day: Wed, 28 Oct, 6-7:09 pm**.
+
+1. ⚠️ **I measured your live site, not my copy:** `jienluv2bake.com.my` serves **engine 659**, and its `confirm.js` no longer has the line that glued the window on. Run against your order's shape, that deployed file produced **Baking day: Wed, 28 Oct** — so that text came from a page built before the update.
+2. ⭐⭐ **AND SO THE GUARD MOVED INTO THE LINE ITSELF.** The bake day arrives as a **string assembled somewhere else**, and a string can carry anything — so `dayBlock` now **strips any trailing window** before it makes the line. **Even a caller that hands it "Wed, 28 Oct, 6-7:09 pm" prints only "Baking day: Wed, 28 Oct."** It is impossible by construction now, not by every caller remembering.
+3. ⭐ A test hands it exactly the text that produced your message and fails if any of it reaches the line.
+
+**No database step and no function deploy.** 3,968 tests green.
 
 **27 Oct 2026 — engine v659, THE BAKE DAY IS A DAY, AND THE MESSAGES ARE CHECKED FOR SENSE (NO DATABASE STEP).**
 

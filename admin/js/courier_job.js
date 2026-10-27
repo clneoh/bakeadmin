@@ -732,7 +732,15 @@ export function collectTimeText(state, order) {
 
 export function dayBlock(state, order, bakeDate) {
   const day = dayLine(state, order);
-  const when = String(bakeDate || "").trim();
+  // ⚠️⚠️ THE LINE ITSELF REFUSES A TIME (v660). ⭐ Her words, twice: __"what is the point of having time on the
+  // bake day?"__ and then, after the callers were fixed, __"are you sure you have check?"__ — because a build in
+  // her hand still printed "Baking day: Wed, 28 Oct, 6-7:09 pm". ⚠️ **A date arrives here as a STRING built
+  // somewhere else**, and a string can carry anything. ⭐ The bake day is a day, so any trailing window is
+  // stripped before the line is made — a caller that assembles "…, 6-7:09 pm" can no longer put a time here,
+  // by construction rather than by every caller remembering.
+  const when = String(bakeDate || "")
+    .replace(/,\s*\d{1,2}(?::\d\d)?\s*[-–]\s*\d{1,2}(?::\d\d)?\s*(?:am|pm)\.?\s*$/i, "")
+    .trim();
   if (!when) return "";
   const first = `Baking day: ${when}\n`;
   if (day.courier) {
