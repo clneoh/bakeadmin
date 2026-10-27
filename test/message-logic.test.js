@@ -139,3 +139,23 @@ test("★★★ the bake-day line refuses a time even when it is HANDED one (v66
   assert.equal(dayBlock(st, o, "Wed, 28 Oct, 2-5 pm").split("\n")[0], "Baking day: Wed, 28 Oct");
   assert.equal(dayBlock(st, o, "Wed, 28 Oct 2026").split("\n")[0], "Baking day: Wed, 28 Oct 2026");
 });
+
+test("★★★ the customer's TRACK CARD says the collection she promised, never the van's window (v661)", async () => {
+  // ⚠️ Found by sweeping the same contradiction past the messages: the card read
+  // "Wed, 28 Oct · Self collect, 6-7:09 pm" — the van's window as a collection time — and her typed
+  // "29 Oct, 6pm" never reached it.
+  const { trackingSnapshot } = await import("../admin/js/supabase.js");
+  const st = state();
+  const card = (extra) => trackingSnapshot(st, group(extra)).delivery;
+
+  assert.equal(card({ collectDay: "2026-10-29", collectTime: "6pm", deliveryWindow: "18:00-19:09" }),
+    "Thu, 29 Oct · Self collect, 6pm",
+    "★ the day and time SHE promised, not the van's window");
+  assert.equal(card({ deliveryWindow: "18:00-19:09" }), "Mon, 7 Sep · Self collect",
+    "★ a kitchen collection with a stray van window invents no time");
+  assert.equal(card({ pointId: "pt_farlim", pointName: "Farlim, Air Itam" }), "Mon, 7 Sep · Self collect at Farlim, Air Itam · Lebuhraya Thean Teik, 11500 Air Itam, 2-6 pm",
+    "a Point keeps its own hours");
+  // The courier's own line is untouched by any of this.
+  assert.equal(card({ fulfillment: "courier", address: "9 Jalan B", courierDay: "2026-09-08", deliveryWindow: "18:00-19:09" }),
+    "Bake Mon, 7 Sep · Courier delivery · 9 Jalan B, Tue, 8 Sep, 6-7:09 pm");
+});

@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v660)
+# Jienluv2bake — change history (v54 → v661)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v661, THE CUSTOMER'S OWN CARD SAYS THE COLLECTION SHE PROMISED (NO DATABASE STEP).**
+
+**Found by the sweep, not by a report.** The same contradiction fixed in v659 was still live on the **Track your order** card.
+
+1. ⚠️⚠️ **THE CARD READ "Wed, 28 Oct · Self collect, 6-7:09 pm"** — the van's window presented as the collection time, because that line fell through to the order's own window for a collection at the kitchen.
+2. ⚠️ **AND THE DAY AND TIME YOU TYPED NEVER REACHED THE CARD** — collection 29 Oct, 6pm, and the card named neither.
+3. ⭐ **The card now says the collection you promised**: **Thu, 29 Oct · Self collect, 6pm** — your day and time, or the collection Point's own hours, and the bake day alone when you have promised nothing more. A courier's card is unchanged.
+
+**No database step and no function deploy.** 3,969 tests green.
 
 **27 Oct 2026 — engine v660, THE BAKE-DAY LINE CANNOT CARRY A TIME, WHOEVER BUILDS IT (NO DATABASE STEP).**
 

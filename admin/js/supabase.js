@@ -32,7 +32,7 @@ import { usageByCode } from "./promo-usage.js";
 // registry here would close a loop between the two. Everything published about a trip
 // is therefore already ON the record — its courier's name, its phase and its driver are
 // written there when the trip is booked or checked, and this only carries them across.
-import { courierDayOf, jobOf, promisedWindowSuffix, courierDeliveryText } from "./courier_job.js";
+import { collectTimeText, courierDayOf, jobOf, promisedWindowSuffix, courierDeliveryText } from "./courier_job.js";
 // The parcel record (v226) — the second KIND of courier. See js/parcel.js.
 import { parcelOf, parcelHanded } from "./parcel.js";
 // The shop's own payload is untrusted input, so the one rule about what a place
@@ -741,9 +741,18 @@ export function trackingSnapshot(state, group) {
   // (v338); everything else keeps exactly the promise it had. Built here rather than inline so the
   // comma cannot end up doubled or missing — the customer's card prints this string verbatim.
   const courierWhen = courier ? courierDeliveryText(first) : "";
+  // ⚠️⚠️ A COLLECTION IS NEVER PROMISED THE VAN'S WINDOW (v661). ⭐ Measured on her own order: this line read
+  // **"Wed, 28 Oct · Self collect, 6-7:09 pm"** — `promisedWindowSuffix` falls through to `windowSuffix` for a
+  // non-courier order with no Point, so the van window left on the order became a collection time, and ⚠️ **the
+  // day and time she had typed (29 Oct, 6pm) never reached the card at all.** ⭐ A collection shows the day she
+  // promised, then the van's day when it rides a run, then the bake day — and a time only when there is one to
+  // say (hers, or the Point's own hours).
+  const collectWhen = courier ? "" : collectTimeText(state, first);
   const whenText = courier
     ? (courierWhen ? `, ${courierWhen}` : "")
-    : promisedWindowSuffix(state, first);
+    : (collectWhen ? `, ${collectWhen}` : "");
+  const promisedDay = courier ? "" : String((first.collectDay || (first.collectWhen || {}).day || "").trim());
+  const shownDay = courier ? date : (promisedDay || courierDayOf(first) || date);
   return {
     code: orderCode(first),
     status: first.status || "new",
@@ -841,8 +850,8 @@ export function trackingSnapshot(state, group) {
     // v429 — ⚠️ **but the card kept the BAKE day, so a run reaching the Point the morning after the bake told
     // the customer one day on the card and another in the message.** ⭐ A collection shows the van's day when
     // there is one, and the bake day when there is not (the common case, unchanged).
-    delivery: `${(courier ? date : (courierDayOf(first) || date))
-      ? (courier && courierDayOf(first) ? `Bake ${shortDate(date)}` : shortDate(courier ? date : (courierDayOf(first) || date)))
+    delivery: `${shownDay
+      ? (courier && courierDayOf(first) ? `Bake ${shortDate(date)}` : shortDate(shownDay))
       : ""} · ${fulfillment}${address}${whenText}`,
     items,
     total,
