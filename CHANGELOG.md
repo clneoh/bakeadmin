@@ -1,8 +1,19 @@
-# Jienluv2bake — change history (v54 → v657)
+# Jienluv2bake — change history (v54 → v658)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v658, THE COLLECTION IS NO LONGER DRAWN AS PART OF A VAN JOB (NO DATABASE STEP).**
+
+**From your screenshot of #5672B2:** a Self collect order drew **"Send a van · Today, inside Penang"** directly above **"Collection day and time"**, because that order still carries a charge from when it was a courier delivery.
+
+1. ⭐ **The collection day and time now come FIRST**, above any van heading, so a collection reads as a collection.
+2. ⭐ **The parked charge is still on the card and still explains itself** — it is drawn underneath, with the sentence saying it is not added to the customer's total and not in any message.
+
+3. ⭐⭐ **AND A GUARD SO A BOX CANNOT LOSE YOUR TYPING IN SILENCE AGAIN.** Three times now a box on an order card has taken what you typed and dropped it on Save — and **each of those was found by you, not by the app's own tests.** The suite now does the simplest thing a person does: **type into every box on the Edit card, press Save, open it again, and check every value came back.** A field that loses its value fails by name, and a new field cannot be added without the test asking whether it survives a Save.
+
+**No database step and no function deploy.** 3,962 tests green.
 
 **27 Oct 2026 — engine v657, A COLLECTION TIME TYPED ON A PHONE IS NO LONGER THROWN AWAY (NO DATABASE STEP).**
 

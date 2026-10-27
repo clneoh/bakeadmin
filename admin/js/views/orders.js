@@ -3231,6 +3231,11 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
       tracking,
       el("p", { class: "hint" }, "For a parcel this is the consignment number the carrier gave you.")),
     parcelSection({ state, group, draft, refresh, withApi: true }),
+    // ★ THE COLLECTION, BEFORE ANY VAN HEADING (v658). ⚠️ A self-collect order that still carries a parked charge
+    // draws the "Send a van" heading — so the collection block used to sit UNDER it and read as part of a van
+    // job: her screenshot of #5672B2 shows exactly that, "Send a van · Today, inside Penang" immediately above
+    // "Collection day and time". ⭐ A collection has no van; it is said where a collection belongs.
+    draft.fulfillment === "courier" ? null : collectWhenFields(draft.collectWhen),
     // Drawn for a courier order as it always was, and also for a self-collect order that
     // still carries a charge — so a parked charge is never invisible to the only person
     // who can settle it (1 Oct 2026).
@@ -3240,7 +3245,7 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     // in the order she thinks in. Drawn only for a courier order, because a collection happens ON the
     // bake day and has no van to promise. Seeded from the order's own record, so her typed day and
     // window come back exactly as she left them.
-    draft.fulfillment === "courier" ? courierWhenFields(draft.courierWhen) : collectWhenFields(draft.collectWhen),
+    draft.fulfillment === "courier" ? courierWhenFields(draft.courierWhen) : null,
     parkedCharge ? parkedChargeNote(state, first) : null,
     showCharge ? charge.el : null,
     // Same price section as the Note / tracking box carries, for the same reason that

@@ -721,3 +721,111 @@ test("★★★ a collection time typed on a phone that only fires `change` is s
   assert.equal(added.collectDay, "2026-10-29");
   assert.equal(added.collectTime, "10am-12pm", "★ the time her phone never fired `input` for");
 });
+
+// ── v658: the collection is not drawn as part of a van job ───────────────────
+//
+// Her screenshot of #5672B2: "Send a van · Today, inside Penang" sat directly above "Collection day and time"
+// on a SELF COLLECT order that still carried a parked courier charge — so the collection read as part of a van
+// job. The collection block now comes first.
+
+test("★★★ a self-collect order's collection is drawn ABOVE any van heading (v658)", () => {
+  const st = state();
+  // A parked charge is what draws the "Send a van" heading on a self-collect order (v303-era rule).
+  st.orders[0].courierFee = 8;
+  st.orders[0].courierPaidBy = "me";
+  openEdit(st, "o1");
+  // ⚠️ The Edit card lives in the shared pop-up layer, not under `root` — reading `root` here found neither
+  // heading and would have passed a card that had both.
+  const pop = layers["popup-layer"];
+  const nodes = all(pop).filter((n) => n.nodeType === 1 && (n.children || []).length);
+  const at = (pred) => nodes.findIndex(pred);
+  const collect = at((n) => n.textContent === "Collection day and time"
+    || (n.children || []).some((c) => c.textContent === "Collection day and time"));
+  const van = at((n) => /^Send a van/.test(String(n.textContent || "").trim()));
+
+  assert.ok(collect >= 0, "the collection is on the card at all");
+  assert.ok(van >= 0, "a parked charge still shows its van heading");
+  assert.ok(collect < van,
+    "★ the collection came after the van heading, so it reads as a van job");
+});
+
+// ═══ THE ROUND TRIP (v658) ══════════════════════════════════════════════════
+//
+// ⚠️⚠️ THREE TIMES NOW a box on an order card has taken her typing and lost it: the collection day and time on
+// the ＋ New order card (v654 — collected, never written), and the collection time twice more (v656, v657).
+// ⭐ **Every one of them was found by her, not by the suite** — because no test ever did the simplest thing a
+// person does: type something, Save, open it again, look.
+//
+// This does exactly that, for EVERY box on the Edit card that writes an order-level fact. ⭐ And it fails if a
+// box appears that is neither covered nor explicitly excused, so a field added next month cannot skip the
+// question "does this survive a Save?".
+
+// The boxes whose value must survive Save and reopen. Each is found the way a person finds it: by the label
+// printed above it (the app names every box from its label — `nameFields`), or by the name it already carries.
+const ROUND_TRIP = [
+  ["Customer", "Lucy Tan"],
+  ["WhatsApp (optional)", "60129876543"],
+  ["Delivery address (if courier)", "9 Jalan Uji, Penang"],
+  ["Notes for Collection/Delivery (optional)", "Friday please"],
+  ["Courier tracking number (optional)", "JT123456789"],
+  ["The day they collect", "2026-10-29"],
+  ["The time they collect", "10am-12pm"],
+];
+// ⚠️ Excused on purpose, each for its own reason — never silently.
+const NOT_AN_ORDER_FACT = [
+  "Courier charge",          // the charge box: an amount AND a payer settle together, and it has its own tests
+  "How many",                // per LINE, not per order
+  "Selling price",           // per line
+  "Cost each (RM) — what the recipe says, unless you type over it", // per line
+  "Note for this item",      // per line (v236)
+];
+
+const isBox = (n) => n && (n.tagName === "INPUT" || n.tagName === "TEXTAREA");
+const boxesOn = (pop) => all(pop).filter(isBox);
+// ⚠️ This shim keeps no parent pointers, so a box is found by DOCUMENT ORDER: the first box after the label,
+// stopping at the next label. That is also how the app names them (`nameFields` reads the same relationship).
+function boxFor(pop, name) {
+  const nodes = all(pop);
+  const byAria = nodes.find((n) => isBox(n) && n.attrs && n.attrs["aria-label"] === name);
+  if (byAria) return byAria;
+  const at = nodes.findIndex((n) => n.tagName === "LABEL" && n.textContent.trim() === name);
+  if (at < 0) return null;
+  for (let j = at + 1; j < nodes.length; j++) {
+    if (nodes[j].tagName === "LABEL") return null;
+    if (isBox(nodes[j])) return nodes[j];
+  }
+  return null;
+}
+
+test("★★★ every order-fact box on the Edit card keeps what she types, through Save and a reopen (v658)", () => {
+  const st = state();
+  openEdit(st, "o1");
+  const pop = layers["popup-layer"];
+
+  const covered = new Set();
+  for (const [name, value] of ROUND_TRIP) {
+    const box = boxFor(pop, name);
+    assert.ok(box, `the card should carry ${name}`);
+    covered.add(box);
+    box.value = value;
+    (box._listeners.input || []).forEach((f) => f.call(box, { target: box }));
+    (box._listeners.change || []).forEach((f) => f.call(box, { target: box }));
+  }
+  // ⚠️ Every OTHER box on the card must be excused above, so a field added next month cannot skip the question
+  // "does this survive a Save?".
+  const unclassified = boxesOn(pop).filter((b) => !covered.has(b)
+    && !NOT_AN_ORDER_FACT.includes(String((b.attrs || {})["aria-label"] || ""))).length;
+  assert.equal(unclassified, 0,
+    "★ a box on this card is neither round-tripped nor excused — decide which it is");
+
+  tap(buttonByText(pop, "Save changes"));
+
+  openEdit(st, "o1");
+  const after = layers["popup-layer"];
+  const lost = [];
+  for (const [name, value] of ROUND_TRIP) {
+    const box = boxFor(after, name);
+    if (!box || box.value !== value) lost.push(`${name}: typed ${value}, came back ${box ? box.value : "(box gone)"}`);
+  }
+  assert.deepEqual(lost, [], "★ a box lost what she typed, across Save and reopen");
+});
