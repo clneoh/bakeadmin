@@ -633,3 +633,61 @@ test("a charge parked on a self-collect order is not counted against the trip", 
   assert.equal(feeGapOf(sent, trip(8)).charged, 8, "a courier order's charge counts exactly as before");
   assert.equal(feeGapLine(sent, trip(8), "RM"), "", "so a trip priced to match it stays silent");
 });
+
+// ═══ v654 — the buffer, her word for the charge, and "final" ═══════════════
+//
+// Her words: __"for practicality, the courier charges that we get the quote from, goes into the field
+// automatically, actually to be safe, there should be a buffer amount, prefix customisable. and that will be
+// final, even that later we found that the book courier is higher"__ and __"Buffer is configurable, courier
+// charge, 3-8pm"__.
+
+const { courierBufferOf, withBuffer, chargeLabelOf, chargeIsSettled, CHARGE_LABEL_DEFAULT } =
+  await import("../admin/js/courier.js");
+const { moneyLines, receiptRows, runChargeAmounts } = await import("../admin/js/courier.js");
+
+test("★★★ a quote takes her buffer on the way into a charge, and a typed amount does not (v654)", () => {
+  const bare = state();
+  assert.equal(courierBufferOf(bare), 0, "no buffer set is no buffer");
+  assert.equal(withBuffer(bare, 8), 8, "no buffer, the quote lands as it is");
+  const buffered = state({ settings: { currency: "RM", courier: { buffer: 2 } } });
+  assert.equal(courierBufferOf(buffered), 2);
+  assert.equal(withBuffer(buffered, 8), 10, "the quoted fee plus her margin");
+  assert.equal(withBuffer(buffered, 7.5), 9.5, "and it adds in cents, not by luck");
+  // ⚠️ A quote of nothing is not a charge, and a buffer on it would be the app inventing a fee out of her margin.
+  assert.equal(withBuffer(buffered, 0), 0);
+  assert.equal(withBuffer(buffered, -3), 0);
+  // A junk buffer is no buffer rather than a NaN on a customer's bill.
+  assert.equal(courierBufferOf(state({ settings: { currency: "RM", courier: { buffer: "abc" } } })), 0);
+  assert.equal(courierBufferOf(state({ settings: { currency: "RM", courier: { buffer: -5 } } })), 0);
+});
+
+test("★★★ the run's split puts the buffer on the CUSTOMER's charge and never on her own cost (v654)", () => {
+  const originals = [13.5, 9.25];
+  assert.deepEqual(runChargeAmounts("customer", 22, originals, 2), originals, "no buffer, unchanged (the old shape)");
+  assert.deepEqual(runChargeAmounts("customer", 22, originals, 2, 2), [15.5, 11.25]);
+  // ⭐ When SHE bears the trip the customer is charged nothing, so her margin has no business in the split —
+  // it would inflate her own books beyond what the courier actually takes.
+  assert.deepEqual(runChargeAmounts("me", 22, [], 2, 2), [11, 11]);
+});
+
+test("★★★ the word in front of the charge is hers, in the message and on the receipt (v654)", () => {
+  const parts = { items: 30, courier: 8, cod: 0, total: 38, promo: 0 };
+  assert.equal(chargeLabelOf(state()), CHARGE_LABEL_DEFAULT);
+  assert.equal(chargeLabelOf(state()), "Courier charge", "the default is the shipped one");
+  const own = state({ settings: { currency: "RM", courier: { chargeLabel: "Delivery fee" } } });
+  assert.equal(chargeLabelOf(own), "Delivery fee");
+  assert.ok(moneyLines(own, parts).some((l) => l.startsWith("Delivery fee: RM 8.00")),
+    "the customer's message wears her word");
+  assert.ok(receiptRows(own, parts).some((r) => r.label === "Delivery fee"),
+    "and so does her receipt — one setting, both readings");
+  // ⚠️ A blank box is the default again, not a charge with no name.
+  assert.equal(chargeLabelOf(state({ settings: { currency: "RM", courier: { chargeLabel: "  " } } })), "Courier charge");
+});
+
+test("★★★ a charge that has been told to the customer is settled, and a later booking must not re-price it (v654)", () => {
+  assert.equal(chargeIsSettled({ courierFee: 10, courierPaidBy: "customer" }), true);
+  assert.equal(chargeIsSettled({ courierFee: 10, courierPaidBy: "me" }), true, "her own cost is settled too");
+  assert.equal(chargeIsSettled({ courierFee: 10 }), false, "an amount with nobody named is not a charge (v191)");
+  assert.equal(chargeIsSettled({ courierPaidBy: "customer" }), false, "nor a payer with no amount");
+  assert.equal(chargeIsSettled({}), false);
+});

@@ -584,3 +584,58 @@ test("a failure that will pass on its own stays SILENT (v311)", async () => {
     assert.equal(wire.asks.length, before + 1, "a transient failure is retried");
   });
 });
+
+// ── v654: the collection day and time, on the card an order is taken from ───
+//
+// Her words: __"for self collect, at APP there should be a field for us to input collection date and time, so
+// that this reflex in whatsapp message"__. ⚠️ The card carried the two answers in `shared` from the day they
+// were asked for, and `addNew` **dropped them on the floor** — so the order saved with no collection promise
+// and the confirmation said "the bake day" over her own answer. These two tests press Place Order and read
+// the ORDER, which is the only place that fault is visible.
+
+const collectDayBox = (root) => all(root).find((n) => n.tagName === "INPUT"
+  && n.attrs && n.attrs["aria-label"] === "The day they collect");
+const collectTimeBox = (root) => all(root).find((n) => n.tagName === "INPUT"
+  && n.attrs && n.attrs["aria-label"] === "The time they collect");
+
+// A card that is NOT forced to courier: the collection fields are the other half of the same answer.
+function openNewCollectCard(st) {
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d20" }));
+  tap(buttonByText(root, "New order"));
+  return root;
+}
+
+test("★★★ the collection day and time she types are saved onto the order (v654)", () => {
+  const st = state();
+  const root = openNewCollectCard(st);
+  const day = collectDayBox(root);
+  const time = collectTimeBox(root);
+  assert.ok(day && time, "a self-collect order is asked when and at what time it is collected");
+
+  day.value = "2026-10-29";
+  (day._listeners.input || []).forEach((f) => f.call(day));
+  time.value = "10am-12pm";
+  (time._listeners.input || []).forEach((f) => f.call(time));
+
+  pickProduct(root);
+  tap(buttonByText(root, "Place Order"));
+
+  const added = st.orders.find((o) => o.id !== "o1");
+  assert.ok(added, "the order landed");
+  assert.equal(added.collectDay, "2026-10-29", "the day she promised is on the order");
+  assert.equal(added.collectTime, "10am-12pm", "and the time, in her own words");
+});
+
+test("★★★ and a card she leaves alone writes NO collection keys at all (v654)", () => {
+  const st = state();
+  const root = openNewCollectCard(st);
+  pickProduct(root);
+  tap(buttonByText(root, "Place Order"));
+
+  const added = st.orders.find((o) => o.id !== "o1");
+  assert.ok(added, "the order landed");
+  assert.equal("collectDay" in added, false,
+    "absent means the bake day — an empty key would read as a promise she never made");
+  assert.equal("collectTime" in added, false);
+});

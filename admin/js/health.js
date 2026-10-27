@@ -43,6 +43,10 @@ const sameLineFact = (a, b) => JSON.stringify(a === undefined || a === null || a
 const ORDER_LEVEL = [
   "status", "paidReceived", "paidMethod", "customerName", "whatsapp", "fulfillment", "address",
   "pointId", "note", "trackingNo", "courierDay", "deliveryWindow", "pickupTime", "orderDate",
+  // ⭐ The collection day and time are facts about the ORDER, not the line (v654) — the same class as the van's
+  // day beside them. Left out of this list, one line of a multi-item order carrying it and the other not would
+  // never be reported, and the promise on the customer's card would depend on which row it was read from.
+  "collectDay", "collectTime",
   "groupId", "receiptNo", "promo", "referredBy",
 ];
 

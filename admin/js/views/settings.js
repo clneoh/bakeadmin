@@ -17,6 +17,7 @@ import { openPlacePicker } from "../place_map.js";
 import * as place from "../courier_place.js";
 import { callCourier } from "../couriers/api.js";
 import { activeCourier, courierLabel } from "../couriers.js";
+import { CHARGE_LABEL_DEFAULT } from "../courier.js";
 import { CONFIG } from "../../../store/config.js";
 import { isPoolablePack } from "../bom.js";
 
@@ -59,6 +60,57 @@ export function renderSettings(root, state) {
     el("div", { class: "field", style: "margin-top:10px" },
       el("label", {}, "Bake days"),
       el("div", { class: "daychecks" }, ...dayChecks)));
+
+  // ── The courier charge's own three numbers (v654) ────────────────────────
+  // Her words: __"Buffer is configurable, courier charge, 3-8pm"__. ⭐ The window is what a confirmation promises
+  // when she has typed none on the order; the buffer is added to a courier's quote on its way into the charge,
+  // so a later, dearer booking comes out of her margin rather than out of her pocket; and the label is the word
+  // the customer reads in front of the figure.
+  // ⚠️ DEVICE-LOCAL, like the dispatch time beside it: the courier block has never travelled (see state.js), so
+  // the card says so instead of letting her assume the other phone has it.
+  const cw = cur.courier ??= {};
+  const winInput = el("input", { class: "input", type: "text", value: cw.defaultWindow || "",
+    placeholder: "e.g. 3-8pm",
+    onchange: () => {
+      const v = winInput.value.trim();
+      // ⚠️ An EMPTY STRING rather than a deleted key: `normalize` fills missing keys from the shipped defaults,
+      // so a delete would put "3-8pm" straight back on the next load and she could never clear it.
+      cw.defaultWindow = v;
+      save(state); toast("Saved");
+    } });
+  const bufInput = el("input", { class: "input", type: "number", inputmode: "decimal", min: "0", step: "0.01",
+    value: cw.buffer ? String(cw.buffer) : "", placeholder: "e.g. 2.00",
+    onchange: () => {
+      const n = Number(bufInput.value);
+      cw.buffer = Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : "";
+      save(state); toast("Saved");
+    } });
+  const wordInput = el("input", { class: "input", type: "text", value: cw.chargeLabel || "",
+    placeholder: CHARGE_LABEL_DEFAULT,
+    onchange: () => {
+      const v = wordInput.value.trim();
+      cw.chargeLabel = v;
+      save(state); toast("Saved");
+    } });
+  const courierCard = el("div", { class: "card" },
+    el("h3", { style: "margin:0 0 4px" }, "Courier charge"),
+    el("p", { class: "card-sub", style: "margin:0 0 10px" },
+      "These belong to this phone only — set them again on the other one."),
+    el("div", { class: "field" },
+      el("label", {}, "Delivery window you promise"),
+      winInput,
+      el("p", { class: "card-sub", style: "margin:4px 0 0" },
+        "Printed in the confirmation and the payment reminder when you have typed no window on the order. Leave it blank and the message says the time will be confirmed separately.")),
+    el("div", { class: "field" },
+      el("label", {}, "Buffer on a quoted price (RM)"),
+      bufInput,
+      el("p", { class: "card-sub", style: "margin:4px 0 0" },
+        "Added to the courier's quote when it goes into the charge box. The charge is then final — if the trip costs more later, the difference is yours.")),
+    el("div", { class: "field" },
+      el("label", {}, "What the charge is called"),
+      wordInput,
+      el("p", { class: "card-sub", style: "margin:4px 0 0" },
+        `The word in front of the figure in the customer's message and on your receipts. Default: ${CHARGE_LABEL_DEFAULT}.`)));
 
   // ── App password (device-local lock) ────────────────────────────────────
   // A 4-digit PIN that gates the app on the next open of THIS phone only. The
@@ -612,7 +664,7 @@ export function renderSettings(root, state) {
   // scheme changed — the screen is the same card, moved whole.
   // Two cards left this row list in v315: the courier's own screen and the message
   // style now live where their work is (More -> Logistic, and More -> The shop).
-  root.replaceChildren(daysCard, lockCard, storefrontCard, devCard, mailingCard, supabaseCard, sharedCard, backupCard, dangerCard,
+  root.replaceChildren(daysCard, courierCard, lockCard, storefrontCard, devCard, mailingCard, supabaseCard, sharedCard, backupCard, dangerCard,
     ...(sampleCard ? [sampleCard] : []));
 
   function doImport(e) {

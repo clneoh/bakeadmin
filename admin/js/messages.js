@@ -10,7 +10,7 @@ import { byId, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
 import { customerTotal, moneyLines } from "./courier.js";
 import { fulfillmentText, orderPointName } from "./points.js";
-import { courierDayOf, dayBlock, dayLine, promisedWindowSuffix, trackingLine, vanLine } from "./courier_job.js";
+import { courierDayOf, dayBlock, dayLine, defaultWindow, promisedWindowSuffix, trackingLine, vanLine } from "./courier_job.js";
 
 // The opening line, in the voice she chose on Settings (2 Oct 2026). WhatsApp
 // carries no fonts at all — the letters always come from the customer's own phone
@@ -96,7 +96,7 @@ export function buildPaymentReminder(state, group, trackUrl) {
   // "- Self collect at Farlim" on the day line, so removing that from the line must not remove it from the
   // message.
   if (!b.courier && b.fulfillment) msg += `${b.fulfillment}\n`;
-  if (b.courier && !b.day.vanTime) msg += vanLine(b.day, b.first);
+  if (b.courier && !b.day.vanTime && !defaultWindow(state)) msg += vanLine(b.day, b.first);
   msg += `Items: ${b.items}\n`;
   // Shown as its parts as well as the sum: the customer is being asked for money, and a
   // figure that is RM8 more than the items they chose has to say so — and show them the

@@ -571,6 +571,18 @@ export function windowSuffix(order) {
 // deciding for themselves is how two "when" boxes on one card come to disagree.
 //
 // Empty string, never a guess: nothing here is ever derived from the bake day.
+// ★★ THE COLLECTION DAY AND TIME, TYPED BY HER ON THE ORDER (v654) — the self-collect twin of `courierDay` and
+// its window. ⚠️ Empty means the bake day, which is the only day a collection at the kitchen has ever had.
+export function courierCollectDayOf(order) {
+  if (!order) return "";
+  return String(order.collectDay || (order.collectWhen || {}).day || "").trim();
+}
+
+export function courierCollectTimeOf(order) {
+  if (!order) return "";
+  return String(order.collectTime || (order.collectWhen || {}).time || "").trim();
+}
+
 export function courierDayOf(order) {
   if (!order) return "";
   const flat = String(order.courierDay || "").trim();
@@ -715,11 +727,20 @@ export function dayBlock(state, order, bakeDate) {
     // ⚠️ THE DAY COMES FIRST AND ALWAYS: `courierDeliveryText` gives only a WINDOW when no van day is typed
     // ("2-5 pm"), so the bake day stands in — ⭐ "Courier delivery: 2-5 pm" names a time on no day at all.
     const typed = courierDayOf(order);
-    const win = windowSuffix(order).replace(/^, /, "");
+    // ★★ AND THE WINDOW IS ALWAYS NAMED (v654). ⭐ Her words: __"the courier delivery time will not be confirm
+    // again, unless necessary due to courier limitations"__ — so a window typed on the order wins, and her own
+    // default stands in when none is. ⚠️ The old "will be confirmed separately" sentence is gone; it is kept
+    // only below, for the one case she named.
+    const win = windowSuffix(order).replace(/^, /, "") || String((((state || {}).settings || {}).courier || {}).defaultWindow || "").trim();
     const dayPart = typed ? shortDate(typed) : when;
     return first + `Courier delivery: ${dayPart}${win ? `, ${win}` : ""}\n`;
   }
-  return first + `Collection: ${when}${day.window}\n`;
+  // ★ THE COLLECTION DAY AND TIME SHE TYPES (v654) — her words: __"for self collect, at APP there should be a
+  // field for us to input collection date and time, so that this reflex in whatsapp message"__. ⚠️ With nothing
+  // typed it is the bake day, which is what a collection on the day has always been.
+  const cd = String(courierCollectDayOf(order) || "").trim();
+  const ct = String(courierCollectTimeOf(order) || "").trim();
+  return first + `Collection: ${cd ? shortDate(cd) : when}${ct ? `, ${ct}` : ""}\n`;
 }
 
 export function dayLine(state, order) {
@@ -878,4 +899,10 @@ export function stopOrderCode(r) {
   const first = g && g.orders && g.orders[0];
   if (!first || (r && r.pointId)) return "";
   return String(orderCode(first) || "").trim();
+}
+
+// ★ HER DEFAULT DELIVERY WINDOW (v654) — the one printed when no window is typed on an order. ⚠️ Empty is a
+// real answer: with nothing typed AND nothing set, the message says the time is still to come.
+export function defaultWindow(state) {
+  return String((((state || {}).settings || {}).courier || {}).defaultWindow || "").trim();
 }

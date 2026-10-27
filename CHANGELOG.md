@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v631)
+# Jienluv2bake — change history (v54 → v654)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v654, THE COLLECTION DAY, THE WINDOW, AND A CHARGE THAT IS FINAL (NO DATABASE STEP).**
+
+**Your words:** __"for self collect, at APP there should be a field for us to input collection date and time, so that this reflex in whatsapp message"__ · __"for practicality, the courier charges that we get the quote from, goes into the field automatically, actually to be safe, there should be a buffer amount, prefix customisable. and that will be final, even that later we found that the book courier is higher"__ · __"Buffer is configurable, courier charge, 3-8pm"__.
+
+1. ⭐⭐ **A SELF-COLLECT ORDER NOW ASKS WHEN AND AT WHAT TIME.** The ＋ New order card and the Edit card both carry **Collection day and time** for a self-collect order. What you type is what the customer reads: **Baking day: Wed, 28 Oct** · **Collection: Thu, 29 Oct, 10am-12pm**. Leave it blank and the message says only **Collection: Wed, 28 Oct** — the bake day, with no time invented.
+2. ⚠️⚠️ **AND IT WAS BEING DROPPED ON THE FLOOR.** The card collected the two answers but the code that writes a new order never saved them, so the order came back with no collection promise and the confirmation said "the bake day" over your own answer. Measured before the fix: an order placed with 29 Oct / 10am-12pm came back with **neither field**. After: both, and a test presses Place Order and reads the saved order.
+3. ⭐ **THE DELIVERY WINDOW IS ALWAYS NAMED.** **Courier delivery: Thu, 29 Oct, 3-8pm** — the window you typed on the order, or your own default from Settings. The *"time will be confirmed separately"* sentence now appears only when there is no window typed **and** no default set.
+4. ⭐ **THE BUFFER.** Settings → **Courier charge** has a **Buffer on a quoted price (RM)**. When you take a courier's quote with **Use this fee**, the box holds the quote **plus your buffer**, and the message says the working out loud (for example "Fee RM 8.00 + your buffer RM 2.00 = RM 10.00"). A fee you type by hand is never inflated.
+5. ⭐⭐ **AND THAT CHARGE IS FINAL.** Once a charge is saved with who bore it, booking a run later never re-prices it — so a trip that turns out dearer comes out of your margin, not out of the customer. The booking says so instead of silently leaving that customer alone.
+6. ⭐ **The word in front of the charge is yours too** — **What the charge is called**, default **Courier charge**. One setting words both the customer's message and your own receipts.
+7. ⭐ **Set these on each phone.** The courier block in Settings is device-local (like the dispatch time), and the card says so.
+
+**No database step and no function deploy.** 3,954 tests green.
 
 **27 Oct 2026 — engine v653, THE TWO DAYS, EACH ON ITS OWN LINE (NO DATABASE STEP).**
 

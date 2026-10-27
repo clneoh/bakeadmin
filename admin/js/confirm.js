@@ -17,7 +17,7 @@ import { byId, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
 import { customerTotal, moneyLines } from "./courier.js";
 import { fulfillmentText, pointAddressFor } from "./points.js";
-import { dayBlock, dayLine, vanLine } from "./courier_job.js";
+import { dayBlock, dayLine, defaultWindow, vanLine } from "./courier_job.js";
 // The one place the opening line is worded, so the confirmation cannot lean over
 // while the three later messages do not (2 Oct 2026).
 import { greeting, hello } from "./messages.js";
@@ -94,7 +94,7 @@ export function buildConfirmation(state, group, trackUrl) {
   // ⚠️ AND WHEN NO VAN DAY IS TYPED, THE DAY IS THE BAKE DAY **AND THE TIME IS STILL HONEST** (v653): the van is
   // booked later, so the one sentence that says its time is still to come stays. ⭐ A day she asked for, and the
   // promise the app already kept — one line each, neither borrowing the other's job.
-  if (courier && !day.vanTime) msg += vanLine(day, first);
+  if (courier && !day.vanTime && !defaultWindow(state)) msg += vanLine(day, first);
   if (address) msg += `${address.trim()}\n`;
   msg += `Items: ${items}\n`;
   // The sum and its parts, on every order: with a charge the parts are named so the

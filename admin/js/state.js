@@ -140,7 +140,10 @@ export function defaultState() {
       // a branch in sync.js's guarded-key rules. There is no `provider` key yet on
       // purpose either: there is one courier, and a setting with one choice is a
       // control that does nothing (see js/couriers.js).
-      courier: { dispatch: "10:00" },
+      // ★★ THE DEFAULT DELIVERY WINDOW AND THE BUFFER (v654). ⭐ Her words: __"Buffer is configurable, courier
+      // charge, 3-8pm"__. ⚠️ `defaultWindow` is printed when no window has been typed on an order — so a
+      // confirmation never says "to be confirmed" unless she leaves this blank too.
+      courier: { dispatch: "10:00", defaultWindow: "3-8pm", buffer: 0 },
       // The two lists the books are built from (16 Sep 2026). Empty means "the
       // built-in ones" — see js/accounts.js — so a phone that never edits them
       // behaves exactly as before, and both lists are shared between phones.
@@ -631,6 +634,12 @@ function normalize(s) {
           .map(Number).filter((x) => Number.isInteger(x) && x >= 0 && x <= 6))].sort((a, b) => a - b);
         return set.length ? set : d.settings.deliveryDays;
       })(),
+      // ★ The courier block fills its MISSING keys from the shipped defaults (v654). ⚠️ A phone that has been
+      // running since before v654 holds `courier: { dispatch: "10:00" }` and nothing else, so a plain spread of
+      // her stored object would leave `defaultWindow` unset on exactly the phone that needs it — her window would
+      // only appear after she went and typed it. ⭐ Her stored values always win, and an EMPTY STRING is a value:
+      // that is how she clears the window and gets the honest "time to be confirmed" sentence back.
+      courier: { ...d.settings.courier, ...(((s.settings || {}).courier) || {}) },
       referrals: { ...d.settings.referrals, ...(((s.settings || {}).referrals) || {}) },
       // A hand-edited import must not put an unknown style in: the message builders
       // read exactly one value, and a third one would silently send "plain" while

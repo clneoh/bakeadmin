@@ -30,7 +30,7 @@ const {
   orderDay, fmtQuote, fmtQuoteLeft, quoteExpired,
   isLink, trackingLine, jobOf, liveJobOf, liveJobProblem, fmtStamp, fmtAgo,
   freeCancelOf, freeCancelLine, needsVan, stopKeyOf, promisedWindowSuffix, windowSuffix,
-  courierDeliveryText, courierDayOf, pickupTimeOf, stopOrderCode,
+  courierDeliveryText, courierDayOf, pickupTimeOf, stopOrderCode, dayBlock, defaultWindow,
 } = await import("../admin/js/courier_job.js");
 const { setPickupPlace, setDropPlace } = await import("../admin/js/courier_place.js");
 
@@ -921,4 +921,38 @@ test("★★★ every stop names the ORDER it came from (v649)", async () => {
   // and nothing at all is not a crash
   assert.equal(stopOrderCode(null), "");
   assert.equal(stopOrderCode({ groups: [] }), "");
+});
+
+test("★★★ the two days, and the window is always named (v654)", async () => {
+  // Her words: "the courier delivery time will not be confirm again, unless necessary due to courier
+  // limitations" — and "Buffer is configurable, courier charge, 3-8pm".
+  const st = { settings: { currency: "RM", courier: { dispatch: "10:00", defaultWindow: "3-8pm", buffer: 0 } } };
+  assert.equal(defaultWindow(st), "3-8pm");
+  const courier = (o) => ({ fulfillment: "courier", ...o });
+  // a window typed on the order wins
+  assert.equal(dayBlock(st, courier({ courierDay: "2026-10-29", deliveryWindow: "15:00-17:00" }), "Wed, 28 Oct"),
+    "Baking day: Wed, 28 Oct\nCourier delivery: Thu, 29 Oct, 3-5 pm\n");
+  // none typed: her default stands in — no "to be confirmed" sentence in sight
+  assert.equal(dayBlock(st, courier({ courierDay: "2026-10-29" }), "Wed, 28 Oct"),
+    "Baking day: Wed, 28 Oct\nCourier delivery: Thu, 29 Oct, 3-8pm\n");
+  // no day and no window: the BAKE day, and the default window
+  assert.equal(dayBlock(st, courier({}), "Wed, 28 Oct"),
+    "Baking day: Wed, 28 Oct\nCourier delivery: Wed, 28 Oct, 3-8pm\n");
+  // ⚠️ and with no default set either, the line names the day and stops — the sentence is for that case only
+  const bare = { settings: { currency: "RM", courier: {} } };
+  assert.equal(dayBlock(bare, courier({ courierDay: "2026-10-29" }), "Wed, 28 Oct"),
+    "Baking day: Wed, 28 Oct\nCourier delivery: Thu, 29 Oct\n");
+});
+
+test("★★★ a collection names the day AND time she typed, and the bake day when she typed none (v654)", async () => {
+  const st = { settings: { currency: "RM", courier: { defaultWindow: "3-8pm" } } };
+  const collect = (o) => ({ fulfillment: "collect", ...o });
+  assert.equal(dayBlock(st, collect({ collectDay: "2026-10-29", collectTime: "10am-12pm" }), "Wed, 28 Oct"),
+    "Baking day: Wed, 28 Oct\nCollection: Thu, 29 Oct, 10am-12pm\n");
+  assert.equal(dayBlock(st, collect({}), "Wed, 28 Oct"),
+    "Baking day: Wed, 28 Oct\nCollection: Wed, 28 Oct\n",
+    "★ a collection with nothing typed must read as the bake day, with no time invented");
+  // and the words come from the order, not from the courier's field names
+  assert.equal(dayBlock(st, collect({ collectWhen: { day: "2026-10-30", time: "2pm" } }), "Wed, 28 Oct"),
+    "Baking day: Wed, 28 Oct\nCollection: Fri, 30 Oct, 2pm\n");
 });
