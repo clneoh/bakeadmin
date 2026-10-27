@@ -41,7 +41,17 @@ function styleBag() {
 // compound of those. Enough for every selector the views use, and it THROWS on anything it
 // does not understand rather than quietly matching nothing — the failure mode a permissive
 // matcher would hide.
+// ⚠️⚠️ A COMMA-SEPARATED SELECTOR WAS MATCHED AS ONE COMPOUND (v662). `nameFields` asks for
+// "input, select, textarea", and the matcher read it as a node that must be an input AND a select AND a
+// textarea — ⭐ **so it matched nothing, silently**, and every box on every screen looked unnamed to any test
+// that used the app's own naming. The real DOM splits on commas; so does this now.
 function matches(node, sel) {
+  const list = String(sel).split(",").map((x) => x.trim()).filter(Boolean);
+  if (list.length > 1) return list.some((one) => matchesOne(node, one));
+  return matchesOne(node, list[0] || "");
+}
+
+function matchesOne(node, sel) {
   const parts = String(sel).trim().match(/(^[a-zA-Z][\w-]*)|(\.[\w-]+)|(#[\w-]+)|(\[[^\]]+\])/g);
   if (!parts) throw new Error(`the shim cannot understand the selector "${sel}"`);
   return parts.every((p) => {
@@ -75,12 +85,19 @@ function createEl(tag) {
     className: "", style: styleBag(), value: "", checked: false, disabled: false, hidden: false,
     id: "", scrollTop: 0, scrollHeight: 0, clientHeight: 0, offsetWidth: 0, offsetHeight: 0,
     textContent: "", innerHTML: "", _listeners: {},
+    // ⚠️ (v662) `textContent` IS A GETTER IN THE REAL DOM — it joins the text of every child. Here it was a
+    // plain empty string, so **every label on every screen read as blank** and the app's own `nameFields`
+    // (which names a box from the label above it) named nothing. ⭐ A shim property that cannot answer what the
+    // DOM answers is a blind spot, not a simplification.
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-    appendChild(c) { if (c != null) this.children.push(c); return c; },
-    append(...cs) { for (const c of cs) this.children.push(c == null ? { nodeType: 3, text: "null" } : c); },
-    prepend(...cs) { this.children.unshift(...cs.filter((c) => c != null)); },
-    insertBefore(c) { this.children.push(c); return c; },
-    replaceChildren(...cs) { this.children = []; for (const c of cs) this.children.push(c == null ? { nodeType: 3, text: "null" } : c); },
+    // ⚠️ PARENT POINTERS (v662). The real DOM has them and `nameFields` walks UP from a box to its label — so a
+    // shim without them names nothing, and a round trip built on it silently walks zero boxes.
+    _adopt(c) { if (c && typeof c === "object") c.parentNode = this; return c; },
+    appendChild(c) { if (c != null) { this._adopt(c); this.children.push(c); } return c; },
+    append(...cs) { for (const c of cs) { const n = c == null ? { nodeType: 3, text: "null" } : this._adopt(c); this.children.push(n); } },
+    prepend(...cs) { this.children.unshift(...cs.filter((c) => c != null).map((c) => this._adopt(c))); },
+    insertBefore(c) { this._adopt(c); this.children.push(c); return c; },
+    replaceChildren(...cs) { this.children = []; for (const c of cs) this.children.push(c == null ? { nodeType: 3, text: "null" } : this._adopt(c)); },
     removeChild(c) { this.children = this.children.filter((x) => x !== c); return c; },
     remove() {}, replaceWith() {},
     addEventListener(t, f) { (this._listeners[t] ||= []).push(f); },
@@ -97,6 +114,15 @@ function createEl(tag) {
     getBoundingClientRect: () => ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }),
     scrollIntoView() {},
   };
+  // ⭐ textContent behaves like the DOM: the joined text of the children, and assigning it replaces them.
+  Object.defineProperty(node, "textContent", {
+    get() {
+      if (node._text !== undefined) return node._text;
+      return (node.children || []).map((c) => (c && c.nodeType === 3 ? c.text : (c && c.textContent) || "")).join("");
+    },
+    set(v) { node._text = String(v); node.children = []; },
+    configurable: true,
+  });
   return node;
 }
 
@@ -144,6 +170,10 @@ globalThis.localStorage = {
 
 // ── the state a screen is built against ─────────────────────────────────────
 const { defaultState } = await import("../admin/js/state.js");
+// ⭐ THE APP NAMES EVERY BOX FROM ITS LABEL (v662) — `nameFields` is what gives them their aria-labels, and a
+// test that skips it sees NO names at all. ⚠️ That is how the first version of the Settings round trip passed
+// while walking zero boxes: a vacuous pass is the one that reads as "fine".
+const { nameFields } = await import("../admin/js/ui.js");
 
 // A BUSY state, because half of every screen only exists once there is something to show —
 // and a screen that crashes on real data is the crash that reaches her, not the empty one.
@@ -377,3 +407,114 @@ for (const [label, path, fn] of SCREENS) {
     assert.ok(drewSomething(root), `${label} (#/${path}) drew NOTHING with real data in it`);
   });
 }
+
+// ═══ THE SETTINGS ROUND TRIP (v662) ═════════════════════════════════════════
+//
+// ⭐ Her ask: __"Close the gap — round-trip the ＋ New order card and Settings"__, then __"tell me what is the
+// round trip you do"__. The round trip is the simplest thing a person does and no test was doing it:
+//
+//     type into a box → it is saved → build the screen again from what was saved → the box still says it.
+//
+// ⚠️ EVERY FIELD LOSS THIS APP HAS HAD WAS FOUND BY HER, not here: the collection day and time on the new-order
+// card (v654), the same time twice more (v656, v657). This closes the second door.
+
+const SETTINGS_TRIP = {
+  "Capacity / day": "9",
+  "Order cut-off (day before)": "19:30",
+  "Delivery window you promise": "4-9pm",
+  "Buffer on a quoted price (RM)": "3",
+  "What the charge is called": "Delivery fee",
+  "Bakery name": "Jienluv2bake Test",
+  "WhatsApp number": "60111112222",
+  "Tagline": "Test tagline",
+  "Instagram handle": "testinsta",
+  "Facebook page": "testfb",
+  "TNG QR code (image URL)": "https://example.com/qr.jpg",
+  "Policies (shown on the shop)": "Test policy",
+  "Good to know (shown on the shop)": "Test fact",
+  "Developer WhatsApp (optional)": "60133334444",
+  "Label printer name for this device": "printer2",
+};
+// ⚠️ Excused, each for a stated reason — never silently.
+const SETTINGS_NOT_TRIPPED = [
+  "Password (4 digits)", "App login email", "App login password", "Anon public key",
+  "Supabase URL",                                      // secrets/connections: a test must not type them
+  "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",     // checkboxes: bake days have their own tests
+  "Lock the app with a password", "Enable live availability", "Enable shared data",
+  "Homepage price product",                            // a picker, not free text
+  "Developer name",                                     // ⚠️ two boxes share this name (an input and a textarea)
+  "中文", "Bahasa Malaysia",                             // ⚠️ two boxes each share this name
+];
+
+const settingsBoxes = (root) => {
+  const out = [];
+  const walk = (n) => {
+    if (!n || typeof n !== "object") return;
+    if (n.tagName === "INPUT" || n.tagName === "TEXTAREA") {
+      const aria = (n.attrs || {})["aria-label"] || "";
+      const type = (n.attrs || {}).type || "";
+      if (aria && type !== "checkbox" && type !== "file" && type !== "password") out.push({ aria, node: n, type });
+    }
+    for (const c of n.children || []) walk(c);
+  };
+  walk(root);
+  return out;
+};
+
+test("★★★ every Settings box keeps what she types, through a rebuild (v662)", () => {
+  const st = defaultState();
+  const first = createEl("div");
+  modules.renderSettings(first, st, new URLSearchParams());
+  nameFields(first);
+
+  // ⚠️ A box nobody classified fails here, so a setting added later cannot skip the question.
+  if (process.env.DBG) {
+    let inputs = 0, withParent = 0, withAria = 0;
+    const walk = (n) => { if (!n || typeof n !== "object") return;
+      if (n.tagName === "INPUT" || n.tagName === "TEXTAREA") { inputs += 1; if (n.parentNode) withParent += 1; if ((n.attrs||{})["aria-label"]) withAria += 1; }
+      for (const c of n.children || []) walk(c); };
+    walk(first);
+    console.log("DBG inputs", inputs, "withParent", withParent, "withAria", withAria, "namedByFn", nameFields(first));
+    let b = null;
+    const find = (n) => { if (b) return; if (!n || typeof n !== "object") return;
+      if (n.tagName === "INPUT") { b = n; return; } for (const c of n.children || []) find(c); };
+    find(first);
+    let q = [];
+    try { q = first.querySelectorAll("input, select, textarea"); } catch (e) { console.log("DBG qsa threw", e.message); }
+    console.log("DBG qsa count:", q.length, "| first tag:", q[0] && q[0].tagName,
+      "| getAttribute type:", typeof (q[0] && q[0].getAttribute));
+    console.log("DBG firstBox parent:", b && b.parentNode && b.parentNode.tagName,
+      "| siblings:", b && b.parentNode && (b.parentNode.children || []).map((c) => c.tagName || "#text").join(","),
+      "| qs label:", b && b.parentNode && b.parentNode.querySelector("label") ? "FOUND" : "none");
+  }
+  const seen = [...new Set(settingsBoxes(first).map((b) => b.aria))];
+  // ⚠️ A VACUOUS PASS IS THE WORST KIND: if the shim cannot see the boxes, this test proves nothing.
+  assert.ok(seen.length >= 18, `★ only ${seen.length} Settings boxes were found — the check would pass by seeing nothing`);
+  assert.ok(seen.includes("Capacity / day"), "the capacity box should be among them");
+  const unclassified = seen.filter((a) => !(a in SETTINGS_TRIP) && !SETTINGS_NOT_TRIPPED.includes(a));
+  assert.deepEqual(unclassified, [],
+    "★ a Settings box is neither round-tripped nor excused — decide which it is");
+
+  for (const box of settingsBoxes(first)) {
+    const want = SETTINGS_TRIP[box.aria];
+    if (want === undefined) continue;
+    box.node.value = want;
+    for (const ev of ["input", "change"]) {
+      for (const f of ((box.node._listeners || {})[ev] || [])) f.call(box.node, { target: box.node });
+    }
+  }
+
+  // ⭐ The rebuild is the other half: a fresh screen from what was SAVED.
+  const again = createEl("div");
+  modules.renderSettings(again, st, new URLSearchParams());
+  nameFields(again);
+  const lost = [];
+  for (const box of settingsBoxes(again)) {
+    const want = SETTINGS_TRIP[box.aria];
+    if (want === undefined) continue;
+    // ⚠️ Compared as STRINGS: a real input always answers a string, while this shim keeps whatever it was
+    // given — the capacity is stored as a number and comes back as `9`, not `"9"`.
+    if (String(box.node.value) !== String(want)) lost.push(`${box.aria}: typed ${want}, came back ${box.node.value}`);
+  }
+  assert.deepEqual(lost, [], "★ a Settings value did not come back after the screen was rebuilt");
+});

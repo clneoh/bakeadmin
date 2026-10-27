@@ -215,9 +215,9 @@ const pickCourier = (root) => {
   return sel;
 };
 
-function openEdit(st, orderId) {
+function openEdit(st, orderId, day = "d10") {
   const root = createEl("div");
-  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  renderOrders(root, st, new URLSearchParams({ date: day }));
   const row = all(root).find((n) => n.dataset && n.dataset.order === orderId);
   tap(buttonByText(row, "Edit"));
   return root;
@@ -828,4 +828,89 @@ test("★★★ every order-fact box on the Edit card keeps what she types, thro
     if (!box || box.value !== value) lost.push(`${name}: typed ${value}, came back ${box ? box.value : "(box gone)"}`);
   }
   assert.deepEqual(lost, [], "★ a box lost what she typed, across Save and reopen");
+});
+
+// ═══ THE ＋ NEW ORDER CARD'S ROUND TRIP (v662) ══════════════════════════════
+//
+// ⭐ Her ask: __"Close the gap — round-trip the ＋ New order card and Settings"__. The new-order card is the door
+// that LOST her collection day and time (v654 — collected, never written), so it is the one to check first.
+// The trip: type into every box → Place Order → ⭐ **the ORDER carries each value** → open that order's Edit
+// card and the same boxes show them again.
+
+const NEW_CARD_TRIP = [
+  ["Customer", "Lucy Tan", "customerName", "Lucy Tan"],
+  ["WhatsApp (optional)", "60123456789", "whatsapp", "60123456789"],
+  ["Notes for Collection/Delivery (optional)", "Thursday", "note", "Thursday"],
+  ["The day they collect", "2026-10-30", "collectDay", "2026-10-30"],
+  ["The time they collect", "6pm", "collectTime", "6pm"],
+];
+
+test("★★★ every order-fact box on the ＋ New order card reaches the order, and comes back on its Edit card (v662)", () => {
+  const st = state();
+  const root = openNewCollectCard(st);
+
+  for (const [name, value] of NEW_CARD_TRIP) {
+    const box = boxFor(root, name);
+    assert.ok(box, `the ＋ New order card should carry ${name}`);
+    box.value = value;
+    (box._listeners.input || []).forEach((f) => f.call(box, { target: box }));
+    (box._listeners.change || []).forEach((f) => f.call(box, { target: box }));
+  }
+  pickProduct(root);
+  tap(buttonByText(root, "Place Order"));
+
+  const made = st.orders.find((o) => o.id !== "o1");
+  assert.ok(made, "the order landed");
+  // ⚠️ The order's own record is the first half — this is the half that silently dropped the collection in v654.
+  const notSaved = NEW_CARD_TRIP
+    .filter(([, value, field]) => String(made[field] || "") !== value)
+    .map(([name, value, field]) => `${name}: typed ${value}, the order carries ${made[field]}`);
+  assert.deepEqual(notSaved, [], "★ a box on the ＋ New order card never reached the order it created");
+
+  // ⭐ And the second half: the same order's Edit card shows them back.
+  openEdit(st, made.id, "d20");
+  const pop = layers["popup-layer"];
+  const lost = NEW_CARD_TRIP
+    .map(([name, value]) => {
+      const box = boxFor(pop, name);
+      return !box || String(box.value) !== value ? `${name}: came back ${box ? box.value : "(box gone)"}` : null;
+    })
+    .filter(Boolean);
+  assert.deepEqual(lost, [], "★ the Edit card did not show what the new-order card had just saved");
+});
+
+// ═══ THE THIRD DOOR: NOTE / TRACKING (v662) ═════════════════════════════════
+//
+// ⭐ Her ask: __"check other round trip also"__. The Edit card, the ＋ New order card and the Note / tracking
+// card are three doors onto ONE order, and a fault in one is invisible from the other two.
+
+test("★★★ the Note / tracking card keeps what she types, through a Save and a reopen (v662)", () => {
+  const st = state();
+  const root = createEl("div");
+  renderOrders(root, st, new URLSearchParams({ date: "d10" }));
+  const row = all(root).find((n) => n.dataset && n.dataset.order === "o1");
+  tap(buttonByText(row, "Note / tracking"));
+
+  const typed = [["Notes for Collection/Delivery (optional)", "Leave at the gate"],
+    ["Courier tracking number (optional)", "JT999888777"]];
+  for (const [name, value] of typed) {
+    const box = boxFor(layers["popup-layer"], name);
+    assert.ok(box, `the Note / tracking card should carry ${name}`);
+    box.value = value;
+    (box._listeners.input || []).forEach((f) => f.call(box, { target: box }));
+    (box._listeners.change || []).forEach((f) => f.call(box, { target: box }));
+  }
+  tap(buttonByText(layers["popup-layer"], "Save"));
+
+  // reopen
+  const again = createEl("div");
+  renderOrders(again, st, new URLSearchParams({ date: "d10" }));
+  tap(buttonByText(all(again).find((n) => n.dataset && n.dataset.order === "o1"), "Note / tracking"));
+  const lost = typed
+    .map(([name, value]) => {
+      const box = boxFor(layers["popup-layer"], name);
+      return !box || String(box.value) !== value ? `${name}: came back ${box ? box.value : "(box gone)"}` : null;
+    })
+    .filter(Boolean);
+  assert.deepEqual(lost, [], "★ the Note / tracking card lost what she typed");
 });

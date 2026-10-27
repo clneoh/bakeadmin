@@ -1,8 +1,22 @@
-# Jienluv2bake — change history (v54 → v661)
+# Jienluv2bake — change history (v54 → v662)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v662, EVERY DOOR ONTO AN ORDER IS CHECKED THE SAME WAY (NO DATABASE STEP, NOTHING VISIBLE CHANGES).**
+
+**Your words:** __"Close the gap — round-trip the ＋ New order card and Settings"__ and __"check other round trip also"__.
+
+**The round trip, in one line:** type into a box → it is saved → **build the screen again from what was saved** → the box still says what you typed. ⭐ Three field losses were found by you and none by a test, so the check is now mechanical.
+
+1. ⭐ **Settings**: every box she can type into — capacity, cut-off, the courier window, buffer and charge name, the storefront words, the policies, the printer name — typed into, then the screen rebuilt, then read back.
+2. ⭐ **The ＋ New order card**: every order box typed into, **Place Order**, then **the order itself** is checked for each value, and the order's Edit card is opened to check they come back.
+3. ⭐ **Note / tracking** — the third door onto the same order, checked the same way.
+4. ⚠️ **Each one fails if a box appears that is neither checked nor excused**, so a field added later must answer the question.
+5. ⚠️ **And the first Settings version of this PASSED WHILE CHECKING NOTHING** — the test shim could not read a label's text or a grouped selector, so it walked zero boxes. ⭐ Found by a guard that counts what it walked; the shim now behaves like the DOM.
+
+**No database step and no function deploy.** 3,972 tests green.
 
 **27 Oct 2026 — engine v661, THE CUSTOMER'S OWN CARD SAYS THE COLLECTION SHE PROMISED (NO DATABASE STEP).**
 
