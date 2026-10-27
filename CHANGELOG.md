@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v655)
+# Jienluv2bake — change history (v54 → v656)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v656, SWITCHING TO COURIER NO LONGER THROWS YOUR COLLECTION AWAY (NO DATABASE STEP).**
+
+**Your words:** __"for an order initially i select self collect, later i change it to courier and key in the details, after that i change back to self collect and the collection times field disappear?"__ — **it did, and you found it exactly right.**
+
+1. ⚠️⚠️ **A SELF COLLECTION POINT WAS WIPED THE MOMENT YOU CHOSE COURIER.** v303 cleared the chosen Point from the card, and nothing ever put it back — so switching back to Self collect found **"Collect from" empty (My kitchen) and the Point's own collection hours gone**. That was your "collection times field".
+2. ⭐ **The Point stays in the card now**, so switching back restores what you picked. ⚠️ **The rule it was protecting still holds where it belongs — on the saved order:** a courier order is still saved with no Point on it, which is tested.
+3. ⭐ **And the collection day and time you type are kept through the same round trip**, so a switch you thought better of costs you nothing.
+
+**No database step and no function deploy.** 3,959 tests green.
 
 **27 Oct 2026 — engine v655, THE CUSTOMER'S PAPER NAMES BOTH DAYS (NO DATABASE STEP).**
 

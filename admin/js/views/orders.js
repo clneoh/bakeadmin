@@ -2134,9 +2134,12 @@ function orderForm(state, dateId, root, selectDate, onReady) {
     [{ value: "collect", label: "Self collect" }, { value: "courier", label: "Courier delivery" }],
     draft.fulfillment, function () {
       draft.fulfillment = this.value;
-      // A courier order is not collected anywhere, so switching to Courier drops the Point
-      // rather than leaving one hidden behind a choice she has moved away from (v303).
-      if (this.value === "courier") draft.pointId = "";
+      // ★ THE POINT IS KEPT IN THE DRAFT NOW (v656). ⚠️ v303 cleared it the moment she chose Courier, so a
+      // Point picked by mistake — or a switch she thought better of — took the collection with it: her report
+      // is exactly that, *"i change it to courier and key in the details, after that i change back to self
+      // collect"*. ⭐ **THE RULE IT WAS PROTECTING IS A RULE ABOUT THE SAVED ORDER, and the save already keeps
+      // it** — both writers pass `fulfillment === "courier" ? "" : draft.pointId`, so a courier order still
+      // carries no Point. What the draft does is remember what she chose, so switching back restores it.
       paintCourier();
       paintPoint();
     });
@@ -2722,7 +2725,8 @@ function popupEditBody(state, date, group, first, lines, draft, refresh, close, 
     [{ value: "collect", label: "Self collect" }, { value: "courier", label: "Courier delivery" }],
     draft.fulfillment, function () {
       draft.fulfillment = this.value;
-      if (this.value === "courier") draft.pointId = "";   // see the New order card (v303)
+      // ★ The Point stays in the draft — see the New order card (v656). ⚠️ The SAVE still writes no Point onto a
+      // courier order; what this stops is her picked Point vanishing from a card she switched back to.
       refresh();
     });
   // ★ WHERE IT COLLECTS FROM (v303), the same list the ＋ New order card offers and the same

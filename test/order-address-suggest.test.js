@@ -639,3 +639,62 @@ test("★★★ and a card she leaves alone writes NO collection keys at all (v6
     "absent means the bake day — an empty key would read as a promise she never made");
   assert.equal("collectTime" in added, false);
 });
+
+// ── v656: switching fulfilment does not throw her collection away ───────────
+//
+// Her report: __"for an order initially i select self collect, later i change it to courier and key in the
+// details, after that i change back to self collect and the collection times field disappear?"__ ⚠️ It did:
+// v303's draft cleared `pointId` the moment Courier was chosen, and nothing put it back — so the Point, and the
+// collection hours that belong to it, were gone for good.
+
+const POINT_ST = () => {
+  const st = state();
+  st.points = [{ id: "pt_farlim", name: "Farlim, Air Itam", address: "Lebuhraya Thean Teik",
+    receiver: "Aunty Lim", phone: "60123456789", feeRM: 0, paused: false,
+    hours: { from: "10:00", to: "12:00" }, createdAt: "2026-08-12T00:00:00.000Z" }];
+  return st;
+};
+const collectFromSel = (root) => all(root).find((n) => n.tagName === "SELECT"
+  && (n.children || []).some((o) => o.value === "pt_farlim"));
+
+test("★★★ a Point she picked survives a switch to courier and back (v656)", () => {
+  const st = POINT_ST();
+  const root = openNewCollectCard(st);
+  const point = collectFromSel(root);
+  assert.ok(point, "the card offers where it collects from");
+  point.value = "pt_farlim";
+  (point._listeners.change || []).forEach((f) => f.call(point));
+
+  // to courier and back, the way she does it
+  const sel = all(root).find((n) => n.tagName === "SELECT"
+    && (n.children || []).some((o) => o.value === "courier"));
+  sel.value = "courier";
+  (sel._listeners.change || []).forEach((f) => f.call(sel));
+  const sel2 = all(root).find((n) => n.tagName === "SELECT"
+    && (n.children || []).some((o) => o.value === "collect") && (n.children || []).some((o) => o.value === "courier"));
+  sel2.value = "collect";
+  (sel2._listeners.change || []).forEach((f) => f.call(sel2));
+
+  assert.equal(collectFromSel(root).value, "pt_farlim",
+    "★ her Point came back — the choice was never hers to lose");
+});
+
+test("★★★ and a courier order is still saved with no Point on it (v656)", () => {
+  // ⚠️ The rule v303 was protecting is a rule about the ORDER, and the save still keeps it.
+  const st = POINT_ST();
+  const root = openNewCollectCard(st);
+  const point = collectFromSel(root);
+  point.value = "pt_farlim";
+  (point._listeners.change || []).forEach((f) => f.call(point));
+  const sel = all(root).find((n) => n.tagName === "SELECT"
+    && (n.children || []).some((o) => o.value === "courier"));
+  sel.value = "courier";
+  (sel._listeners.change || []).forEach((f) => f.call(sel));
+  pickProduct(root);
+  tap(buttonByText(root, "Place Order"));
+
+  const added = st.orders.find((o) => o.id !== "o1");
+  assert.ok(added, "the order landed");
+  assert.equal(added.fulfillment, "courier");
+  assert.equal(added.pointId || "", "", "★ a courier order still carries no collection Point");
+});
