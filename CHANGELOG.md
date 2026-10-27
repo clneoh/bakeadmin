@@ -1,8 +1,20 @@
-# Jienluv2bake — change history (v54 → v671)
+# Jienluv2bake — change history (v54 → v672)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v672, ONE MACHINE CAN PRINT FOR MORE THAN ONE SITE (NO DATABASE STEP).**
+
+**Your plan:** a bakery kitchen and a munchies kitchen, each with its own printer — and the server already in the house.
+
+1. ⭐ **Each site gets its own bridge**: its own config file and its own service — `bakeadmin-print@kitchen.service`, `bakeadmin-print@main.service` — so two printers on one machine never share a file.
+2. ⚠️⚠️ **And the installer REFUSES a mismatch**: if the config does not say `"site": "kitchen"`, it stops rather than installing a second bridge under the same name — **two bridges with one name both print every label.**
+3. ⭐ **On this phone**: Settings → **Label printer name for this device** — set a kitchen phone to `kitchen`, and its labels go only to that printer. The name is per device, exactly like before.
+4. ⭐ **The press tells you which printer it went to**: *"Sent to the bakery printer — it prints in a moment."* ⚠️ With three sites and one phone, sending a bakery label to the home printer is a mistake that costs paper and time — the name on the toast is what catches it before it prints.
+5. ⚠️ **A second APP is a second cloud.** Munchies' labels come from munchies' own queue, so its config needs munchies' project address and login — not the bakery's. Our app cannot print munchies' labels, and should not.
+
+**No database step and no function deploy.** 3,983 tests green.
 
 **27 Oct 2026 — engine v671, THE PRINTER CAN RUN ON THE SERVER IN YOUR HOUSE (NO DATABASE STEP, NO FUNCTION DEPLOY).**
 

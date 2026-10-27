@@ -19,7 +19,12 @@ import net from "node:net";
 import { tsplForBitmap } from "./tspl.mjs";
 import { isConnectivityError } from "./retry.mjs";
 
-const CONFIG_PATH = join(homedir(), ".bakeadmin-print.json");
+// ⭐ WHICH CONFIG — so ONE MACHINE CAN BE MORE THAN ONE BRIDGE (v672). ⚠️ Her plan: a bakery kitchen and a
+// munchies kitchen, each its own printer and its own site name. ⭐ One file path per instance is all it takes:
+// `BRIDGE_CONFIG` names it, and with nothing set the old default is used, so every bridge already running keeps
+// working unchanged.
+const CONFIG_PATH = String(process.env.BRIDGE_CONFIG || "").trim()
+  || join(homedir(), ".bakeadmin-print.json");
 const POLL_MS = 3000;
 const MAX_ATTEMPTS = 5;
 // ⚠️ A JOB WAITING FOR A SLEEPING PRINTER IS LOGGED ONCE, not every three seconds.

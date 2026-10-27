@@ -239,3 +239,27 @@ test("★★★ the app's address wins, and the Mac's own is the fallback that k
   // And with neither, it says so rather than printing to nothing.
   assert.equal(pickPrinterHost("", "").host, "");
 });
+
+// ── v672: one machine, several bridges ──────────────────────────────────────
+//
+// ⭐ Her plan: a bakery kitchen and a munchies kitchen, each its own printer, each its own site — and one server in
+// the house. ⚠️ Two bridges sharing one config file would print each other's labels.
+import { execFileSync } from "node:child_process";
+
+test("★★★ BRIDGE_CONFIG points a second bridge at its own file (v672)", () => {
+  // ⚠️ Driven as a real process, because the path is read once at start-up — a unit test that re-imported the
+  // module could not tell "reads the variable" from "reads it the first time".
+  let out = "";
+  try {
+    execFileSync(process.execPath, ["print-bridge/bridge.mjs"], {
+      env: { ...process.env, BRIDGE_NO_PROMPT: "1", BRIDGE_CONFIG: "/tmp/no-such-bridge-config.json" },
+      encoding: "utf8",
+      timeout: 15000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (err) {
+    out = String((err && (err.stdout || err.message)) || "");
+  }
+  assert.match(out, /No bridge config at \/tmp\/no-such-bridge-config\.json/,
+    "★ the bridge ignored BRIDGE_CONFIG and looked somewhere else — a second site would read the first site's file");
+});

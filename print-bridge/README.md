@@ -126,6 +126,25 @@ chmod 600 ~/.bakeadmin-print.json
 is why it is `chmod 600` and never in this repo. ⭐ **And `printerHost` is optional once v670 is on:** the app's
 **Settings → Label printer address** wins when it is set, and this file is the fallback.
 
+### More than one printer on one machine (a second site)
+
+⭐ **One server can be several bridges.** Each site gets its **own config file** and its **own service**, so a
+bakery kitchen and a second printer never share a file and never print each other's labels:
+
+```bash
+cp ~/print-bridge/config.example.json ~/.bakeadmin-print-kitchen.json
+# edit it: "site": "kitchen", and that site's printer address
+chmod 600 ~/.bakeadmin-print-kitchen.json
+sh ~/print-bridge/install-linux.sh kitchen ~/.bakeadmin-print-kitchen.json
+```
+
+- The unit becomes **`bakeadmin-print@kitchen.service`**, so `systemctl status bakeadmin-print@kitchen` is
+  unambiguous.
+- ⚠️ **The `site` in the file must match the name you pass** — the installer refuses to install if they differ,
+  because two bridges with one name both print every label.
+- ⚠️ **A second APP is a second cloud.** Munchies' labels come from munchies' own queue: its config needs
+  *its* project's `url`, `anonKey` and login, not the bakery's.
+
 ### Route 1 — as a service (recommended)
 
 ```bash

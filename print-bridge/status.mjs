@@ -11,7 +11,12 @@ import { PRINTER_MAC, addressForMac } from "./printer.mjs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const CONFIG_PATH = join(homedir(), ".bakeadmin-print.json");
+// ⭐ WHICH CONFIG — so ONE MACHINE CAN BE MORE THAN ONE BRIDGE (v672). ⚠️ Her plan: a bakery kitchen and a
+// munchies kitchen, each its own printer and its own site name. ⭐ One file path per instance is all it takes:
+// `BRIDGE_CONFIG` names it, and with nothing set the old default is used, so every bridge already running keeps
+// working unchanged.
+const CONFIG_PATH = String(process.env.BRIDGE_CONFIG || "").trim()
+  || join(homedir(), ".bakeadmin-print.json");
 
 function say(msg) { process.stdout.write(`${msg}\n`); }
 
