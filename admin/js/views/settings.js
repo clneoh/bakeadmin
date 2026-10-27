@@ -541,6 +541,9 @@ export function renderSettings(root, state) {
     const r = await syncAvailability(state);
     sbStatus.textContent = r.ok
       ? `Synced ${r.pushed} upcoming date(s) at ${new Date(r.at).toLocaleTimeString()}.`
+        // ⭐ AND A ROW THE CLOUD WOULD HAVE REFUSED IS NAMED HERE (v673) — the shop is published without it, so
+        // staying silent would be the app quietly dropping a product's count.
+        + (r.warning ? ` ${r.warning}` : "")
       : `Sync failed: ${r.reason}`;
     sbBtn.disabled = false;
     sbBtn.textContent = "Sync now";

@@ -195,6 +195,41 @@ export async function login(url, anonKey, email, password) {
 }
 
 // Publish the current slots. Returns {ok:true, pushed, at} or {ok:false, reason}.
+// ⚠️⚠️ A COUNT THAT IS NOT A NUMBER MUST NEVER BE SENT (v673). ⭐ The munchies session hit this in production on
+// 27 Oct 2026: `POST product_availability` answered **HTTP 400 — null value in column "slots_left" ... violates
+// not-null constraint**, and ⚠️ **because the whole batch is one request, ONE bad row stopped every product's
+// stamp publishing.**
+// ⭐ `JSON.stringify` turns `NaN` and `Infinity` into `null`, so a computed figure that went wrong somewhere
+// becomes a NOT NULL violation at the database — ⭐ **and the message names the column, never the product.**
+// ⚠️ So the rows are checked HERE, at the one place that talks to the cloud: anything that is not a finite
+// number is dropped and NAMED, and everything else still publishes.
+export function finiteSlotRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const kept = [];
+  const dropped = [];
+  for (const r of list) {
+    const ok = Number.isFinite(Number(r && r.slots_left)) && Number.isFinite(Number(r && r.capacity));
+    if (ok) kept.push(r);
+    else dropped.push(`${String((r && r.date) || "?")} · ${String((r && r.product) || "?")}`);
+  }
+  return { kept, dropped };
+}
+
+// ⭐ THE THREE BATCHES, BUILT IN ONE PLACE SO THEY CAN BE HELD TO ACCOUNT (v673). `product_availability` has
+// **NOT NULL** columns, and ⚠️ **a batch is one request: one row missing a count fails every row with it.** ⭐ So
+// the shapes are built here, pure, and a test walks ALL of them — including the clearing batch, which is the one
+// that shipped without a count and produced her HTTP 400.
+export function availabilityBatches(productRows) {
+  const rows = Array.isArray(productRows) ? productRows : [];
+  const plain = rows.filter((r) => !("pool_base" in r));
+  const packs = rows.filter((r) => "pool_base" in r);
+  const cleared = plain.map((r) => ({
+    date: r.date, product: r.product, slots_left: r.slots_left, capacity: r.capacity,
+    pool_base: null, pool_qty: null,
+  }));
+  return { plain, cleared, packs };
+}
+
 export async function syncAvailability(state) {
   const c = cfg(state);
   if (!ready(c)) return { ok: false, reason: "Supabase not configured" };
@@ -229,7 +264,9 @@ export async function syncAvailability(state) {
   const horizon = realDates > 0 ? realDates : 10;
 
   const rows = computeSlots(state, horizon);
-  const res = await upsert("availability", rows, "date");
+  const days = finiteSlotRows(rows);
+  const res = days.kept.length ? await upsert("availability", days.kept, "date") : { ok: true };
+  const warned = days.dropped.length ? ` ⚠️ ${days.dropped.length} day row(s) had no usable count and were not published: ${days.dropped.join(" · ")}.` : "";
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     return { ok: false, reason: `Sync failed (HTTP ${res.status})${text ? " — " + text.slice(0, 120) : ""}` };
@@ -244,9 +281,12 @@ export async function syncAvailability(state) {
   // needs the pool columns — if those aren't in the table yet
   // (supabase/shared_pool_slots.sql hasn't run), that batch alone fails while
   // the plain singles still go through.
-  const productRows = computeProductSlots(state, horizon);
-  const plainRows = productRows.filter((r) => !("pool_base" in r));
-  const packRows = productRows.filter((r) => "pool_base" in r);
+  const productCheck = finiteSlotRows(computeProductSlots(state, horizon));
+  const productRows = productCheck.kept;
+  const productWarned = productCheck.dropped.length
+    ? ` ⚠️ ${productCheck.dropped.length} product row(s) had no usable count and were not published: ${productCheck.dropped.join(" · ")}.`
+    : "";
+  const { plain: plainRows, cleared: clearedRows, packs: packRows } = availabilityBatches(productRows);
   let pushedProducts = 0;
   const pushProductBatch = async (rows, count = true) => {
     if (!rows.length) return null;
@@ -264,7 +304,6 @@ export async function syncAvailability(state) {
   // treated it as derived and ignored its own limit and sales.** ⭐ One more batch, of explicit NULLs for the plain
   // rows: on a project without the pool columns it fails alone, exactly like the pack batch, and the singles
   // still publish.
-  const clearedRows = plainRows.map((r) => ({ date: r.date, product: r.product, pool_base: null, pool_qty: null }));
   for (const [batch, count] of [[plainRows, true], [clearedRows, false], [packRows, true]]) {
     const batchErr = await pushProductBatch(batch, count);
     if (batchErr) return batchErr;
@@ -284,7 +323,10 @@ export async function syncAvailability(state) {
     await clean("availability");
     await clean("product_availability");
   }
-  return { ok: true, pushed: rows.length, pushedProducts, at: new Date().toISOString() };
+  return { ok: true, pushed: days.kept.length, pushedProducts, at: new Date().toISOString(),
+    // ⚠️ A ROW THAT WAS DROPPED IS SAID OUT LOUD, never swallowed: the shop is published without it, and she is
+    // the only person who can fix the product or the day it came from.
+    warning: `${warned}${productWarned}`.trim() || "" };
 }
 
 // Debounced auto-publish, called after order/capacity changes so a burst of

@@ -1,8 +1,19 @@
-# Jienluv2bake — change history (v54 → v672)
+# Jienluv2bake — change history (v54 → v673)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v673, THE PRODUCT SYNC THAT WAS FAILING IS FIXED (NO DATABASE STEP).**
+
+**Your error, 27 Oct 2026:** __Sync failed: Product sync failed (HTTP 400) — null value in column "slots_left" of relation "product_availability" violates not-null constraint__.
+
+1. ⚠️⚠️ **IT WAS NOT A WRONG NUMBER — IT WAS A ROW WITH NO NUMBER AT ALL.** When a product stops being a value pack, the app sends one extra batch of rows whose only job is to clear that pack's two extra columns. ⭐ **Those rows carried the date, the product name, and two blanks — and not the count the database requires.** The moment one of them was a *new* row rather than an update, the database refused it — and ⚠️ **because that batch is a single request, the whole product sync failed: no product published its "Only N left".**
+2. ⭐ **Those rows now carry the count and the capacity with them**, so they are whole rows that can be inserted as well as updated.
+3. ⭐ **And the shape is built in one place, with a test that walks every row of all three batches** — a row without a usable count can no longer be queued.
+4. ⭐ **Belt as well as repair:** a row whose count is not a real number is now dropped and **named** in the Sync now line, instead of failing everything silently. The bakery's own book survived every hostile input I could build, so this is guarding the class, not your data.
+
+**No database step and no function deploy.** 3,985 tests green.
 
 **27 Oct 2026 — engine v672, ONE MACHINE CAN PRINT FOR MORE THAN ONE SITE (NO DATABASE STEP).**
 

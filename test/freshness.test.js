@@ -369,3 +369,52 @@ test("★★★ and each one is asked with cache: reload — a plain fetch is an
   // ⚠️ And one file failing does not stop the others, nor throw into the press: the reload still goes.
   assert.equal(asked.length, 2, "a failed file must not stop the rest");
 });
+
+// ── v673: a count that is not a number must never be SENT ───────────────────
+//
+// ⚠️ The munchies session hit this in production on 27 Oct 2026: `POST product_availability` answered
+// **HTTP 400 — null value in column "slots_left" ... violates not-null constraint**, ⚠️ and because the batch is
+// ONE request, a single bad row stopped every product's stamp publishing. ⭐ `JSON.stringify` turns NaN and
+// Infinity into `null`, so a wrong computation becomes a NOT NULL violation at the database.
+const { finiteSlotRows } = await import("../admin/js/supabase.js");
+
+test("★★★ a slot row with no usable number is dropped and NAMED, never sent (v673)", () => {
+  const rows = [
+    { date: "2026-11-02", product: "Focaccia", slots_left: 3, capacity: 12 },
+    { date: "2026-11-02", product: "Broken", slots_left: NaN, capacity: 12 },
+    { date: "2026-11-03", product: "Infinite", slots_left: Infinity, capacity: 12 },
+    { date: "2026-11-03", product: "NoCapacity", slots_left: 2, capacity: undefined },
+    { date: "2026-11-04", product: "Odd", slots_left: "4", capacity: "12" },
+  ];
+  const out = finiteSlotRows(rows);
+  assert.deepEqual(out.kept.map((r) => r.product), ["Focaccia", "Odd"],
+    "★ a row that would become `null` at the database was sent anyway");
+  // ⚠️ And the dropped ones are NAMED — the error the database gives names the column, never the product.
+  assert.equal(out.dropped.length, 3);
+  assert.ok(out.dropped.some((d) => /Broken/.test(d)), "the dropped row is not identified");
+  // A numeric STRING is refused too: it is not a number, and the caller must not guess.
+  assert.equal(finiteSlotRows([]).kept.length, 0);
+  assert.equal(finiteSlotRows(null).dropped.length, 0);
+});
+
+test("★★★ EVERY row sent to product_availability carries a count — including the clearing batch (v673)", async () => {
+  // ⚠️⚠️ HER ERROR, 27 Oct 2026: `HTTP 400 · null value in column "slots_left" of relation "product_availability"
+  // violates not-null constraint`. ⭐ The clearing batch — rows that exist only to null a stopped pack's pool
+  // columns — was sent as **date, product, pool_base: null, pool_qty: null**, ⚠️ **with no count at all**; the
+  // moment one of them was an INSERT instead of an update, the whole product sync failed.
+  const { availabilityBatches } = await import("../admin/js/supabase.js");
+  const rows = [
+    { date: "2026-11-02", product: "Focaccia", slots_left: 3, capacity: 12 },
+    { date: "2026-11-02", product: "Box of 2", slots_left: 1, capacity: 6, pool_base: "Focaccia", pool_qty: 2 },
+  ];
+  const b = availabilityBatches(rows);
+  assert.equal(b.plain.length, 1);
+  assert.equal(b.packs.length, 1);
+  assert.equal(b.cleared.length, 1, "one clearing row per plain row");
+  const all = [...b.plain, ...b.cleared, ...b.packs];
+  const bad = all.filter((r) => !Number.isFinite(Number(r.slots_left)) || !Number.isFinite(Number(r.capacity)));
+  assert.deepEqual(bad, [], "★ a row without a usable count was queued for the database — it fails the whole batch");
+  // ⚠️ And the clearing row still CLEARS: the pool columns must be explicitly null.
+  assert.equal(b.cleared[0].pool_base, null);
+  assert.equal(b.cleared[0].pool_qty, null);
+});
