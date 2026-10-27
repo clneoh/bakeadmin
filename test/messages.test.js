@@ -40,7 +40,8 @@ test("payment reminder leads with the order code and re-sends the QR", () => {
   assert.equal(built.recipient, "60123456789");
   assert.ok(built.message.includes("Order #445566"), "order code in the reminder");
   assert.ok(built.message.includes(MONEY), "the total stands under the subtotal it comes from");
-  assert.ok(built.message.includes("Delivery: Mon, 7 Sep - Self collect"), "date + fulfillment");
+  assert.ok(built.message.includes("Baking day: Mon, 7 Sep"), "the bake day, named as the bake day");
+  assert.ok(built.message.includes("Collection: Mon, 7 Sep"), "and the day it is collected");
   assert.ok(built.message.includes("\nhttps://img/tng.png\n"), "QR image URL on its own line");
   assert.ok(built.message.includes("put your phone number (60123456789) in the payment description"));
   assert.ok(built.message.includes("Already paid? Please ignore this message."));

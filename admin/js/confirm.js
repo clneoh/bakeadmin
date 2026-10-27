@@ -17,7 +17,7 @@ import { byId, orderCode, orderLineName, waNumber } from "./state.js";
 import { shortDate } from "./dates.js";
 import { customerTotal, moneyLines } from "./courier.js";
 import { fulfillmentText, pointAddressFor } from "./points.js";
-import { dayLine, vanLine } from "./courier_job.js";
+import { dayBlock, dayLine, vanLine } from "./courier_job.js";
 // The one place the opening line is worded, so the confirmation cannot lean over
 // while the three later messages do not (2 Oct 2026).
 import { greeting, hello } from "./messages.js";
@@ -84,7 +84,18 @@ export function buildConfirmation(state, group, trackUrl) {
 
   let msg = `${greeting(state, `${hello(first.customerName)} Your order from ${bakery} is confirmed.`)}\n`;
   msg += `Order #${orderCode(first)}\n`;
-  msg += `${day.label}: ${date} - ${fulfillment}${address}\n`;
+  // ★★ TWO DAY LINES (v653): the bake day says only the bake day, and the next line says how it travels —
+  // ⚠️ the "how" used to sit on the WEDNESDAY line while the van's own day sat far below the payment block.
+  msg += dayBlock(state, first, date);
+  // ⚠️ THE PLACE IS STILL NAMED (v653): "Self collect at Farlim, Air Itam" is the line a customer needs to know
+  // WHERE, and the two day lines do not replace it. A courier order skips it — its second day line already says
+  // "Courier delivery".
+  if (!courier && fulfillment) msg += `${fulfillment}\n`;
+  // ⚠️ AND WHEN NO VAN DAY IS TYPED, THE DAY IS THE BAKE DAY **AND THE TIME IS STILL HONEST** (v653): the van is
+  // booked later, so the one sentence that says its time is still to come stays. ⭐ A day she asked for, and the
+  // promise the app already kept — one line each, neither borrowing the other's job.
+  if (courier && !day.vanTime) msg += vanLine(day, first);
+  if (address) msg += `${address.trim()}\n`;
   msg += `Items: ${items}\n`;
   // The sum and its parts, on every order: with a charge the parts are named so the
   // customer can add RM72 up themselves rather than take it on trust — "the message need
@@ -104,7 +115,6 @@ export function buildConfirmation(state, group, trackUrl) {
   // front of the customer, so nothing ever jumps away or looks truncated.
   msg += `\nWhen you pay, put your phone number${recipient ? ` (${recipient})` : ""} in the payment description.\n`;
   msg += `Then send your TNG receipt screenshot here as a photo - thank you!\n`;
-  msg += vanLine(day, first);
   msg += `Track your order: ${trackUrl}`;
   return { recipient, message: msg };
 }

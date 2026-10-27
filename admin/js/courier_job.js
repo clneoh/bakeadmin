@@ -698,6 +698,30 @@ export function vanLine(day, order) {
     : `Your ${name} delivery time will be confirmed separately.\n`;
 }
 
+// ★★ THE TWO LINES A CUSTOMER READS ABOUT DAYS (v653). ⚠️⚠️ Her words: __"for delivery, it should instead be
+// Bake day: Wed, 28 Oct / Courier delivery: Thu, 29 Oct or default as bake date. For self collect, just
+// indicate: Bake day: Wed, 28 Oct / Collection: Wed, 28 Oct"__.
+// ⭐ THE FIRST LINE IS ALWAYS THE BAKE DAY — ⚠️ it used to read "Delivery: … - Self collect" for a collection,
+// which named the wrong thing twice, and for a courier order it carried "- Courier delivery" on the WRONG day
+// while the van's own day sat below the payment block, where it read as an afterthought.
+// ⚠️ A courier order with NO van day typed names the BAKE day, which is her instruction; the two are still TWO
+// LINES, which is v337's rule and the reason a customer once asked whether it was Wednesday or Thursday.
+export function dayBlock(state, order, bakeDate) {
+  const day = dayLine(state, order);
+  const when = String(bakeDate || "").trim();
+  if (!when) return "";
+  const first = `Baking day: ${when}\n`;
+  if (day.courier) {
+    // ⚠️ THE DAY COMES FIRST AND ALWAYS: `courierDeliveryText` gives only a WINDOW when no van day is typed
+    // ("2-5 pm"), so the bake day stands in — ⭐ "Courier delivery: 2-5 pm" names a time on no day at all.
+    const typed = courierDayOf(order);
+    const win = windowSuffix(order).replace(/^, /, "");
+    const dayPart = typed ? shortDate(typed) : when;
+    return first + `Courier delivery: ${dayPart}${win ? `, ${win}` : ""}\n`;
+  }
+  return first + `Collection: ${when}${day.window}\n`;
+}
+
 export function dayLine(state, order) {
   const courier = !!order && order.fulfillment === "courier";
   if (!courier) return { label: "Delivery", window: promisedWindowSuffix(state, order), vanTime: "", courier: false };

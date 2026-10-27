@@ -4,6 +4,20 @@ What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
 
+**27 Oct 2026 — engine v653, THE TWO DAYS, EACH ON ITS OWN LINE (NO DATABASE STEP).**
+
+**Your words:** __"for delivery, it should instead be Bake day: Wed, 28 Oct / Courier delivery: Thu, 29 Oct or default as bake date. For self collect, just indicate: Bake day: Wed, 28 Oct / Collection: Wed, 28 Oct"__.
+
+1. ⚠️⚠️ **THE CONFIRMATION WAS SAYING THE WRONG DAY ON THE WRONG LINE.** It read *"Baking day: Wed, 28 Oct - Courier delivery"* — **the how-it-travels sat on the bake day's line** — and the van's own day was printed far below, after the payment block, where it read as an afterthought. It now reads:
+   - **Baking day: Wed, 28 Oct**
+   - **Courier delivery: Thu, 29 Oct** (the day you type on the order)
+   - Address: …
+2. ⭐ **Self collect:** **Baking day: Wed, 28 Oct** · **Collection: Wed, 28 Oct** · then the place and its address, exactly as before.
+3. ⭐ **No van day typed? It names the bake day**, as you asked — and **keeps the one sentence that is still true**: *"Your courier delivery time will be confirmed separately."* The day is promised; the time is not invented.
+4. ⭐ **The payment reminder wears the same two lines** — one helper, so a reminder and the confirmation cannot describe one delivery two ways. The shipped message is unchanged: by then the van is booked.
+
+**No database step and no function deploy.** 3,946 tests green.
+
 **27 Oct 2026 — engine v652, THE ADDRESS LOOKUP WAS SECRETLY ASKING THE WRONG SERVICE (ONE FUNCTION DEPLOY).**
 
 **Why 652 and not 650:** ⚠️ **munchies is at 651** — it took our v649 and then used 650 and 651 for its own work. Its rule is that on every sync it takes *our* number, ⭐ so ours has to be **above theirs**, or that sync would count it backwards. 650 and 651 are spent; this version is 652.

@@ -33,7 +33,11 @@ test("buildConfirmation shows the TNG QR and asks for the receipt in the same ch
   const built = buildConfirmation(state(), group, "https://bake.app/store/?track=445566");
   assert.equal(built.recipient, "60123456789", "wa.me digits, no + / spaces");
   assert.ok(built.message.includes("Order #445566"), "order code");
-  assert.ok(built.message.includes("Delivery: Mon, 7 Sep - Self collect"), "date + fulfillment");
+  // ★★ TWO LINES (v653): the bake day says only the bake day, and the collection says the day it is collected.
+  // ⚠️ This used to read "Delivery: Mon, 7 Sep - Self collect" — one line naming the wrong day and the wrong word.
+  assert.ok(built.message.includes("Baking day: Mon, 7 Sep"), "the bake day, named as the bake day");
+  assert.ok(built.message.includes("Collection: Mon, 7 Sep"), "and the day it is collected");
+  assert.ok(built.message.includes("Self collect"), "and how it is collected");
   assert.ok(built.message.includes("Items: Focaccia x2"), "items, plain ASCII x");
   assert.ok(built.message.includes(MONEY), "the total stands under the subtotal it comes from");
   assert.ok(built.message.includes("Pay by TNG using the QR below:"),
@@ -181,7 +185,10 @@ test("a courier order at this stage is unchanged — its van is booked later (v3
   // day and delivered when the van goes, which may be the next morning. Her report — a Wednesday
   // bake with a Thursday-morning van "asking whether the delivery date is wed or thurday".
   const line = built.message.split("\n").find((l) => l.startsWith("Baking day:"));
-  assert.ok(line.includes("Baking day: Mon, 7 Sep - Courier delivery"), `read "${line}"`);
+  assert.equal(line, "Baking day: Mon, 7 Sep", `read "${line}"`);
+  // ⚠️ AND THE VAN'S DAY IS ITS OWN LINE, below it — with no van day typed it is the bake day, which is her
+  // instruction, and the time is still named as still-to-come.
+  assert.ok(built.message.includes("Courier delivery: Mon, 7 Sep"), "the van's day, on its own line");
   assert.ok(!/collect \d|\d\s*-\s*\d+\s*(am|pm)/.test(line),
     "no time invented for a van that has not been booked — the window is stamped at booking");
   // AND THE TIME IS PROMISED RATHER THAN LEFT UNSAID: the van is booked later, so the app says so.
