@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v666)
+# Jienluv2bake — change history (v54 → v667)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**27 Oct 2026 — engine v667, A CORRECTION TO WHAT THE CHANGELOG SAID ABOUT ONE ORDER (NOTHING ELSE CHANGES).**
+
+**Your words:** __"not in munchies and bakery, i think just drop the search"__ — dropped. ⚠️ But the published notes for v663 stated something I never verified.
+
+1. ⚠️⚠️ **v663's entry said #D4E5F6 is "baked on 28 Oct and carried a courier day of 30 Sep".** Those two dates came from **a test fixture I built to try the rule**, not from reading your order — and I wrote them into the release notes as though they were yours.
+2. ⭐ **Corrected in place, with the date on it,** rather than rewritten: the entry now says the pairing was never verified. The **rule** and the **two checks** stand — they are true whatever that order held.
+3. ⚠️ **For the record:** the order is in neither app. That is possible because the two run on **separate clouds** and cannot hand each other orders — and because **both derive an order code the same way**, so the same six characters can exist in both, for two different orders. A code alone never says which app it belongs to.
+
+**No database step and no function deploy.** 3,977 tests green.
 
 **27 Oct 2026 — engine v666, A PASS NOW SAYS WHAT IT LOOKED AT (NO DATABASE STEP).**
 
@@ -10,7 +20,8 @@ always tell which build a phone is running.
 
 1. ⭐⭐ **A green check now carries its own count.** The van-day check reads: *"12 orders carry a courier day — every one is on or after its bake day"*, or *"No order carries a courier day, so there is nothing to be before a bake day"*. ⚠️ **"No error" was never evidence of anything if the check could not say how many days it examined** — and that is this page's own oldest rule, one step quieter.
 2. ⭐ **And a check that finds nothing must not look like one that found nothing to look at.** The two sentences above are different facts, and now they read differently.
-3. ⚠️ **About #D4E5F6:** an order that leaves your list is kept on the **Removed** card on the Orders screen for 30 days, with the date and the reason it was taken off, and a **Put it back** press. If it is not there either, tell me and that becomes the fault to chase — it would mean an order left without a trace.
+3. ⚠️⚠️ **About #D4E5F6 — and this is now the fault to chase:** an order removed by a press is kept on a **Removed** card on the Orders screen for 30 days, with the date and the reason. **There is no such card, so it did not leave by a press** — it left without a trace, and that is a real fault, not a missing button.
+4. ⭐ **How it comes back meanwhile:** Settings → **Backup & safety** → the copies list → **Put back missing orders** on a copy from before it vanished. That press **only adds** — it never removes or rewrites, takes a "Before put-back" copy first, and leaves anything already in your book or on the Removed shelf exactly as it is.
 
 **No database step and no function deploy.** 3,977 tests green.
 
@@ -37,6 +48,8 @@ always tell which build a phone is running.
 **27 Oct 2026 — engine v663, A VAN CANNOT BE SENT BEFORE THE BREAD EXISTS (NO DATABASE STEP).**
 
 **Your order, and the answer to a question from two days ago:** #D4E5F6 is baked on **28 Oct** and carried a courier day of **30 Sep** — a month before it is made. That one typed day is why the **Delivery run showed a delivery on 30 Sep** and you read it as an order that did not exist.
+
+**⚠️ CORRECTED 27 Oct 2026 — that pairing was never verified.** The **28 Oct bake / 30 Sep van day** came from a test fixture built to try the rule, not from reading the order. The order is no longer in this book, and it is in neither this app nor munchies — at your word the search is dropped. ⭐ **What stands is the RULE and the two checks**, which are right whatever that particular order held; what does not stand is the claim about that order's own dates.
 
 1. ⭐ **The card now says it while you type.** Type a courier day earlier than the bake day and the box reads: *"This is before the bake day (Wed, 28 Oct) — the van would be sent for bread that does not exist yet."* It is a guide, not a gate — the day stays yours to type.
 2. ⭐ **And "Check my system" now finds every one of them**, naming the order codes, with the fix: open the order and clear its Courier delivery date.
