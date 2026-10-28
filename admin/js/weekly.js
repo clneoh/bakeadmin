@@ -194,19 +194,32 @@ function weekNumbers(state, dates) {
 // delivery dates plus their booked/free/money totals. An upcoming date before
 // Week 1's Monday folds into Week 1; dates past the window come back under
 // `later` for a collapsible list on the view.
+// ⚠️⚠️ HER WEEK STARTS ON SUNDAY, AND THE CARD WAS COUNTING MONDAY-TO-SUNDAY **AND** PULLING EARLIER DAYS INTO
+// THE FIRST ROW** (v676). ⭐ Her report, looking at Sat 31 Oct sitting in a block labelled "28 Oct – 8 Nov": __"why
+// sat 31 Oct, included, that is not a bake day???"__ — ⚠️ **the day was hers and real; the block it landed in was
+// wrong.** The first row took EVERY upcoming date up to that row's end (`d.date <= end`), so this week's dates were
+// folded into NEXT week's block and the label stretched over twelve days.
+// ⭐ Now every row is its own week, and the week is the SUNDAY one — the same week the to-do list names on this
+// same screen ("Week of Sun, 25 Oct"). ⚠️ `mondayAnchor` is left alone: it drives the delivery runs, where a
+// Monday week is deliberate (see consolidated.js).
+export function sundayAnchor(today = todayISO()) {
+  const day = new Date(`${today}T00:00:00`).getDay(); // 0 Sun … 6 Sat
+  return addDays(today, -day);
+}
+
 export function comingWeeks(state, { today = todayISO(), weeks = 4 } = {}) {
   const upcoming = (state.deliveryDates || [])
     .filter((d) => d && d.date && d.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date));
-  const anchor = mondayAnchor(today);
-  const horizon = addDays(anchor, weeks * 7 - 1); // the last Sunday in the window
+  const anchor = sundayAnchor(today);
+  const horizon = addDays(anchor, weeks * 7 - 1); // the last Saturday in the window
   const rows = [];
   for (let k = 0; k < weeks; k++) {
     const start = addDays(anchor, k * 7);
     const end = addDays(start, 6);
-    const dates = k === 0
-      ? upcoming.filter((d) => d.date <= end)
-      : upcoming.filter((d) => d.date >= start && d.date <= end);
+    // ⚠️ ONE RULE FOR EVERY ROW, including the first: a date belongs to the week it falls in, never to an
+    // earlier one.
+    const dates = upcoming.filter((d) => d.date >= start && d.date <= end);
     rows.push({
       start,
       end,

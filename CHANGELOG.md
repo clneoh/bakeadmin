@@ -1,8 +1,19 @@
-# Jienluv2bake — change history (v54 → v675)
+# Jienluv2bake — change history (v54 → v676)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Oct 2026 — engine v676, THE COMING-4-WEEKS BLOCK WAS FOLDING THIS WEEK INTO NEXT WEEK (NO DATABASE STEP).**
+
+**Your words:** __"why sat 31 Oct, included, that is not a bake day???"__
+
+1. ⚠️⚠️ **THE FIRST BLOCK WAS SWALLOWING THE CURRENT WEEK.** On a Wednesday the card started its first block at **next Monday** and then pulled **every earlier date** into it — ⭐ so Wed 28, Fri 30 and Sat 31 Oct sat under a block labelled **"28 Oct – 8 Nov"**, eleven days long, with next week's days beside them. ⭐ **It read as though Sat 31 had been added to your bake days. It had not.**
+2. ⭐ **Weeks now start on SUNDAY**, the week you actually use — the same week the to-do list names on the same screen ("Week of Sun, 25 Oct").
+3. ⭐ **And every row is its own week**: Wed 28 · Fri 30 · Sat 31 sit in **25–31 Oct**, and Mon 2 · Wed 4 · Fri 6 · Sat 7 sit in **1–7 Nov**.
+4. ⚠️ **The two Saturdays are still worth a look.** Sat 31 Oct and Sat 7 Nov are **real dates in your book** — the card was right to draw them. If you did not add them, open **More → Bake days** and remove them there; if you did, leave them and they will show in their own week from now on.
+
+**No database step.** 3,986 tests green.
 
 **28 Oct 2026 — engine v675, THE RIGHT WORD, AND THE DAYS NOBODY ORDERED (NO DATABASE STEP).**
 
