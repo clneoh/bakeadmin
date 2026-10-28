@@ -14,7 +14,7 @@
 
 import { el, button, confirmDialog, toast } from "../ui.js";
 import { hideSparesBlocked, runHealthChecks } from "../health.js";
-import { claimReceipt, pullReceiptRegister, maybeSync } from "../supabase.js";
+import { claimReceipt, pullReceiptRegister, maybeSync, maybeSyncStorefront } from "../supabase.js";
 import * as backups from "../backups.js";
 import * as sync from "../sync.js";
 import { save, saveFailure, duplicateIngredientPlan, removeOrders, updateOrderBadge, orderCode } from "../state.js";
@@ -98,6 +98,11 @@ export function renderHealth(root, state) {
             button(`Remove the ${r.repairIds.length} order${r.repairIds.length === 1 ? "" : "s"} with no bake day`,
               () => removeOrphans(r.repairIds), "danger"))
         : null,
+      r.status === "fail" && r.repair === "clearSaleDays" && (r.repairIds || []).length
+        ? el("div", { class: "btn-row", style: "margin:8px 0 0" },
+            button(`Clear ${r.repairIds.length} empty sale-only day${r.repairIds.length === 1 ? "" : "s"}`,
+              () => clearSaleDays(r.repairIds), "primary"))
+        : null,
       r.status === "fail" && r.repair === "clearVanDays" && (r.repairIds || []).length
         ? el("div", { class: "btn-row", style: "margin:8px 0 0" },
             button(`Clear the courier day on ${r.repairIds.length} order${r.repairIds.length === 1 ? "" : "s"}`,
@@ -151,6 +156,32 @@ export function renderHealth(root, state) {
   // clear it; I cannot reach her cloud, so the APP does it — on her press, after the confirmation NAMES EVERY
   // ORDER. ⚠️ It deletes only `courierDay`; the bake day, the money and the customer are untouched, and if the
   // van really is coming she types the real day on the order as before.
+  // ⭐⭐ REMOVE A SALE-ONLY DAY THAT HOLDS NOTHING (v677). ⚠️ Those days are invisible on Bake days by design, so
+  // without this press she has no way to take one back — ⭐ and one was still being drawn on Home as a bake day.
+  // ⚠️ It removes the DAY only, and only when no order points at it. If one has an order, the check does not
+  // list it and this cannot reach it.
+  function clearSaleDays(ids) {
+    const todo = [...new Set((ids || []).map(String))];
+    if (!todo.length) return toast("Nothing to clear");
+    const days = todo
+      .map((id) => (state.deliveryDates || []).find((d) => d && String(d.id) === id))
+      .filter(Boolean);
+    const when = days.map((d) => shortDate(d.date)).join("  ·  ");
+    confirmDialog(
+      `Remove ${days.length} empty day${days.length === 1 ? "" : "s"}?\n\n${when}`
+      + "\n\nThey hold a hand sale and nothing is booked on them. No order is touched — a day with an order on it is not on this list.",
+      () => {
+        const gone = new Set(days.map((d) => String(d.id)));
+        state.deliveryDates = (state.deliveryDates || []).filter((d) => !gone.has(String(d && d.id)));
+        save(state);
+        maybeSync(state);
+        maybeSyncStorefront(state);
+        toast(`${days.length} day${days.length === 1 ? "" : "s"} removed`);
+        run(true);
+      },
+      { yesLabel: "Remove them" });
+  }
+
   function clearVanDays(ids) {
     const todo = [...new Set((ids || []).map(String))];
     if (!todo.length) return toast("Nothing to clear");

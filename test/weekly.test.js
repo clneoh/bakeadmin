@@ -398,3 +398,24 @@ test("★★★ her own card: this week's bake days stay in THIS week (v676)", (
     "★ this week's bakes were folded into next week's block — the twelve-day label she saw");
   assert.deepEqual(ids(w.rows[1]), ["2026-11-02", "2026-11-04", "2026-11-06", "2026-11-07"]);
 });
+
+test("★★★ a sale-only day is flagged, so the card cannot dress it as a bake day (v677)", () => {
+  // ⭐ Her report, twice: "sat 7 Nov is not marked", then "sat 31 Oct also not marked". ⚠️ Both were sale-only days
+  // (a HAND SALE on a day she does not bake — v606): the shop never offers them, Bake days leaves them out, and the
+  // Coming-4-weeks card drew them exactly like bake days.
+  const st = baseState({
+    settings: { currency: "RM", defaultCapacity: 12 },
+    products: [{ id: "p1", name: "Focaccia", price: 16, recipe: [] }],
+    deliveryDates: [
+      { id: "a", date: "2026-10-30" },
+      { id: "b", date: "2026-10-31", recordOnly: true },   // a Saturday, a hand sale
+      { id: "c", date: "2026-11-02" },
+    ],
+    orders: [],
+  });
+  const w = comingWeeks(st, { today: "2026-10-28" });
+  const byDate = (d) => w.rows.flatMap((r) => r.dates).find((x) => x.date === d);
+  assert.equal(byDate("2026-10-31").saleOnly, true, "★ a hand-sale day is not marked as a bake day");
+  assert.equal(byDate("2026-10-30").saleOnly, false);
+  assert.equal(byDate("2026-11-02").saleOnly, false);
+});

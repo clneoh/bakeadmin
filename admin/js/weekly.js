@@ -223,7 +223,11 @@ export function comingWeeks(state, { today = todayISO(), weeks = 4 } = {}) {
     rows.push({
       start,
       end,
-      dates: dates.map((d) => ({ id: d.id, date: d.date })),
+      // ⭐ A SALE-ONLY DAY IS NOT A BAKE DAY AND IS NOT DRESSED AS ONE (v677). ⚠️ `recordOnly` days exist because
+      // she took a HAND SALE on a day she does not bake (v606) — her books need a day for it, the shop never
+      // offers it, and **Bake days correctly leaves it out**. ⭐ The card read `state.deliveryDates` raw, so a
+      // sale-only day sat in the row looking exactly like a bake day — ⭐ her report: *"sat 7 Nov is not marked"*.
+      dates: dates.map((d) => ({ id: d.id, date: d.date, saleOnly: !!d.recordOnly })),
       ...weekNumbers(state, dates),
     });
   }

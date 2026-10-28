@@ -78,9 +78,9 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  // ⚠️ 25 since v663: "No van day is before its bake day" joins the page.
-  assert.equal(res.total, 25, `the check list is no longer twenty-five checks (it is ${res.total})`);
-  assert.equal(res.passedChecks, 25);
+  // ⚠️ 26 since v677: "No sale-only day is left with nothing on it" joins the page.
+  assert.equal(res.total, 26, `the check list is no longer twenty-six checks (it is ${res.total})`);
+  assert.equal(res.passedChecks, 26);
   assert.equal(res.failed, 0);
 });
 
@@ -221,8 +221,8 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
     "★ shared data that could not be read was reported as a pass by the reverse check too");
   assert.equal(resultOf(res, "waiting").status, "pass",
     "the waiting count is a local number and does not need the cloud to be readable");
-  // ⚠️ 16 since v663: the van-day check passes here, and it is not one of the skipped ones.
-  assert.equal(res.passedChecks, 16, "a skipped check was counted among the passes");
+  // ⚠️ 17 since v677: the sale-only-day check passes here too, and is not one of the skipped ones.
+  assert.equal(res.passedChecks, 17, "a skipped check was counted among the passes");
   assert.equal(res.skippedChecks, 9, "the skipped checks were not counted separately");
   assert.equal(resultOf(res, "refunded").status, "skipped",
     "★ an unreadable register was reported as a pass by the refund check");
@@ -298,8 +298,8 @@ test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 25, "the checks did not all run on an empty book");
-  assert.equal(localChecks(bare).length, 14, "the local checks are not fourteen");
+  assert.equal(res.total, 26, "the checks did not all run on an empty book");
+  assert.equal(localChecks(bare).length, 15, "the local checks are not fifteen");
   assert.equal(registerChecks(bare, []).length, 3, "the register checks are not three");
   assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");
 });
@@ -1158,4 +1158,27 @@ test("★★★ the van-day fault arrives with the orders it is about, so one pr
   // ⚠️ And a healthy book offers no repair at all — a button on a passing check would be a button that does nothing.
   const ok = healthy();
   assert.equal(resultOf(runChecks(ok, { register: REGISTER, copies: COPIES }), "vanday").repair, undefined);
+});
+
+test("★★★ a sale-only day with nothing on it is found, and a day WITH an order is left alone (v677)", () => {
+  // ⚠️ Her report: "sat 7 Nov is not marked", then "i din take any order on 7th Nov". ⭐ Those days are invisible on
+  // Bake days by design, so without this check she has no screen on which to see one — while the Coming-4-weeks card
+  // still drew it beside her real bake days.
+  const st = healthy();
+  st.deliveryDates = [
+    { id: "d-empty", date: "2026-11-07", recordOnly: true },   // nothing on it
+    { id: "d-used", date: "2026-10-31", recordOnly: true },    // one order points here
+    { id: "d-bake", date: "2026-11-02" },                      // a real bake day
+  ];
+  st.orders = [
+    { id: "o1", groupId: "g1", deliveryDateId: "d-used", deliveryDate: "2026-10-31", productId: "p1", qty: 1 },
+  ];
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "saleday");
+  assert.equal(r.status, "fail", "★ an empty sale-only day was not reported");
+  assert.deepEqual(r.repairIds, ["d-empty"], "★ the empty day is the one to clear, and the day with an order is not");
+  assert.equal(r.repair, "clearSaleDays");
+  // ⚠️ And a book with none of them passes.
+  const clean = healthy();
+  clean.deliveryDates = [{ id: "d-bake", date: "2026-11-02" }];
+  assert.equal(resultOf(runChecks(clean, { register: REGISTER, copies: COPIES }), "saleday").status, "pass");
 });

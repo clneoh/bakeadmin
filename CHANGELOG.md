@@ -1,8 +1,19 @@
-# Jienluv2bake — change history (v54 → v676)
+# Jienluv2bake — change history (v54 → v677)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Oct 2026 — engine v677, A DAY THAT IS NOT A BAKE DAY IS NO LONGER DRAWN AS ONE (NO DATABASE STEP).**
+
+**Your words:** __"sat 7 Nov is not marked"__ and __"sat 31 Oct also not marked"__ — then __"i din take any order on 7th Nov"__.
+
+1. ⚠️⚠️ **YOU WERE RIGHT TWICE, AND THE CARD WAS THE ONE THAT WAS WRONG.** Those days are **sale-only days**: records the app makes when a hand sale sits on a day you do not bake. The shop never offers them, and **Bake days deliberately leaves them out** — ⭐ while the Coming 4 weeks card read the raw list and drew them **exactly like bake days**.
+2. ⭐ **The card now shows only your bake days** — and it still counts the others, so nothing vanishes: **"· 1 sale-only day"** on the line beneath.
+3. ⚠️⚠️ **And one of them had nothing on it at all.** A day can be made for a hand sale whose order was later moved or removed, and the day stays behind — ⭐ **invisible on the one screen that lists days, and still drawn on Home.**
+4. ⭐ **Check my system now finds those** — *"No sale-only day is left with nothing on it"* — naming each day, with a **Clear** press. ⚠️ A day that still has an order on it is never listed and never touched.
+
+**No database step.** 3,988 tests green.
 
 **28 Oct 2026 — engine v676, THE COMING-4-WEEKS BLOCK WAS FOLDING THIS WEEK INTO NEXT WEEK (NO DATABASE STEP).**
 
