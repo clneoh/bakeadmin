@@ -3,6 +3,7 @@
 
 import { navigate } from "../app.js";
 import { addDays, dayListLabel, generateUpcomingDates, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
+import { orderDateOf } from "../customers.js";
 import { capacityStatus } from "../bom.js";
 import { occColour, upcomingOccasions } from "../calendar.js";
 import { el, button, emptyState, confirmDialog } from "../ui.js";
@@ -336,9 +337,23 @@ function shopWeekCard(state) {
     const last7 = days.filter(([d]) => d >= from);
     const looks7 = last7.reduce((sum, [, n]) => sum + n, 0);
     // ⚠️ LOOKS, NOT PEOPLE — said in the line itself, because it is the one thing this number is not.
+    // ⭐ AND THE DAYS THAT LOOKED AND BOUGHT NOTHING (v675). ⚠️ This is the closest an honest count can get to her
+    // own question — *how many looked and did not buy* — ⭐ **looks cannot be counted per person** (no cookie), but a
+    // DAY can: a day the shop was opened and not one order was placed is a day nobody wanted what was there.
+    // ⚠️ Orders are counted by the day they were PLACED, which is the day the customer was in the shop.
+    const placedBy = new Map();
+    for (const o of state.orders || []) {
+      const d = orderDateOf(o);
+      if (d) placedBy.set(d, (placedBy.get(d) || 0) + 1);
+    }
+    const silent = days.filter(([d, n]) => d >= from && n > 0 && !placedBy.get(d)).length;
+    // ⚠️ THE WORD IS "VISITED" (v675) — her own suggestion, and it is the right one. ⭐ "Looks, not people" was a
+    // caveat she had to hold in her head every time; ⭐ **a visit is an EVENT, not a person** — "42 visits" never
+    // claims 42 customers, it says what was counted, and it reads like a shop. ⚠️ One page open is one visit.
     looksLine.textContent = looks7
-      ? `Shop looked at ${looks7} time${looks7 === 1 ? "" : "s"} in the last 7 days — looks, not people.`
-      : `Shop looked at 0 times in the last 7 days.`;
+      ? `Shop visited ${looks7} time${looks7 === 1 ? "" : "s"} in the last 7 days`
+        + (silent ? ` · ${silent} day${silent === 1 ? "" : "s"} with no order.` : ".")
+      : `Shop not visited in the last 7 days.`;
     looksLine.hidden = false;
   });
   const fillWords = (f) => (f == null ? "no bake days" : `bake days ${f}% full`);

@@ -1,8 +1,18 @@
-# Jienluv2bake — change history (v54 → v674)
+# Jienluv2bake — change history (v54 → v675)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Oct 2026 — engine v675, THE RIGHT WORD, AND THE DAYS NOBODY ORDERED (NO DATABASE STEP).**
+
+**Your words:** __"looks, not people. can have a better phrase?"__
+
+1. ⭐ **The line now says "Shop visited 42 times in the last 7 days".** ⚠️ **A visit is an event, not a person** — it cannot be misread as 42 customers, so **the disclaimer is gone entirely**. ⭐ A caveat telling you what a number is *not* is a sentence you have to hold in your head every time you read it; the right word costs nothing and never needs explaining.
+2. ⭐ **And the number closest to your real question is on the line:** **· 2 days with no order.** ⚠️ Looks cannot be counted per person — no cookie — but a **day** can: a day the shop was opened and not one order was placed is a day nobody wanted what was there.
+3. ⚠️ **Orders are counted by the day they were placed**, which is the day the customer was standing in the shop.
+
+**No database step.** 3,986 tests green.
 
 **28 Oct 2026 — engine v674, HOW MANY TIMES THE SHOP WAS LOOKED AT (ONE DATABASE STEP: `supabase/shop_visits.sql`).**
 
@@ -10,7 +20,7 @@ always tell which build a phone is running.
 
 1. ⭐ **The shop now counts each time its page is opened**, in **your own Supabase** — the same way your promo labels count opens. No Google, no outside company, nothing for a customer to accept.
 2. ⭐ **Home → "The shop this week"** now ends with: *"Shop looked at 42 times in the last 7 days — looks, not people."* Beside your order count, that is the question answered: a day of 40 looks and no order is a shop nobody wanted that day.
-3. ⚠️⚠️ **AND IT SAYS "LOOKS, NOT PEOPLE" IN ITS OWN LINE, because that is the truth.** No cookie, no device fingerprint, no address is kept — so one person looking three times counts three times. It can tell you whether anyone came; it cannot tell you how many customers there were, and nothing on that line pretends otherwise.
+3. ⚠️⚠️ **AND IT SAYS "LOOKS, NOT PEOPLE" IN ITS OWN LINE, because that is the truth.** *(Corrected in v675: the word is now "opened", which says the same thing without needing the caveat — and the line also carries the days that had no order.)* No cookie, no device fingerprint, no address is kept — so one person looking three times counts three times. It can tell you whether anyone came; it cannot tell you how many customers there were, and nothing on that line pretends otherwise.
 4. ⚠️ **A figure that has not come back is never shown as 0** — "nobody looked" is a claim, and a cloud that did not answer is not evidence for it.
 5. ⚠️ **ONE STEP, ONCE:** run `supabase/shop_visits.sql` in the Supabase SQL editor. Its last line is a read-back — **`anon_can_add` must be true and `anon_can_read` must be false**, so the public key can record a look and cannot read them.
 
