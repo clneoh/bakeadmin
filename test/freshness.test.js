@@ -418,3 +418,26 @@ test("★★★ EVERY row sent to product_availability carries a count — inclu
   assert.equal(b.cleared[0].pool_base, null);
   assert.equal(b.cleared[0].pool_qty, null);
 });
+
+// ── v674: how many times the shop was looked at ─────────────────────────────
+//
+// ⭐ Her question: "how many people looked and did not buy". ⚠️ The number is LOOKS, not people — no cookie, no
+// address — and the card says so in its own line.
+const { shopLookCounter } = await import("../store/visits.js");
+
+test("★★★ one look is counted per page load, and never without a cloud to count it in (v674)", () => {
+  const sent = [];
+  const count = shopLookCounter((page, cfg) => sent.push([page, cfg.url]));
+  const cfg = { url: "https://x.supabase.co", anonKey: "k" };
+  // ⚠️ The 30-second poll calls this again on every refresh — a second count would inflate the number she reads.
+  assert.equal(count("shop", cfg), true);
+  assert.equal(count("shop", cfg), false, "★ a poll counted the same look again");
+  assert.deepEqual(sent, [["shop", "https://x.supabase.co"]], "★ the look was sent more than once");
+  // ⚠️ A page with no cloud configured must not burn its one count — the config arrives after the first paint.
+  const late = [];
+  const count2 = shopLookCounter((p) => late.push(p));
+  assert.equal(count2("shop", null), false);
+  assert.equal(count2("shop", {}), false);
+  assert.equal(count2("shop", { url: "u", anonKey: "k" }), true);
+  assert.deepEqual(late, ["shop"], "★ the look was lost because the config had not arrived yet");
+});

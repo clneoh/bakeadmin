@@ -2,14 +2,14 @@
 // and the next delivery dates shown one week at a time as small fuel dials.
 
 import { navigate } from "../app.js";
-import { dayListLabel, generateUpcomingDates, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
+import { addDays, dayListLabel, generateUpcomingDates, longDate, shortDate, todayISO, weekdayName } from "../dates.js";
 import { capacityStatus } from "../bom.js";
 import { occColour, upcomingOccasions } from "../calendar.js";
 import { el, button, emptyState, confirmDialog } from "../ui.js";
 import { gauge } from "../gauge.js";
 import { newId, save, bakeDays, waNumber } from "../state.js";
 import { localChecks } from "../health.js";
-import { pendingReviewCount, fetchWaitlist, markWaitlistDone } from "../supabase.js";
+import { pendingReviewCount, fetchWaitlist, markWaitlistDone, fetchShopVisits } from "../supabase.js";
 import { shopWeek, fourWeek } from "../measure.js";
 import {
   addTask, comingWeeks, loadRoutine, money, newOrderCount, nextBake,
@@ -324,6 +324,23 @@ function atAGlanceBlocks(root, state, today, fc) {
 function shopWeekCard(state) {
   const { now, prev } = shopWeek(state);
   const avg = fourWeek(state);
+  const looksLine = el("p", { class: "card-sub" });
+  looksLine.hidden = true;
+  // ⭐ Fill it when the cloud answers, and say nothing at all if it cannot: ⚠️ **"nobody looked" is a claim, and a
+  // failed read is not evidence for it.** The order counts above stand on their own without it.
+  fetchShopVisits(state, 28).then((r) => {
+    if (!r.ok) return;
+    const days = [...r.byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    if (!days.length) return; // the table is there and nobody has looked yet — a real absence, not "0 looks"
+    const from = addDays(todayISO(), -6);
+    const last7 = days.filter(([d]) => d >= from);
+    const looks7 = last7.reduce((sum, [, n]) => sum + n, 0);
+    // ⚠️ LOOKS, NOT PEOPLE — said in the line itself, because it is the one thing this number is not.
+    looksLine.textContent = looks7
+      ? `Shop looked at ${looks7} time${looks7 === 1 ? "" : "s"} in the last 7 days — looks, not people.`
+      : `Shop looked at 0 times in the last 7 days.`;
+    looksLine.hidden = false;
+  });
   const fillWords = (f) => (f == null ? "no bake days" : `bake days ${f}% full`);
   const quiet = now.orders === 0 && prev.orders === 0 && avg.ordersPerWeek === 0;
   return el("div", { class: "card" },
@@ -336,7 +353,12 @@ function shopWeekCard(state) {
           + `${now.returning} returning`),
         el("p", { class: "card-sub" }, `Bake days ${now.fill == null ? "—" : `${now.fill}%`} full`),
         el("p", { class: "card-sub" },
-          `Last week ${prev.orders} · ${fillWords(prev.fill)} · 4-week average ${avg.ordersPerWeek} a week`)));
+          `Last week ${prev.orders} · ${fillWords(prev.fill)} · 4-week average ${avg.ordersPerWeek} a week`),
+        // ⭐ HOW MANY TIMES THE SHOP WAS LOOKED AT (v674) — filled when the cloud answers, silent until then.
+        // ⚠️ **LOOKS, NOT PEOPLE**: no cookie is kept, so this cannot say how many customers came. What it says is
+        // whether anyone came at all, and beside the order count that is her question answered — *did they look and
+        // not buy?* ⚠️ And a figure that has not come back is not shown as 0: "nobody looked" is a claim.
+        looksLine));
 }
 
 // ★★ "WAITING TO BE TOLD" (v648) — P5: the people who asked about a full day, beside the week they asked about.

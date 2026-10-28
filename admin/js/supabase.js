@@ -2022,3 +2022,38 @@ export async function fetchPromoVisits(state, codes) {
     return { ok: false, reason: "Couldn't reach Supabase" };
   }
 }
+
+// ★★★ HOW MANY TIMES THE SHOP WAS LOOKED AT, BY DAY (v674). ⭐ Her question: __"how many people looked and did
+// not buy"__. ⚠️ **LOOKS, NOT PEOPLE** — the shop keeps no cookie and no address, so this cannot say how many
+// customers there were. ⭐ It can say whether anyone came at all, which with her own order count is the whole
+// question: a day with 40 looks and no order is a shop nobody wanted that day, and a day with 4 looks and 3
+// orders is a shop that is working.
+//
+// ⚠️ Reads the DAILY VIEW, never the raw table: one row per day however many looks there were.
+export async function fetchShopVisits(state, days = 28) {
+  const c = cfg(state);
+  if (!ready(c)) return { ok: false, reason: "Supabase not configured" };
+  const from = new Date(Date.now() - (Math.max(1, Number(days) || 28) - 1) * 86400000)
+    .toISOString()
+    .slice(0, 10);
+  try {
+    const auth = await reviewAuth(c);
+    const res = await fetch(
+      `${c.url}/rest/v1/shop_visit_days?select=page,day,n&day=gte.${from}&order=day.asc&limit=1000`,
+      { headers: auth });
+    if (!res.ok) return { ok: false, reason: `Supabase said ${res.status}` };
+    const rows = await res.json().catch(() => null);
+    if (!Array.isArray(rows)) return { ok: false, reason: "the answer was not a list" };
+    // ⚠️ An EMPTY list is a real answer — the table exists and nobody has looked — and it is told apart from a
+    // read that failed, because "no one visited" and "I could not look" are different facts.
+    const byDay = new Map();
+    for (const r of rows) {
+      const d = String((r && r.day) || "").slice(0, 10);
+      if (!d) continue;
+      byDay.set(d, (byDay.get(d) || 0) + (Number(r && r.n) || 0));
+    }
+    return { ok: true, byDay, total: [...byDay.values()].reduce((s, n) => s + n, 0) };
+  } catch (err) {
+    return { ok: false, reason: err.message || "could not be read" };
+  }
+}

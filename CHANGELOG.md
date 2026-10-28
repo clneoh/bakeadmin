@@ -1,8 +1,20 @@
-# Jienluv2bake — change history (v54 → v673)
+# Jienluv2bake — change history (v54 → v674)
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can
 always tell which build a phone is running.
+
+**28 Oct 2026 — engine v674, HOW MANY TIMES THE SHOP WAS LOOKED AT (ONE DATABASE STEP: `supabase/shop_visits.sql`).**
+
+**Your question:** __"how many people looked and did not buy"__.
+
+1. ⭐ **The shop now counts each time its page is opened**, in **your own Supabase** — the same way your promo labels count opens. No Google, no outside company, nothing for a customer to accept.
+2. ⭐ **Home → "The shop this week"** now ends with: *"Shop looked at 42 times in the last 7 days — looks, not people."* Beside your order count, that is the question answered: a day of 40 looks and no order is a shop nobody wanted that day.
+3. ⚠️⚠️ **AND IT SAYS "LOOKS, NOT PEOPLE" IN ITS OWN LINE, because that is the truth.** No cookie, no device fingerprint, no address is kept — so one person looking three times counts three times. It can tell you whether anyone came; it cannot tell you how many customers there were, and nothing on that line pretends otherwise.
+4. ⚠️ **A figure that has not come back is never shown as 0** — "nobody looked" is a claim, and a cloud that did not answer is not evidence for it.
+5. ⚠️ **ONE STEP, ONCE:** run `supabase/shop_visits.sql` in the Supabase SQL editor. Its last line is a read-back — **`anon_can_add` must be true and `anon_can_read` must be false**, so the public key can record a look and cannot read them.
+
+**No function deploy.** 3,986 tests green.
 
 **27 Oct 2026 — engine v673, THE PRODUCT SYNC THAT WAS FAILING IS FIXED (NO DATABASE STEP).**
 
