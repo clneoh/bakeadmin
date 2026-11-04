@@ -1,4 +1,28 @@
-# Jienluv2bake — change history (v54 → v680)
+# Jienluv2bake — change history (v54 → v682)
+
+**4 Nov 2026 — engine v682, THE COURIER PANEL NAMES THE VEHICLE, NOT THE SOFA (NO DATABASE STEP).**
+
+**Your words:** __"what is the 2 seater"__ — and before that, __"seriously error"__.
+
+1. ⚠️⚠️ **THAT WAS NEVER ABOUT YOUR ORDER.** Lalamove's own vehicle list carries no short name, only a description — and the description is a **furniture advert**: *"Single bed, 2-seater sofa, small dining table."* ⭐ The panel printed that as if it were the vehicle's name, so a baker was reading a sofa list to find out which van to book.
+2. ⭐ **Each price is now named by the vehicle**: **Motorcycle · Car · 4x4 · Van · 7ft Van · 9ft Van · Truck · Lorry**. Lalamove's own words are kept beside it, not thrown away.
+3. ⚠️ **And the last line was a real error, said badly.** One vehicle **was refused** — Lalamove would not price it — while the other six were. It read *"…king / queen size bed.: Lalamove would not accept part of this trip."* ⚠️ A full stop glued to a colon, and the one row worth reading buried in marketing copy.
+4. ⭐ **It now names the vehicle by its first sentence** — *"Large item delivery — Lalamove would not accept part of this trip…"* — and adds the sentence that was missing: **"The 6 prices above are not affected — you can book any of them."**
+5. ⚠️ **What I could not measure:** *why* Lalamove refused that one vehicle. The app does not know, so it will not guess — the next time it happens the row will say which vehicle and Lalamove's own words.
+
+**No database step.** 4,006 tests green.
+
+**4 Nov 2026 — engine v681, THE REPAIR NOW TELLS YOU WHETHER YOUR SHOP GOT IT (NO DATABASE STEP).**
+
+**Your words:** __"the same thing, nothning done. The store still indicate unavailable on 6th nov."__ — and your cloud still carried all ten marks, even with v680 live.
+
+1. ⚠️⚠️ **NOTHING PUBLISHES WHEN THE PHONE IS NOT SIGNED IN TO SHARED DATA.** The publish is skipped in silence, so ⚠️ **the repair could say "Back on sale" while your shop heard nothing at all.** That is what you have been looking at: the marks cleared on the phone, and the shop unchanged.
+2. ⭐ **The press now waits for the answer and says which happened:** *"Back on sale — your shop is updated"*, or **"Saved on this phone, but NOT sent to your shop: this phone is not signed in. Go to More → Settings → Shared data, sign in, then press Sync now."**
+3. ⭐ **Check my system's repair says the same thing** on its own press.
+4. ⚠️ Everything is still saved when it cannot publish — nothing is lost, it is only honestly reported.
+5. ⚠️⚠️ **And my checking was in the wrong place.** Every time I "verified" this repair I was in a browser signed in as *use without cloud sync* — ⭐ **a mode where publishing is switched off**, so the repair looked perfect and the shop never heard a word. ⭐ The publish path now has three of its own tests: signed out, refused by the shop, and half-published.
+
+**No database step.** 4,006 tests green.
 
 **4 Nov 2026 — engine v680, THE ONE PRESS DID NOT SAVE (NO DATABASE STEP).**
 

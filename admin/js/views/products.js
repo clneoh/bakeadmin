@@ -5,7 +5,7 @@
 import { el, button, select, emptyState, confirmDialog, showPopup, toast, wireRowReorder, menuRow } from "../ui.js";
 import { byId, productUnitOptions, fmtRM, round2, newId, save } from "../state.js";
 import { recipeLineCosts, validateRecipeNoCycle } from "../bom.js";
-import { maybeSync, maybeSyncStorefront } from "../supabase.js";
+import { maybeSync, maybeSyncStorefront, publishNow } from "../supabase.js";
 // readPhoto, at 360 px — the SAME reader the customer photos use, at a bigger
 // size. It centre-crops the photo to a square, which is what the baker asked for:
 // the shop's window is square, and the photo is cropped to fill it.
@@ -602,10 +602,20 @@ function availabilityCard(state, product) {
               delete product.validFrom;
               delete product.validTo;
               save(state);
-              if (isLive(product)) maybeSyncStorefront(state);
-              maybeSync(state);
               paint();
-              toast("Back on sale — every bake day");
+              // ⚠️⚠️ AND IT WAITS FOR THE ANSWER BEFORE IT CONFIRMS (v681). ⚠️ The auto-publishers return in
+              // silence when the phone is not signed in, so ⭐ "Back on sale" was said whether or not the shop
+              // heard a thing — ⚠️ **she pressed it twice and her cloud still carried all ten marks.** ⭐ Now the
+              // press says which of the two happened, and names the one thing to do when it did not.
+              toast("Saving to your shop…");
+              publishNow(state).then((r) => {
+                if (r.ok) return toast("Back on sale — your shop is updated");
+                if (r.signedOut) {
+                  return toast("Saved on this phone, but NOT sent to your shop: this phone is not signed in. "
+                    + "Go to More → Settings → Shared data, sign in, then press Sync now.");
+                }
+                return toast(`Saved on this phone, but your shop did not take it — ${r.reason}`);
+              }).catch(() => toast("Saved on this phone, but it did not reach your shop."));
             },
             { yesLabel: "Remove the marks and save", danger: true });
         }, "primary")));

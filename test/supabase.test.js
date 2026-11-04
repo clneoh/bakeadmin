@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateUpcomingDates } from "../admin/js/dates.js";
-import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable, stuckOrders, forgetStuckOrders, incomingCapReached, whyUnimportable, isPendingPhoto, reviewPhotoKey, publishReviewWithPhoto, takeDownReviewWithPhoto, deletePublicReviewPhoto, pendingPhotoUrl, fetchReviews, onTheShop, restInList, storefrontPayload } from "../admin/js/supabase.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable, stuckOrders, forgetStuckOrders, incomingCapReached, whyUnimportable, isPendingPhoto, reviewPhotoKey, publishReviewWithPhoto, takeDownReviewWithPhoto, deletePublicReviewPhoto, pendingPhotoUrl, fetchReviews, onTheShop, restInList, storefrontPayload, publishNow } from "../admin/js/supabase.js";
 import { groupOrders, orderCode } from "../admin/js/state.js";
 // ⭐ THE SHOP'S OWN VERDICT, imported so the recovery test can ask the same question a customer's card asks.
 import { closedReason } from "../store/pool.js";
@@ -213,6 +213,74 @@ test("computeProductSlots returns per-product rows only for products with a limi
   assert.deepEqual(f0, { date: dates[0], product: "Focaccia", slots_left: 7, capacity: 12 }); // 12 - (3+2)
   assert.deepEqual(s0, { date: dates[0], product: "Sandwich", slots_left: 12, capacity: 12 });
   assert.ok(rows.every((r) => r.product !== "Cookie"));
+});
+
+// ── ⭐⭐ v681: DID THE REPAIR ACTUALLY REACH THE SHOP? ───────────────────────
+//
+// ⚠️⚠️ THE BLIND SPOT THAT COST HER AN EVENING. Every check I ran on the repair was in a browser signed in as
+// "use without cloud sync" — ⭐ **a mode in which publishing is switched off**, so the repair looked perfect and
+// the shop never heard a word. ⭐ These pin the three answers the press can now give.
+
+test("★★★ publishNow says the phone is signed out, rather than pretending to publish (v681)", async () => {
+  const state = makeState(); // settings.supabase is empty
+  const r = await publishNow(state);
+  assert.equal(r.ok, false);
+  assert.equal(r.signedOut, true, "★ a phone that cannot publish must say so, not fall through to 'ok'");
+  assert.match(String(r.reason), /not signed in/i);
+});
+
+test("★★★ publishNow reports a failed publish instead of swallowing it (v681)", async () => {
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  globalThis.fetch = async (url) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: false, status: 500, text: async () => "boom" };
+  };
+  try {
+    const r = await publishNow(state);
+    assert.equal(r.ok, false, "★ a 500 from the shop was reported as a success");
+    assert.match(String(r.reason), /HTTP 500/, "the reason must carry what the shop actually said");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("★★★ publishNow is only ok when BOTH halves published (v681)", async () => {
+  // ⚠️ The menu and the counts are two requests. ⭐ Her "12 here, 24 there" was one of them landing and the other
+  // not — so a success has to mean both.
+  const state = makeState();
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const seen = [];
+  globalThis.fetch = async (url) => {
+    seen.push(String(url));
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    return { ok: true, text: async () => "", json: async () => [] };
+  };
+  try {
+    const r = await publishNow(state);
+    assert.equal(r.ok, true, `a clean publish was not reported as one: ${JSON.stringify(r)}`);
+    assert.ok(seen.some((u) => u.includes("storefront_config")), "the menu was never published");
+    assert.ok(seen.some((u) => u.includes("/rest/v1/availability")), "the counts were never published");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  // ⚠️ AND THE HALF THAT FAILS MUST SINK THE WHOLE ANSWER. ⚠️ Without this the first half of this test passes even
+  // when the counts' result is ignored entirely — ⭐ measured: the bite on that line did not fail, so the
+  // assertion above was not load-bearing until this one existed.
+  globalThis.fetch = async (url) => {
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (url.includes("/rest/v1/availability")) return { ok: false, status: 409, text: async () => "counts refused" };
+    return { ok: true, text: async () => "", json: async () => [] };
+  };
+  try {
+    const r = await publishNow(state);
+    assert.equal(r.ok, false,
+      "★ the menu went up and the counts did not, and the press still called it a success — that is her 12-vs-24");
+    assert.match(String(r.reason), /409/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 // ── ⭐ v678: THE PHANTOM PRODUCT ────────────────────────────────────────────

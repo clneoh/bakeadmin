@@ -762,9 +762,34 @@ test("the vehicle list is deduped, and an entry with no key is dropped rather th
     { key: "CAR" },
     null,
   ]);
-  assert.deepEqual(out, [{ key: "MOTORCYCLE", name: "Motorcycle" }, { key: "CAR", name: "Car" }]);
+  // ⚠️ AND THE VENDOR'S WORD FOR A VEHICLE IS KEPT APART FROM ITS NAME (v682). ⭐ The cities reply's `name` is
+  // a paragraph about furniture ("Single bed, 2-seater sofa…"); ⭐ it now travels on `detail` and the NAME comes
+  // from the key, which is what she chooses on.
+  assert.deepEqual(out, [
+    { key: "MOTORCYCLE", name: "Motorcycle", detail: "Motorcycle" },
+    { key: "CAR", name: "Car", detail: "" },
+  ]);
   assert.deepEqual(normaliseVehicles(null), []);
   assert.deepEqual(normaliseVehicles("nonsense"), []);
+});
+
+test("★★ a known vehicle is named by its vehicle, not by Lalamove's furniture blurb (v682)", () => {
+  // ⚠️⚠️ HER QUESTION: __"what is the 2 seater"__. ⭐ The panel had shown her
+  // "Ideal for small item delivery. Single bed, 2-seater sofa, small dining table." as a VEHICLE NAME, so a
+  // baker was reading a sofa advertisement to find out which van to book. ⭐ The name is the class; the blurb
+  // rides along as `detail`.
+  const out = normaliseVehicles([
+    { key: "4X4", description: "Ideal for small item delivery. Single bed, 2-seater sofa, small dining table." },
+    { key: "7FT_VAN", description: "Ideal for groceries, food, flowers, parcels, fragile goods" },
+    { key: "ODDBALL", description: "Two doors and a roof. Something else entirely." },
+  ]);
+  const byKey = Object.fromEntries(out.map((v) => [v.key, v]));
+  assert.equal(byKey["4X4"].name, "4x4", "★ a known vehicle must be named by its class");
+  assert.match(byKey["4X4"].detail, /2-seater sofa/, "the vendor's words are kept, not thrown away");
+  assert.equal(byKey["7FT_VAN"].name, "7ft Van", "and the size prefix survives, spelled the way she says it");
+  assert.equal(byKey["ODDBALL"].name, "Two doors and a roof",
+    "★ an unknown vehicle falls back to the first sentence of the vendor's description, not its key in code");
+  assert.equal(byKey["ODDBALL"].name.includes("."), false, "and no full stop is left hanging on the name");
 });
 
 // ── the client half: reading a price she is about to quote ────────────────
@@ -1176,7 +1201,10 @@ test("every price wears the vehicle's own name, and a refused vehicle wears one 
     // list of prices cannot be chosen.
     lalamove.forget();
     const again = await lalamove.quote(STATE, readyTrip(), { services: ["7FT_VAN"] });
-    assert.equal(again.quotes[0].name, "7Ft Van");
+    // ⚠️ "7ft Van", NOT "7Ft Van" (v682). ⭐ This file's own comment has said since v566 that the digit rule is
+    // there so the vehicle reads "7ft Van" — ⚠️ **while this assertion pinned "7Ft Van", the opposite.** ⭐ The
+    // name now comes from one table in `serviceName`, and the table says what the comment says.
+    assert.equal(again.quotes[0].name, "7ft Van");
   } finally { lalamove.forget(); s.restore(); }
 });
 

@@ -14,7 +14,7 @@
 
 import { el, button, confirmDialog, toast } from "../ui.js";
 import { hideSparesBlocked, runHealthChecks } from "../health.js";
-import { claimReceipt, pullReceiptRegister, maybeSync, maybeSyncStorefront } from "../supabase.js";
+import { claimReceipt, pullReceiptRegister, maybeSync, maybeSyncStorefront, publishNow } from "../supabase.js";
 import * as backups from "../backups.js";
 import * as sync from "../sync.js";
 import { byId, save, saveFailure, duplicateIngredientPlan, removeOrders, updateOrderBadge, orderCode } from "../state.js";
@@ -187,11 +187,14 @@ export function renderHealth(root, state) {
           delete p.validTo;
         }
         save(state);
-        maybeSyncStorefront(state);
-        // ⚠️ AND THE DAY AND PRODUCT COUNTS GO WITH IT (v680). ⚠️ The menu alone was republished, so the day
-        // still read the fallback 12 against a product limit of 24 — ⭐ the second half of what she reported.
-        maybeSync(state);
-        toast(`${products.length} product${products.length === 1 ? "" : "s"} back on sale every bake day`);
+        // ⚠️⚠️ AND IT SAYS WHETHER THE SHOP ACTUALLY GOT IT (v681). ⚠️ The auto-publishers return in silence
+        // when the phone is not signed in — ⭐ so this press used to confirm a repair the shop never heard of.
+        toast("Saving to your shop…");
+        publishNow(state).then((r) => {
+          if (r.ok) toast(`${products.length} product${products.length === 1 ? "" : "s"} back on sale — your shop is updated`);
+          else if (r.signedOut) toast("Saved on this phone, but NOT sent to your shop: not signed in. Go to More → Settings → Shared data, sign in, then press Sync now.");
+          else toast(`Saved on this phone, but your shop did not take it — ${r.reason}`);
+        }).catch(() => toast("Saved on this phone, but it did not reach your shop."));
         run(true);
       },
       { yesLabel: "Put them back on sale", danger: true });

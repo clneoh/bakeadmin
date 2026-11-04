@@ -1360,6 +1360,36 @@ test("★★★ a product that cannot be sold says so, and one press puts it bac
   assert.equal(state.products[0].validTo, undefined);
 });
 
+test("★★ the repair says whether it actually reached the shop (v681)", async () => {
+  // ⚠️⚠️ SHE PRESSED IT TWICE AND NOTHING HAPPENED. ⭐ The auto-publishers return **in silence** when the phone
+  // is not signed in to shared data, so ⚠️ **the repair said "Back on sale" while her cloud still carried all ten
+  // marks.** ⭐ A confirmation that cannot tell whether it reached the shop is not a confirmation.
+  doc.body.replaceChildren();
+  resetLayers();
+  const state = freshState(); // `settings.supabase` is `{}` — this phone is signed OUT
+  state.products = [{ id: "p1", name: "Focaccia", unit: "u_loaf", active: true,
+    sellRules: [{ days: [1], from: "2026-07-01", to: "2026-07-31" }] }];
+  const root = render(state);
+  fire(buttonByText(root, "Edit"));
+  const pop = layers["popup-layer"];
+  openAvail(pop);
+  const warn = walk(pop).find((n) => (n.className || "") === "avail-ended");
+  assert.ok(warn, "the card drew no warning, so this test is not testing the repair at all");
+  fire(walk(warn).find((n) => n.tagName === "BUTTON"));
+  const yes = walk(layers["confirm-layer"]).find((n) => n.tagName === "BUTTON"
+    && (n.children || []).some((c) => c.text === "Remove the marks and save"));
+  fire(yes);
+  for (let i = 0; i < 8; i++) await null; // let the publish answer land
+
+  const last = doc.body.children[doc.body.children.length - 1];
+  const said = String((last && last.textContent) || "");
+  assert.match(said, /NOT sent to your shop/,
+    `★ the repair claimed success without knowing — it said: ${said}`);
+  assert.match(said, /Shared data/, "and it does not say what to do about it");
+  // ⚠️ AND THE MARKET IS STILL SAVED — the repair is not rolled back; it is only honestly reported.
+  assert.equal(state.products[0].sellRules, undefined);
+});
+
 test("taking the last mark off is the one way back to selling every delivery day", () => {
   doc.body.replaceChildren();
   resetLayers();

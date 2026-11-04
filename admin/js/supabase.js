@@ -663,6 +663,26 @@ export async function syncStorefront(state) {
   return { ok: true, at: new Date().toISOString() };
 }
 
+// ⭐⭐ ONE PRESS, AND THE TRUTH ABOUT WHETHER IT LANDED (v681).
+//
+// ⚠️⚠️ `maybeSyncStorefront` and `maybeSync` BOTH RETURN IN SILENCE WHEN THE PHONE IS NOT SIGNED IN, and both
+// swallow a failed request on the auto path. ⭐ So a repair could say "Back on sale" while the shop saw nothing
+// at all — ⚠️ **which is exactly what she reported twice: __"the same thing, nothning done"__ while her cloud
+// still carried all ten marks.** ⭐ A confirmation that does not know whether it reached the shop is not a
+// confirmation. This one waits, and answers.
+export async function publishNow(state) {
+  const c = cfg(state);
+  if (!ready(c)) {
+    return { ok: false, signedOut: true,
+      reason: "this phone is not signed in to shared data, so nothing can reach your shop" };
+  }
+  const sf = await syncStorefront(state);
+  if (!sf || sf.ok === false) return { ok: false, reason: (sf && sf.reason) || "the shop would not take it" };
+  const av = await syncAvailability(state);
+  if (!av || av.ok === false) return { ok: false, reason: (av && av.reason) || "the shop would not take it" };
+  return { ok: true };
+}
+
 let sfTimer = null;
 export function maybeSyncStorefront(state) {
   if (!ready(cfg(state))) return; // never schedule timers when Supabase is off
