@@ -8,7 +8,10 @@
 // languages, and the tone is warm and simple for a family bakery.
 
 const en = {
-  title: "Jien Luv 2 Bake — Small Batch Bakery",
+  // ⚠️ THIS IS THE TITLE A BROWSER ACTUALLY SHOWS (v684): i18n.js OVERWRITES the <title> in index.html from
+  // this table on every language switch, ⭐ so a title changed only in the HTML is silently undone in the tab.
+  // ⭐ It names Penang and the bread she sells today — the four sandwiches and pies say COMING SOON.
+  title: "Small Batch Bakery in Penang — Focaccia | Jien Luv 2 Bake",
 
   // Nav + language switch
   navBakes: "OUR BAKES",
@@ -119,7 +122,7 @@ const en = {
 };
 
 const zh = {
-  title: "Jien Luv 2 Bake — 小批量烘焙坊",
+  title: "槟城小批量烘焙坊 — 佛卡恰 | Jien Luv 2 Bake",
 
   navBakes: "我们的烘焙",
   navOrder: "如何订购",
@@ -222,7 +225,7 @@ const zh = {
 };
 
 const ms = {
-  title: "Jien Luv 2 Bake — Bakeri Skala Kecil",
+  title: "Bakeri Kecil di Pulau Pinang — Focaccia | Jien Luv 2 Bake",
 
   navBakes: "SAJIAN KAMI",
   navOrder: "CARA MENEMPAH",

@@ -16,6 +16,12 @@ User-agent: *
 # Her working papers — see above.
 Disallow: /test/
 
+# ⭐ AND WHERE THE TWO PAGES ARE (v684). ⚠️ A sitemap is not a ranking trick — ⭐ it is how a crawler that has
+# never heard of this site learns that /store/ exists at all, without having to guess the path.
+# ⚠️ AI crawlers need no entry of their own: `User-agent: *` already allows them, and ⭐ a named block per bot
+# would be a list to maintain for no gain.
+Sitemap: https://jienluv2bake.com.my/sitemap.xml
+
 # /admin/ is deliberately NOT listed here. It is PIN-locked and carries noindex, nofollow in its own
 # <head>; blocking it here would stop the crawler reaching that tag, which is the very thing being relied
 # on. The same is true of /form/ and /admin/promo-card.html.

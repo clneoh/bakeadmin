@@ -8,9 +8,12 @@
 // spoken two ways.
 
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { CUTOFF_TOKEN, bakeDaysText, cutoffText, publishedPrice, priceText, withCutoff } from "../home-facts.js";
 import { HOME } from "../home-lang.js";
+
+const HOME_SRC = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
 test("cutoffText speaks a clock the way a person does", () => {
   assert.equal(cutoffText("18:00"), "6pm");
@@ -92,4 +95,34 @@ test("★★★ the homepage card shows the price she publishes, not a typed num
   assert.equal(publishedPrice([]), "");
   assert.equal(publishedPrice([{ name: "Focaccia", price: 0 }]), "");
   assert.equal(publishedPrice(null), "");
+});
+
+// ── ⭐⭐ v684: THE TITLE HAS TWO HOMES, AND THEY MUST AGREE ──────────────────
+//
+// ⚠️⚠️ `i18n.js` REWRITES `<title>` FROM THE LANGUAGE TABLE ON EVERY SWITCH. ⭐ So a title changed only in
+// `index.html` is ⚠️ **silently undone the moment the page's own script runs** — the tab, the bookmark and the
+// language switch all read the table, while a search engine reads the HTML. ⭐ I changed one and not the other,
+// watched the browser refuse to show the new title, and blamed a cache.
+
+test("★★ the English title in index.html and the one the page applies are the same title (v684)", () => {
+  const inHtml = ((HOME_SRC.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || "").trim();
+  assert.ok(inHtml, "the homepage has a <title> for a search engine to read");
+  // ⚠️ ENGLISH ONLY: the Malay and Chinese titles are translations, and they are SUPPOSED to differ. ⭐ What may
+  // not differ is the English pair — the one Google indexes and the one her tab shows.
+  assert.equal(HOME.en.title, inHtml,
+    "★ the English title the page applies at runtime differs from the one in the HTML — "
+    + "one of the two is invisible to Google, and the other is invisible to her");
+  // ⚠️ AND EVERY LANGUAGE KEEPS THE BRAND, so a shared link is recognisable whichever one was chosen.
+  for (const lang of ["en", "ms", "zh"]) {
+    assert.match(HOME[lang].title, /Jien Luv 2 Bake/, `the ${lang} title lost the brand`);
+  }
+});
+
+test("★ the title names Penang and a bake, and the brand is declared once for the email sender (v684)", () => {
+  const t = (HOME_SRC.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || "";
+  assert.match(t, /Penang/, "★ a customer searching 'bakery Penang' has to be able to match this");
+  assert.match(t, /Focaccia/, "★ and it must name what she sells today");
+  assert.ok(t.length <= 60, `the title is ${t.length} characters, which Google will cut`);
+  assert.match(HOME_SRC, /<meta\s+property="og:site_name"\s+content="Jien Luv 2 Bake"/,
+    "★ the brand must stay declared in one readable place — the email sender name is taken from it");
 });

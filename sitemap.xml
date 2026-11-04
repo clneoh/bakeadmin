@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  sitemap.xml — the two pages a customer should find (v684).
+
+  ⚠️ IT LISTS ONLY THOSE TWO. The site publishes every file the repository tracks, so the sitemap would be
+  ⚠️ **an invitation to crawl `/test/` and `/admin/`** if it listed what exists rather than what is for sale.
+  ⭐ `/admin/` is PIN-locked and already says noindex in its own head; `/test/` is blocked in robots.txt.
+  ⚠️ A `<lastmod>` is a claim about the page, so it is dated to the release that last changed it — a sitemap
+  that says "today" every day is a sitemap crawlers learn to ignore.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://jienluv2bake.com.my/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://jienluv2bake.com.my/store/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+</urlset>

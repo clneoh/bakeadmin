@@ -1,4 +1,19 @@
-# Jienluv2bake — change history (v54 → v683)
+# Jienluv2bake — change history (v54 → v684)
+
+**4 Nov 2026 — engine v684, THE HOMEPAGE CAN NOW BE FOUND (NO DATABASE STEP).**
+
+**Your words:** __"actually my intention that time is to make the apps more seo"__ — so the preview page was never the answer. None of what was missing is visual.
+
+1. ⚠️ **Your page was invisible to everything except a browser.** It had no Open Graph tags, no structured data and no canonical, and its title said "Small Batch Bakery" without ever saying **Penang** or what you sell.
+2. ⭐ **The title now reads "Small Batch Bakery in Penang — Focaccia | Jien Luv 2 Bake"** — 57 characters, place first, brand last. ⚠️ It says **Focaccia** and not "croissants & pies", because the other four bakes say COMING SOON — a search result promising a bread you do not have is a customer who leaves. It also carries 中文 and BM versions.
+3. ⭐ **Open Graph added** — so a link shared in WhatsApp now arrives with your name, a description and a photo instead of a bare grey URL. ⚠️ The photo is your 239-pixel hero, so it will be soft; no tag can add detail the file does not hold.
+4. ⭐ **Structured data added** — a **Bakery** (Sungai Ara, Penang, your WhatsApp number, your Instagram) and **one Product: Focaccia, RM16, pre-order**. ⚠️ The four coming-soon bakes carry **no price**, because you are not selling them yet.
+5. ⚠️⚠️ **And a trap I fell into and the suite caught.** The page's own script **overwrites the title** from its language table on every switch — so a title changed only in the HTML is silently undone in the tab. ⭐ Worse, your **email sender name** was read from the title's first words, so the new title would have made every customer email come from *"Small Batch Bakery in Penang"*. ⭐ Both are now pinned: the two titles must match, and the brand is read from one declared place.
+
+6. ⭐ **And for AI search, three small files.** ⚠️ A crawler had no idea `/store/` existed — nothing listed it. **`sitemap.xml`** now names the two customer pages (and only those: a sitemap built from the folder would invite a crawler into `/test/`), `robots.txt` points at it, and **`llms.txt`** gives an assistant a short, factual summary — the RM16 focaccia, the bake days, the 6pm cut-off, Sungai Ara, your WhatsApp.
+7. ⚠️ **And `llms.txt` is honest about itself**: it says plainly that the convention is proposed, not standard, so nothing here claims an authority it does not have. ⚠️ Your `robots.txt` already allows every AI crawler (`User-agent: *`, only `/test/` blocked) — that needed no change.
+
+**No database step.** 4,015 tests green.
 
 **4 Nov 2026 — engine v683, THE APP NEVER SHOWS THE COURIER'S OWN WORDS AGAIN (ONE DEPLOY STEP: the courier function).**
 

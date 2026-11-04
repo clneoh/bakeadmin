@@ -1,0 +1,34 @@
+# Jien Luv 2 Bake
+
+> A small-batch home bakery in Sungai Ara, Penang, Malaysia. Focaccia is baked to order
+> on Mondays, Wednesdays and Fridays, and can be collected in Sungai Ara or delivered
+> around Penang.
+
+⚠️ WHAT THIS FILE IS, PLAINLY: `llms.txt` is a proposed convention (a short, factual summary
+for AI assistants), not a standard that Google, OpenAI or Anthropic have committed to. Some
+tools read it; most do not yet. It costs one small file and it states only facts that already
+appear on the website — no claim is made here that the site does not make itself.
+
+## What is for sale now
+
+- **Focaccia**, 12" × 9" — **RM16**. Soft on the inside, golden on the outside. Pre-order only.
+
+The Italian Pesto Ham, Croissant, Mushroom & Egg and Vegetarian Pie are listed on the site as
+**coming soon** and are not available to order.
+
+## How ordering works
+
+- **Bake days:** Monday, Wednesday and Friday.
+- **Orders close at 6:00PM the day before the bake day.**
+- **Collect** in Sungai Ara, or **delivery** around Penang.
+- Order online at https://jienluv2bake.com.my/store/
+
+## Contact
+
+- WhatsApp: +60 16-960 1268 — https://wa.me/60169601268
+- Instagram: https://www.instagram.com/jienluv2bake
+
+## Pages
+
+- https://jienluv2bake.com.my/ — the bakery, what is baked, and how to order
+- https://jienluv2bake.com.my/store/ — the order page
