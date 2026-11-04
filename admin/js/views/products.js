@@ -19,7 +19,7 @@ import { boxClass, nameDay, occBox, occPapers, tipEl } from "../occgrid.js";
 import { longDate, todayISO } from "../dates.js";
 // The sell-day rules themselves — one shared copy, the same file the shop reads,
 // so the day she marks here and the day a customer may order can never drift.
-import { availRules, dayOfWeek, monthBounds, normRules, ruleLabel, ruleOpen, rulesOpen, rulesSummary } from "../../../availability.js";
+import { availEndText, availRules, availState, dayLabel, dayOfWeek, monthBounds, normRules, ruleLabel, ruleOpen, rulesOpen, rulesSummary } from "../../../availability.js";
 
 const ALL_VARIANTS = ["nameZh", "descZh", "unitZh", "servingZh", "nameMs", "descMs", "unitMs", "servingMs"];
 const LANG_VARIANTS = { zh: ["nameZh", "descZh", "unitZh", "servingZh"], ms: ["nameMs", "descMs", "unitMs", "servingMs"] };
@@ -311,7 +311,26 @@ function availabilityCard(state, product) {
   const body = el("div", { class: "fold-body avail-body", hidden: true });
   // The folded header carries the switch too, so its state reads without opening
   // the card ("Every day · kept on the shop").
-  const summaryText = () => rulesSummary(rules) + (listed ? " · kept on the shop" : "");
+  //
+  // ⚠️⚠️ AND IT CARRIES THE END DATE (v678). ⭐ Her Focaccia's marks stopped on 31 Oct 2026, the shop went
+  // dark on 1 Nov, and ⚠️ **this header — the only line she sees without opening the card — said
+  // "Mon · 1-30 Sep 2026 + Tue · 1-30 Sep 2026 +8 more", which names neither the end nor the state.**
+  // ⭐ When the marks have run out the end date IS the summary: listing ten periods that all expired
+  // buries the one fact she needs.
+  const endState = () => availState(rules, today);
+  const summaryText = () => {
+    const st = endState();
+    // ⚠️⚠️ THE ENDED SENTENCE IS ONE LINE LONG ON A PHONE, AND THE DATE IS THE POINT (v678). ⚠️ Measured on the
+    // real card at 375px: "Not on sale — ended 31 Oct 2026 · kept on the shop" is 301px in a 158px box, so it
+    // read **"Not on sale — ended 31 …"** — ⭐ the state was there and the date was cut off. ⭐ So the ended
+    // state says exactly one thing, short enough to finish, and the "kept on the shop" tag steps aside: that
+    // switch is right inside the card, and a second sentence is what pushed the date out of view.
+    if (st.kind === "ended") return `Not on sale since ${dayLabel(st.date)}`;
+    const base = st.kind === "none"
+      ? rulesSummary(rules)
+      : `${rulesSummary(rules)} · ${availEndText(rules, today)}`;
+    return base + (listed ? " · kept on the shop" : "");
+  };
 
   const controller = { card: null, open: false, close: null };
   const shut = () => {
@@ -547,8 +566,38 @@ function availabilityCard(state, product) {
         button("Clear end", () => setEnd("to", ""), "ghost small")));
   }
 
+  // ── the marks have run out ────────────────────────────────────────────────
+  //
+  // ⚠️⚠️ A PRODUCT WHOSE MARKS HAVE ALL ENDED IS NOT ON SALE, AND NOTHING SAID SO (v678). ⭐ Her own report:
+  // __"enven now when i open up my store, the store show 1 product only which is the foccacia but with zero
+  // availibility."__ ⚠️ The Focaccia's marks covered September and October and stopped on 31 Oct, so from
+  // 1 Nov the shop said "Only available for bake days up to Saturday, 31 Oct." — ⚠️ **a sentence about a date
+  // she never chose, on a card whose folded header listed ten expired periods and named no end.**
+  // ⭐ The press beside the warning is the whole repair: **no marks at all means every bake day**, which is
+  // what an everyday product should have said in the first place. Nothing else about the product is touched.
+  function warnEl() {
+    const st = endState();
+    if (st.kind !== "ended") return null;
+    const word = rules.length === 1 ? "the mark below ends" : `all ${rules.length} marks below end`;
+    const what = rules.length === 1 ? "this product's sell-day mark" : `all ${rules.length} sell-day marks`;
+    return el("div", { class: "avail-ended" },
+      el("p", { class: "avail-ended-head" }, `Not on sale since ${dayLabel(st.date)}`),
+      el("p", { class: "avail-ended-text" },
+        `${word} on or before that day, so the shop is not offering this product at all. Customers see it as Unavailable, and the last bake day it can be ordered for is ${dayLabel(st.date)}.`),
+      el("div", { class: "btn-row" },
+        button("Sell every bake day — remove the end date", () => {
+          confirmDialog(
+            `Remove ${what}? With nothing marked this product sells on every bake day, with no end date — which is what it does when you have marked nothing. Your delivery days are not touched.`,
+            () => { rules = []; sel = -1; paint(); },
+            { yesLabel: "Remove the marks", danger: true });
+        }, "primary")));
+  }
+
   function paint() {
     summary.textContent = summaryText();
+    // The header is the one line that reads while the card is folded, so a product that has stopped
+    // selling must be visible there — not only inside.
+    summary.classList.toggle("avail-sum-warn", endState().kind === "ended");
     if (body.hidden) return; // folded: the header is all there is to draw
     const mb = monthBounds(month.year, month.month);
     const prev = button("‹", () => { month = addMonth(month.year, month.month, -1); paint(); }, "ghost small cal-nav");
@@ -557,7 +606,9 @@ function availabilityCard(state, product) {
     if (!before(month, lastMonth)) next.disabled = true;
     const box = el("input", { type: "checkbox", checked: listed,
       onchange: (ev) => { listed = ev.target.checked; summary.textContent = summaryText(); } });
+    const warning = warnEl();
     body.replaceChildren(
+      ...(warning ? [warning] : []),
       el("div", { class: "avail-listed" },
         el("label", { class: "switch" }, box, el("span", { class: "switch-track" },
           el("span", { class: "switch-knob" }))),

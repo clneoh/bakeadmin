@@ -26,7 +26,8 @@ import { isCollected } from "./money.js";
 import { receiptNoOfGroup } from "./receipts.js";
 import { listFields } from "./sync.js";
 import { unaccountedOrders } from "./backups.js";
-import { dayMonth, shortDate } from "./dates.js";
+import { dayMonth, shortDate, todayISO } from "./dates.js";
+import { availRules, availState, dayLabel } from "../../availability.js";
 import { fmtStockAmount } from "./purchasing.js";
 import { STOCK_LOG_CAP } from "./stock.js";
 
@@ -467,6 +468,50 @@ export function localChecks(state) {
       const failing = out[out.length - 1];
       failing.repair = "clearSaleDays";
       failing.repairIds = orphanDays.map((d) => d.id);
+    }
+  }
+
+  // ── A PRODUCT THAT HAS RUN OUT OF SELL DAYS (v678) ──────────────────────
+  //
+  // ⚠️⚠️ HER SHOP WENT DARK ON 1 NOV 2026 AND EVERY SCREEN LOOKED FINE. Her words: __"i stop using the app for
+  // many days, but seem everything go hare wire. the availability wrong between store, app order calendar, and
+  // product setting"__, then __"enven now when i open up my store, the store show 1 product only which is the
+  // foccacia but with zero availibility."__ ⚠️ **The Focaccia's sell-day marks covered September and October and
+  // stopped on 31 Oct.** From 1 Nov the product could not be ordered on any day at all, and ⚠️ **nothing in the
+  // app said so** — the calendar fell back to the default capacity, the product rows still published their
+  // limit, and the shop showed Unavailable with a date she never chose.
+  //
+  // ⚠️ ONLY A PRODUCT WHOSE LAST SELL DAY IS BEHIND IT IS REPORTED. A product waiting for a window that has not
+  // opened yet — a Christmas set marked for 20 Dec — sells on nothing coming today either, ⚠️ **and that is not
+  // a fault.** Reporting it would cry wolf for a month and teach her to ignore this page.
+  {
+    const today = todayISO();
+    const live = (state.products || []).filter((p) => p && p.active !== false && p.draft !== true);
+    const dead = live
+      .map((p) => ({ product: p, st: availState(availRules(p), today) }))
+      .filter((x) => x.st.kind === "ended");
+    out.push(dead.length
+      ? fail("selldays", "No product has run out of sell days",
+        // ⚠️ THE YEAR IS PART OF IT. `shortDate` reads "Sat, 31 Oct", and a page she may read months later
+        // cannot tell a date from this October from one a year ago — ⭐ on the one line whose whole job is
+        // "when did this stop".
+        dead.map((x) => `${x.product.name} — last sell day ${dayLabel(x.st.date)}`),
+        "These products cannot be ordered on any day at all: every sell day marked on them is behind us. The shop keeps showing them as Unavailable until the marks are changed, which reads as the shop being broken rather than the product having a last day.",
+        "Press below to remove the marks. With nothing marked a product sells on every bake day, with no end date — so it goes back on the shop at once. Its price, recipe, limits and photos are not touched.")
+      : pass("selldays", "No product has run out of sell days"));
+
+    // ⭐ A PASS CARRIES ITS OWN COUNT (v666) — "no error" is not evidence of anything.
+    if (!dead.length) {
+      const marked = live.filter((p) => availState(availRules(p), today).kind !== "none");
+      out[out.length - 1].detail = [live.length
+        ? `${live.length} product${live.length === 1 ? "" : "s"} — ${marked.length} carry sell days, and every one still has a day ahead or no end date`
+        : "There are no products, so there is nothing that could run out of sell days"];
+    }
+
+    if (dead.length) {
+      const failing = out[out.length - 1];
+      failing.repair = "clearSellDays";
+      failing.repairIds = dead.map((x) => x.product.id).filter(Boolean);
     }
   }
 

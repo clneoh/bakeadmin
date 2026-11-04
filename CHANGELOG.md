@@ -1,4 +1,18 @@
-# Jienluv2bake — change history (v54 → v677)
+# Jienluv2bake — change history (v54 → v678)
+
+**4 Nov 2026 — engine v678, YOUR SHOP WENT DARK BECAUSE YOUR SELL DAYS RAN OUT (NO DATABASE STEP).**
+
+**Your words:** __"the availability wrong between store, app order calendar, and product setting"__ — then __"enven now when i open up my store, the store show 1 product only which is the foccacia but with zero availibility."__
+
+1. ⚠️⚠️ **NOTHING WENT HAYWIRE. YOUR FOCACCIA'S SELL DAYS STOPPED ON 31 OCTOBER.** The Availability card marks **one month at a time** — a weekday letter marks every one of that weekday **in the month on screen** — so the marks you made covered September and October, and nothing carried into November. From **1 Nov** the product could not be ordered on **any** day, and the shop said so honestly the whole time: *"Only available for bake days up to Saturday, 31 Oct."*
+2. ⚠️⚠️ **AND NOT ONE SCREEN TOLD YOU IT HAD HAPPENED.** The closed Availability card listed ten expired periods — *"Mon · 1-30 Sep 2026 + Tue · 1-30 Sep 2026 +8 more"* — and **named no end date at all**. That is why it took four days and a look at three screens to find.
+3. ⭐ **The card's title now names the end.** Closed, it reads **"Mon–Fri · 1-30 Sep 2026 · ends 30 Sep 2026"** — and once that day has gone, **"Not on sale since 31 Oct 2026"** in red.
+4. ⭐ **And the card now carries a warning with one press that fixes it.** At the top of an expired card: *"Not on sale since 31 Oct 2026 — all 10 marks below end on or before that day…"* and a button **Sell every bake day — remove the end date**. It asks first, then takes every mark off. ⚠️ Nothing else about the product changes: price, recipe, limits and photos are untouched.
+5. ⭐ **Check my system finds it too** — *"No product has run out of sell days"* — naming the product and its last sell day, with the same one press. ⚠️ A product waiting for a window that has not opened yet (a Christmas set marked for 20 December) is **not** reported: it is waiting, not finished.
+6. ⚠️ **The Sandwich was mine, not yours.** Your shop had exactly **one** product; a **phantom "Sandwich"** row sat in the shop's availability table for all 18 coming days, because a product that had left the menu kept publishing a daily count. ⭐ The menu and the availability table now use **one rule** for "is this on the shop", and a product that leaves loses its rows.
+7. ⚠️ **The day said 12 and the product said 24 for the same reason.** With nothing on sale on a day, the app falls back to the default capacity (12) while the product row still showed its own 24. **That disagreement disappears with the marks fixed** — there was never a second fault there.
+
+**No database step.** 3,999 tests green (10 new).
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can

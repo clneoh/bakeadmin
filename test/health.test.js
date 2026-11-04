@@ -78,9 +78,10 @@ test("★★ a healthy book passes every check — and every check actually RAN"
   // ⚠️ THE COUNT IS THE POINT. `[].every(...)` is TRUE — a check list that had quietly emptied itself
   // would pass every assertion above, on a phone with no checks at all. This project has been bitten by
   // that exact shape before (v381's doors).
-  // ⚠️ 26 since v677: "No sale-only day is left with nothing on it" joins the page.
-  assert.equal(res.total, 26, `the check list is no longer twenty-six checks (it is ${res.total})`);
-  assert.equal(res.passedChecks, 26);
+  // ⚠️ 27 since v678: "No product has run out of sell days" joins the page — ⭐ a product whose every marked
+  // sell day is behind it cannot be ordered at all, and ⚠️ nothing in the app said so while her shop was dark.
+  assert.equal(res.total, 27, `the check list is no longer twenty-seven checks (it is ${res.total})`);
+  assert.equal(res.passedChecks, 27);
   assert.equal(res.failed, 0);
 });
 
@@ -221,8 +222,9 @@ test("★★⚠️ A CHECK THAT COULD NOT RUN IS SKIPPED — IT IS NEVER A PASS"
     "★ shared data that could not be read was reported as a pass by the reverse check too");
   assert.equal(resultOf(res, "waiting").status, "pass",
     "the waiting count is a local number and does not need the cloud to be readable");
-  // ⚠️ 17 since v677: the sale-only-day check passes here too, and is not one of the skipped ones.
-  assert.equal(res.passedChecks, 17, "a skipped check was counted among the passes");
+  // ⚠️ 18 since v678: the sell-day check is local too — it passes on a book whose products still have sell
+  // days ahead, and needs no cloud to say so.
+  assert.equal(res.passedChecks, 18, "a skipped check was counted among the passes");
   assert.equal(res.skippedChecks, 9, "the skipped checks were not counted separately");
   assert.equal(resultOf(res, "refunded").status, "skipped",
     "★ an unreadable register was reported as a pass by the refund check");
@@ -298,8 +300,10 @@ test("⚠️ a phone with no orders at all is checked without throwing", () => {
   const bare = { settings: { currency: "RM" }, products: [], deliveryDates: [], orders: [], removedOrders: [] };
   const res = runChecks(bare, { register: [], copies: COPIES });
   assert.equal(res.failed, 0, "an empty book reported a fault");
-  assert.equal(res.total, 26, "the checks did not all run on an empty book");
-  assert.equal(localChecks(bare).length, 15, "the local checks are not fifteen");
+  // ⚠️ 27 / 16 since v678 — the sell-day check is local and runs on a phone with nothing on it, where it
+  // passes honestly ("There are no products, so there is nothing that could run out of sell days").
+  assert.equal(res.total, 27, "the checks did not all run on an empty book");
+  assert.equal(localChecks(bare).length, 16, "the local checks are not sixteen");
   assert.equal(registerChecks(bare, []).length, 3, "the register checks are not three");
   assert.equal(backupChecks(bare, { orders: [] }).length, 1, "the copy check is not one");
 });
@@ -1181,4 +1185,59 @@ test("★★★ a sale-only day with nothing on it is found, and a day WITH an o
   const clean = healthy();
   clean.deliveryDates = [{ id: "d-bake", date: "2026-11-02" }];
   assert.equal(resultOf(runChecks(clean, { register: REGISTER, copies: COPIES }), "saleday").status, "pass");
+});
+
+// ── ⭐ v678: A PRODUCT THAT CAN NO LONGER BE SOLD ───────────────────────────
+//
+// ⚠️⚠️ HER OWN BOOK, ON 4 NOV 2026. The Focaccia's sell days were marked for September and October only, so from
+// 1 Nov the product could not be ordered on ANY day — and ⚠️ **every other screen read as though nothing was
+// wrong.** Her report: __"the availability wrong between store, app order calendar, and product setting"__, then
+// __"the store show 1 product only which is the foccacia but with zero availibility."__
+
+test("★★★ a product whose every sell day is behind it is found, named, and repairable (v678)", () => {
+  const st = healthy();
+  // ⭐ Her Focaccia exactly: every weekday, September and October, nothing after 31 Oct.
+  st.products = [{ id: "p1", name: 'Focaccia 9"x12" ~ 850g', price: 16, active: true, sellRules: [
+    { days: [1, 2, 3, 4, 5], from: "2026-09-01", to: "2026-09-30" },
+    { days: [1, 2, 3, 4, 5], from: "2026-10-01", to: "2026-10-31" },
+  ] }];
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "selldays");
+  assert.equal(r.status, "fail", "★ a product that cannot be ordered on any day was not reported");
+  assert.equal(r.repair, "clearSellDays", "★ the fault offers no press to put it back on sale");
+  assert.deepEqual(r.repairIds, ["p1"], "★ the press does not know which product to put back");
+  assert.match(r.detail.join(" "), /Focaccia/, "the product is not named");
+  assert.match(r.detail.join(" "), /31 Oct 2026/, "the last sell day is not named");
+});
+
+test("★★ and it does NOT cry wolf — an open end, or a window still ahead, is not a fault (v678)", () => {
+  // ⚠️⚠️ THE FALSE POSITIVE THIS CHECK WOULD OTHERWISE HAVE. A Christmas set marked for 20 Dec sells on nothing
+  // coming today either — ⚠️ **and that is exactly what it is for.** Reporting it every day for a month is how
+  // a warning stops being read. ⭐ Only a mark whose LAST day is behind us is a fault.
+  const waiting = healthy();
+  const y = new Date().getFullYear() + 1;
+  waiting.products = [{ id: "p1", name: "Christmas Set", price: 40, active: true,
+    sellRules: [{ days: [], from: `${y}-12-01`, to: `${y}-12-24` }] }];
+  assert.equal(resultOf(runChecks(waiting, { register: REGISTER, copies: COPIES }), "selldays").status, "pass",
+    "★ a product waiting for a window that has not opened yet was reported as a fault");
+
+  const always = healthy();
+  always.products = [{ id: "p1", name: "Focaccia", price: 16, active: true, sellRules: [{ days: [1, 3, 5] }] }];
+  assert.equal(resultOf(runChecks(always, { register: REGISTER, copies: COPIES }), "selldays").status, "pass",
+    "a mark with no end date never runs out");
+
+  const unmarked = healthy(); // the healthy fixture carries no sell rules at all
+  assert.equal(resultOf(runChecks(unmarked, { register: REGISTER, copies: COPIES }), "selldays").status, "pass");
+});
+
+test("★★ a passing sell-day check says how many products it actually looked at (v678)", () => {
+  // ⭐ v666's rule, on the newest check: a verdict that cannot be inspected is the same trap one step quieter.
+  const st = healthy();
+  st.products = [
+    { id: "p1", name: "Focaccia", price: 16, active: true },
+    { id: "p2", name: "Sandwich", price: 12, active: true, sellRules: [{ days: [6] }] },
+  ];
+  const r = resultOf(runChecks(st, { register: REGISTER, copies: COPIES }), "selldays");
+  assert.equal(r.status, "pass");
+  assert.match(String(r.detail), /2 products — 1 carry sell days/,
+    "★ a pass has to say what it counted, or 'no error' means nothing");
 });

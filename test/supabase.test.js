@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateUpcomingDates } from "../admin/js/dates.js";
-import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable, stuckOrders, forgetStuckOrders, incomingCapReached, whyUnimportable, isPendingPhoto, reviewPhotoKey, publishReviewWithPhoto, takeDownReviewWithPhoto, deletePublicReviewPhoto, pendingPhotoUrl, fetchReviews } from "../admin/js/supabase.js";
+import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable, stuckOrders, forgetStuckOrders, incomingCapReached, whyUnimportable, isPendingPhoto, reviewPhotoKey, publishReviewWithPhoto, takeDownReviewWithPhoto, deletePublicReviewPhoto, pendingPhotoUrl, fetchReviews, onTheShop, restInList, storefrontPayload } from "../admin/js/supabase.js";
 import { groupOrders, orderCode } from "../admin/js/state.js";
 
 const realFetch = globalThis.fetch;
@@ -63,8 +63,8 @@ test("computeSlots sums product daily limits into the day capacity", () => {
   const dates = generateUpcomingDates(baseSettings(), 2);
   const state = makeState({ [dates[0]]: [3, 2] });
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
-    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", price: 12, unit: "piece", active: true, limit: 12 },
   ];
 
   const rows = computeSlots(state, 10);
@@ -106,7 +106,7 @@ test("a draft product's limit never inflates a day's capacity (drafts can't be o
   const dates = generateUpcomingDates(baseSettings(), 1);
   const state = makeState();
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
     { id: "prd_2", name: "Sandwich (draft)", active: false, draft: true, limit: 12 }, // being built, not for sale
   ];
   const rows = computeSlots(state, 10);
@@ -199,8 +199,8 @@ test("computeProductSlots returns per-product rows only for products with a limi
   const dates = generateUpcomingDates(baseSettings(), 2);
   const state = makeState({ [dates[0]]: [3, 2] });
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
-    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", price: 12, unit: "piece", active: true, limit: 12 },
     { id: "prd_3", name: "Cookie", active: true }, // no limit → unlimited, no row
   ];
 
@@ -213,11 +213,74 @@ test("computeProductSlots returns per-product rows only for products with a limi
   assert.ok(rows.every((r) => r.product !== "Cookie"));
 });
 
+// ── ⭐ v678: THE PHANTOM PRODUCT ────────────────────────────────────────────
+//
+// ⚠️⚠️ HER SHOP CARRIED ONE PRODUCT WHILE `product_availability` CARRIED TWO. ⭐ Her question was the right one:
+// __"there is only one product which is the foccacia only, why you mention sandwich?"__ ⚠️ The menu publish
+// asked `onTheShop` (a price, not a draft, not switched off); `computeProductSlots` asked only
+// `active !== false` — ⚠️ **so a product that could not be sold still published a daily count nobody could use.**
+
+test("★★★ a product that is not on the shop publishes no availability — the phantom Sandwich (v678)", () => {
+  const dates = generateUpcomingDates(baseSettings(), 2);
+  const state = makeState();
+  state.products = [
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 24 },
+    { id: "prd_2", name: "Sandwich", active: true, limit: 10 },                       // no price — not on the shop
+    { id: "prd_3", name: "Draft loaf", price: 9, draft: true, active: true, limit: 10 }, // being built
+    { id: "prd_4", name: "Retired loaf", price: 9, active: false, limit: 10 },        // switched off
+  ];
+  const rows = computeProductSlots(state, 10);
+  assert.deepEqual([...new Set(rows.map((r) => r.product))], ["Focaccia"],
+    "★ a product the shop does not offer is still publishing a count");
+  assert.equal(rows.length, 10, "one product on the shop, ten coming days");
+  // ⚠️ AND THE MENU AGREES — one definition, two readers. A test that read only one of them would have
+  // passed on her book exactly as it stood.
+  const menu = storefrontPayload(state).products.map((p) => p.name);
+  assert.deepEqual(menu, ["Focaccia"], "the menu and the published availability disagree about what is for sale");
+  void dates;
+});
+
+test("★ a value in a PostgREST in.(…) list is quoted, and a quote inside it is escaped (v678)", () => {
+  // ⚠️ NOT HYPOTHETICAL: her own product is `Focaccia 9"x12" ~ 850g`. A name written into a query unescaped
+  // either fails the request or matches the wrong row — and this is the list that decides what gets DELETED.
+  assert.equal(restInList(["Focaccia", "Sandwich"]), '"Focaccia","Sandwich"');
+  assert.equal(restInList(['Focaccia 9"x12" ~ 850g']), '"Focaccia 9\\"x12\\" ~ 850g"');
+  assert.equal(restInList(["a\\b"]), '"a\\\\b"', "a backslash is escaped too, or it eats the closing quote");
+  assert.equal(restInList([]), "");
+});
+
+test("★★★ a product that has left the shop loses its published rows (v678)", async () => {
+  // ⚠️⚠️ THE CLEANUP ONLY EVER ASKED ABOUT DATES. So a product removed from the menu kept its count for every
+  // date still managed — ⭐ the Sandwich was on all eighteen of her coming days, months after it left the shop.
+  const state = makeState();
+  state.products = [{ id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 }];
+  state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
+  const calls = [];
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url: String(url), opts });
+    if (url.includes("/auth/v1/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    // The read that finds what the server already holds: the Focaccia we are about to publish, and a Sandwich.
+    if (url.includes("select=product")) return { ok: true, json: async () => [{ product: "Focaccia" }, { product: "Sandwich" }] };
+    return { ok: true, text: async () => "" };
+  };
+  try {
+    const r = await syncAvailability(state);
+    assert.ok(r.ok);
+    const del = calls.find((c) => c.opts && c.opts.method === "DELETE" && c.url.includes("product=in."));
+    assert.ok(del, "★ the stale product was never deleted, so it stays on the shop's cards for ever");
+    assert.match(del.url, /product=in\.\(%22Sandwich%22\)|product=in\.\("Sandwich"\)/, "the wrong product was named");
+    assert.equal(/Focaccia/.test(del.url), false, "★ the product we are still selling was named in the delete");
+    assert.match(del.url, /date=in\./, "the delete is not scoped to the dates we manage");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("syncAvailability upserts per-product rows when products have limits", async () => {
   const state = makeState();
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
-    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", price: 12, unit: "piece", active: true, limit: 12 },
   ];
   state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
   const calls = [];
@@ -249,8 +312,8 @@ test("syncAvailability publishes every real delivery date, not just the nearest 
   const wide = generateUpcomingDates(baseSettings(), 14);
   state.deliveryDates = wide.map((date, i) => ({ id: `del_${i}`, date, notes: "" }));
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
-    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", price: 12, unit: "piece", active: true, limit: 12 },
   ];
   state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
   const calls = [];
@@ -276,10 +339,10 @@ test("syncAvailability publishes every real delivery date, not just the nearest 
 test("syncAvailability pushes value-pack rows as a separate uniform batch (no PGRST102)", async () => {
   const state = makeState();
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
     // A 4-piece value pack: one product line, no limit of its own → poolable.
-    { id: "prd_2", name: "Focaccia Family (4 pcs)", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
-    { id: "prd_3", name: "Sandwich", active: true, limit: 12 },
+    { id: "prd_2", name: "Focaccia Family (4 pcs)", price: 60, unit: "box", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
+    { id: "prd_3", name: "Sandwich", price: 12, unit: "piece", active: true, limit: 12 },
   ];
   state.settings.supabase = { enabled: true, url: "https://x.supabase.co", anonKey: "anon", email: "a@b.c", password: "pw" };
   const calls = [];
@@ -1623,10 +1686,10 @@ test("computeProductSlots publishes derived pack rows that floor the base pool",
   const dates = generateUpcomingDates(baseSettings(), 2);
   const state = makeState({ [dates[0]]: [3, 2] }); // 5 single focaccia pieces booked
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
     // A 4-piece value pack: one product line, no limit of its own → poolable.
-    { id: "prd_2", name: "Focaccia Family (4 pcs)", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
-    { id: "prd_3", name: "Sandwich", active: true, limit: 12 }, // separate base, no pack
+    { id: "prd_2", name: "Focaccia Family (4 pcs)", price: 60, unit: "box", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
+    { id: "prd_3", name: "Sandwich", price: 12, unit: "piece", active: true, limit: 12 }, // separate base, no pack
   ];
 
   const rows = computeProductSlots(state, 10);
@@ -1657,9 +1720,9 @@ test("computeProductSlots: pack orders draw the base pool down in whole pieces",
     customerName: "Test", note: "", createdAt: "2026-01-01T00:00:00.000Z",
   });
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
-    { id: "prd_2", name: "Focaccia Family (4 pcs)", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
-    { id: "prd_3", name: "Sandwich", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
+    { id: "prd_2", name: "Focaccia Family (4 pcs)", price: 60, unit: "box", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
+    { id: "prd_3", name: "Sandwich", price: 12, unit: "piece", active: true, limit: 12 },
   ];
 
   const rows = computeProductSlots(state, 10);
@@ -1675,8 +1738,8 @@ test("computeSlots day capacity reflects a delta on one date and leaves others a
   const dates = generateUpcomingDates(baseSettings(), 3);
   const state = makeState({ [dates[0]]: [2] }); // 2 pieces booked on the first date
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
-    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", price: 12, unit: "piece", active: true, limit: 12 },
   ];
   const del0 = state.deliveryDates.find((d) => d.date === dates[0]);
   del0.dayAdj = { prd_1: 5 }; // raise Focaccia by 5 for this day only
@@ -1691,8 +1754,8 @@ test("computeSlots publishes a closed day (capacity 0) when every product is pau
   const dates = generateUpcomingDates(baseSettings(), 1);
   const state = makeState();
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
-    { id: "prd_2", name: "Sandwich", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
+    { id: "prd_2", name: "Sandwich", price: 12, unit: "piece", active: true, limit: 12 },
   ];
   const del0 = state.deliveryDates.find((d) => d.date === dates[0]);
   del0.dayAdj = { prd_1: -12, prd_2: -12 }; // nothing baked that day
@@ -1706,8 +1769,8 @@ test("computeProductSlots derives pack rows from a day-adjusted base", () => {
   const dates = generateUpcomingDates(baseSettings(), 2);
   const state = makeState({ [dates[0]]: [2] }); // 2 single focaccia pieces booked
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
-    { id: "prd_2", name: "Focaccia Family (4 pcs)", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
+    { id: "prd_2", name: "Focaccia Family (4 pcs)", price: 60, unit: "box", active: true, recipe: [{ productId: "prd_1", qty: 4, unit: "box" }] },
   ];
   const del0 = state.deliveryDates.find((d) => d.date === dates[0]);
   del0.dayAdj = { prd_1: 5 }; // 17 pieces that day
@@ -1727,7 +1790,7 @@ test("computeProductSlots publishes zeros for a paused product's day", () => {
   const dates = generateUpcomingDates(baseSettings(), 2);
   const state = makeState();
   state.products = [
-    { id: "prd_1", name: "Focaccia", active: true, limit: 12 },
+    { id: "prd_1", name: "Focaccia", price: 15, unit: "loaf", active: true, limit: 12 },
   ];
   const del0 = state.deliveryDates.find((d) => d.date === dates[0]);
   del0.dayAdj = { prd_1: -12 }; // paused just for this day

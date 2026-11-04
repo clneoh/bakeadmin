@@ -17,7 +17,7 @@ import { hideSparesBlocked, runHealthChecks } from "../health.js";
 import { claimReceipt, pullReceiptRegister, maybeSync, maybeSyncStorefront } from "../supabase.js";
 import * as backups from "../backups.js";
 import * as sync from "../sync.js";
-import { save, saveFailure, duplicateIngredientPlan, removeOrders, updateOrderBadge, orderCode } from "../state.js";
+import { byId, save, saveFailure, duplicateIngredientPlan, removeOrders, updateOrderBadge, orderCode } from "../state.js";
 import { fmtStockAmount } from "../purchasing.js";
 import { shortDate } from "../dates.js";
 import { STOCK_LOG_CAP, reconcileCards } from "../stock.js";
@@ -103,6 +103,12 @@ export function renderHealth(root, state) {
             button(`Clear ${r.repairIds.length} empty sale-only day${r.repairIds.length === 1 ? "" : "s"}`,
               () => clearSaleDays(r.repairIds), "primary"))
         : null,
+      // ⭐ ONE PRESS PUTS A DARK PRODUCT BACK ON THE SHOP (v678).
+      r.status === "fail" && r.repair === "clearSellDays" && (r.repairIds || []).length
+        ? el("div", { class: "btn-row", style: "margin:8px 0 0" },
+            button(`Sell every bake day again — ${r.repairIds.length} product${r.repairIds.length === 1 ? "" : "s"}`,
+              () => clearSellDays(r.repairIds), "primary"))
+        : null,
       r.status === "fail" && r.repair === "clearVanDays" && (r.repairIds || []).length
         ? el("div", { class: "btn-row", style: "margin:8px 0 0" },
             button(`Clear the courier day on ${r.repairIds.length} order${r.repairIds.length === 1 ? "" : "s"}`,
@@ -160,6 +166,34 @@ export function renderHealth(root, state) {
   // without this press she has no way to take one back — ⭐ and one was still being drawn on Home as a bake day.
   // ⚠️ It removes the DAY only, and only when no order points at it. If one has an order, the check does not
   // list it and this cannot reach it.
+  // ⭐⭐ A PRODUCT WHOSE SELL DAYS HAVE ALL ENDED CANNOT BE ORDERED AT ALL (v678). ⚠️ Her Focaccia's marks
+  // stopped on 31 Oct 2026, the shop went dark on 1 Nov, and ⚠️ **every other screen read as though nothing was
+  // wrong** — so the repair has to be here, in the place she looks when something is wrong. ⭐ It removes only
+  // the sell-day marks: **no marks means every bake day**, which is what an everyday product says. ⚠️ The
+  // product itself, its price, its recipe, its limits and its photos are not touched.
+  function clearSellDays(ids) {
+    const todo = [...new Set((ids || []).map(String))];
+    const products = todo.map((id) => byId(state.products, id)).filter(Boolean);
+    if (!products.length) return toast("Nothing to clear");
+    const one = products.length === 1;
+    const names = products.map((p) => p.name).join("\n");
+    confirmDialog(
+      `Put ${one ? "this product" : `these ${products.length} products`} back on sale every bake day?\n\n${names}`
+      + `\n\nEvery sell day marked on ${one ? "it" : "them"} is behind us, so ${one ? "it cannot be" : "they cannot be"} ordered at all. Removing the marks makes ${one ? "it" : "them"} sell on every bake day, with no end date. Nothing else about ${one ? "it" : "them"} changes.`,
+      () => {
+        for (const p of products) {
+          delete p.sellRules;
+          delete p.validFrom;
+          delete p.validTo;
+        }
+        save(state);
+        maybeSyncStorefront(state);
+        toast(`${products.length} product${products.length === 1 ? "" : "s"} back on sale every bake day`);
+        run(true);
+      },
+      { yesLabel: "Put them back on sale", danger: true });
+  }
+
   function clearSaleDays(ids) {
     const todo = [...new Set((ids || []).map(String))];
     if (!todo.length) return toast("Nothing to clear");
