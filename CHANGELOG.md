@@ -1,4 +1,15 @@
-# Jienluv2bake — change history (v54 → v684)
+# Jienluv2bake — change history (v54 → v685)
+
+**4 Nov 2026 — engine v685, THE STEP BEFORE SEO: GETTING INTO GOOGLE AT ALL (NO DATABASE STEP).**
+
+**Your words:** __"why seach jienluv2bake on google search return nothing, this is call seo?"__
+
+1. ⚠️⚠️ **NOTHING WAS BLOCKING YOUR SITE — AND NOTHING HAD EVER TOLD GOOGLE IT EXISTED.** `site:jienluv2bake.com.my` returned **zero pages**: the homepage and the shop both say `index, follow`, `robots.txt` is open, the domain is fine, and the site has been live since 2 September. ⭐ **It was never submitted, and little links to it.**
+2. ⭐ **Google's own verification tag is now in your homepage's head** — the line Search Console gives you, unchanged. ⚠️ It does nothing a customer can see.
+3. ⚠️ **That is indexing, not SEO, and the difference matters.** Titles, Open Graph and structured data change **how you rank once Google has read the page**. ⭐ They cannot make it look. ⚠️ I spent an evening on markup before checking whether the page was in the index at all — the same mistake as the repair button: checking the thing I changed, not the thing that had to be true first.
+4. ⭐ **A test now guards the tag**, because without it the site keeps working, the tag is invisible, and verification would simply lapse one day.
+
+**No database step.** 4,016 tests green.
 
 **4 Nov 2026 — engine v684, THE HOMEPAGE CAN NOW BE FOUND (NO DATABASE STEP).**
 

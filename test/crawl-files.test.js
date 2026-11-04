@@ -76,3 +76,15 @@ test("the crawl files are the files that exist (v684)", () => {
     assert.ok(existsSync(new URL(f, import.meta.url)), `${f} is missing from the site`);
   }
 });
+
+test("★★ Google's verification tag is still in the head, unchanged (v684)", () => {
+  // ⚠️⚠️ WITHOUT THIS TAG SEARCH CONSOLE CANNOT SEE THE SITE, and ⚠️ **nothing on the page would look wrong** —
+  // the site keeps working, the tag is invisible, and verification simply lapses one day. ⭐ It is Google's line
+  // and it must not be retyped, reformatted or moved out of the head.
+  const m = HOME.match(/<meta name="google-site-verification" content="([^"]+)"/);
+  assert.ok(m, "★ the Search Console verification tag is gone — the site can no longer be submitted");
+  assert.equal(m[1], "y8zxkClITSFAj6w0kaVnRgnGJQyH3BLMm_LfHQPPx-M",
+    "★ the verification token was altered, which Search Console will refuse");
+  assert.ok(HOME.indexOf(m[0]) < HOME.indexOf("</head>"),
+    "★ the tag must be inside <head>, or Google will not find it");
+});
