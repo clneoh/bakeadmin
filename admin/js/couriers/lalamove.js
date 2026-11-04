@@ -311,8 +311,16 @@ export function normaliseQuotes(out, now = Date.now(), points = []) {
     const one = normaliseQuote(q, now, service, points);
     if (one) quotes.push(one);
   }
+  // ⚠️ AND THE VENDOR'S OWN CODE TRAVELS WITH IT (v683). ⭐ The plain sentence says what happened; the code and
+  // Lalamove's own wording say WHY, and they are the only things that can answer "one vehicle out of six was
+  // refused". ⭐ Kept beside the sentence, never instead of it.
   const failed = (Array.isArray(out && out.failed) ? out.failed : [])
-    .map((f) => ({ service: String((f && f.service) || ""), reason: String((f && f.reason) || "").trim() }))
+    .map((f) => ({
+      service: String((f && f.service) || ""),
+      reason: String((f && f.reason) || "").trim(),
+      code: String((f && f.code) || "").trim(),
+      vendor: String((f && f.vendor) || "").trim(),
+    }))
     .filter((f) => f.service || f.reason);
   return { quotes, failed };
 }

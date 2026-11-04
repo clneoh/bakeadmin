@@ -221,13 +221,23 @@ test("the dispatcher sends a missing secret and an unknown courier to two differ
   assert.match(unknown[0], /This build has no courier called/, "an unknown courier keeps its own claim");
 });
 
-test("a code nobody wrote a sentence for is still readable", () => {
-  // The half that keeps an unanticipated failure usable: the API's own words, under a
-  // plain first line, so she can at least quote it back.
+test("★ a code nobody wrote a sentence for names the code, and keeps the vendor's words off her screen (v683)", () => {
+  // ⚠️⚠️ THIS TEST USED TO PIN THE OPPOSITE, AND THE OPPOSITE IS WHAT FRIGHTENED HER. ⭐ Her words:
+  // __"the things that frighten me was when i saw the app respond with non sense word"__ — ⚠️ and the old
+  // contract here printed the vendor's RAW message ("the fleet is asleep") into the panel under a plain first
+  // line. ⭐ An unanticipated error is exactly when raw vendor text is most likely, so ⭐ the sentence is now one
+  // a person wrote, it carries the CODE — which is the part anyone can look up — and the vendor's own wording
+  // goes to the function's log instead.
   const withError = plainReason({ errors: [{ code: "ERR_SOMETHING_NEW", message: "the fleet is asleep" }] }, 400);
-  assert.match(withError, /^Lalamove would not do that: the fleet is asleep/);
+  assert.match(withError, /^Lalamove refused this one, for a reason the app does not recognise/);
+  assert.match(withError, /ERR_SOMETHING_NEW/, "★ the code must survive — it is the only diagnosable part");
+  assert.equal(/fleet is asleep/.test(withError), false,
+    "★ the vendor's raw words reached her screen again — that is the nonsense she reported");
+
+  // ⚠️ AND A REPLY WITH NO CODE AT ALL still says something true and plain.
   const withMessage = plainReason({ message: "the fleet is asleep" }, 400);
-  assert.match(withMessage, /^Lalamove would not do that: the fleet is asleep/);
+  assert.equal(/fleet is asleep/.test(withMessage), false);
+  assert.match(withMessage, /HTTP 400|Lalamove/);
 });
 
 test("a failure with nothing in it still says something true", () => {
@@ -898,7 +908,28 @@ test("one vehicle refused does not take the whole answer down with it", () => {
   }, T);
   assert.equal(out.quotes.length, 1, "the unpriced one is not a quote of zero");
   assert.equal(out.quotes[0].service, "MOTORCYCLE");
-  assert.deepEqual(out.failed, [{ service: "VAN", reason: "Lalamove does not run that vehicle in this market." }]);
+  assert.deepEqual(out.failed, [{
+    service: "VAN",
+    reason: "Lalamove does not run that vehicle in this market.",
+    code: "", vendor: "",   // ⚠️ v683: the vendor's own answer travels beside the sentence, empty when unspoken
+  }]);
+});
+
+test("★★★ a refused vehicle keeps Lalamove's own code, so it can be diagnosed at all (v683)", () => {
+  // ⚠️⚠️ HER REPORT: __"seriously error"__ under six working prices, reading *"Large item delivery …: Lalamove would
+  // not accept part of this trip"*. ⭐ Five vehicles priced and one refused is a question only Lalamove can
+  // answer — ⚠️ **and the plain sentence had thrown its answer away.** ⭐ These are the exact fields their
+  // envelope carries, kept on the row.
+  const out = normaliseQuotes({
+    quotes: [{ serviceType: "MOTORCYCLE", priceBreakdown: { total: "9.60" } }],
+    failed: [{ service: "LORRY", reason: "Lalamove would not accept part of this trip.",
+      code: "ERR_INVALID_FIELD", vendor: "Wrong value for field: serviceType" }],
+  }, T);
+  assert.equal(out.failed.length, 1);
+  assert.equal(out.failed[0].code, "ERR_INVALID_FIELD", "★ the code was lost again — without it nothing can be looked up");
+  assert.match(out.failed[0].vendor, /serviceType/, "★ Lalamove's own words are the actual answer");
+  assert.match(out.failed[0].reason, /would not accept/,
+    "and the plain sentence stays the headline — the code is beside it, not instead of it");
 });
 
 test("an answer with nothing in it is two empty lists, never a crash", () => {

@@ -1,4 +1,17 @@
-# Jienluv2bake — change history (v54 → v682)
+# Jienluv2bake — change history (v54 → v683)
+
+**4 Nov 2026 — engine v683, THE APP NEVER SHOWS THE COURIER'S OWN WORDS AGAIN (ONE DEPLOY STEP: the courier function).**
+
+**Your words:** __"the things that frighten me was when i saw the app respond with non sense word"__.
+
+1. ⚠️⚠️ **THAT IS WHERE THE NONSENSE CAME FROM, AND IT WAS TWO LINES.** Lalamove sends its vehicle list as a paragraph about furniture, and the panel printed it as a vehicle's name. ⚠️ **And when an error code the app did not recognise arrived, it printed Lalamove's raw message straight onto the card too.**
+2. ⭐ **Neither can happen now.** A vehicle is named by its class (Motorcycle, Car, 4x4, Van, 7ft Van, 9ft Van, Truck, Lorry), and an unrecognised error is said in a sentence a person wrote — **"Lalamove refused this one, for a reason the app does not recognise (code ERR_…)"** — with the code kept, because the code is the part anyone can look up.
+3. ⭐ **Lalamove's own wording now goes to the function's log**, where it can be read without frightening anybody.
+4. ⚠️ One test had pinned the old behaviour — it asserted the vendor's raw words reached the screen. ⭐ It now asserts the opposite, and it fails if they ever come back.
+
+**⚠️ ONE DEPLOY STEP:** these last two lines live in the **courier function**, which a GitHub push does not upload. `supabase functions deploy courier --project-ref hzpyblqygnntixkijeem`, run in the bakeadmin folder.
+
+**No database step.** 4,007 tests green.
 
 **4 Nov 2026 — engine v682, THE COURIER PANEL NAMES THE VEHICLE, NOT THE SOFA (NO DATABASE STEP).**
 
