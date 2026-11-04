@@ -188,6 +188,9 @@ export function renderHealth(root, state) {
         }
         save(state);
         maybeSyncStorefront(state);
+        // ⚠️ AND THE DAY AND PRODUCT COUNTS GO WITH IT (v680). ⚠️ The menu alone was republished, so the day
+        // still read the fallback 12 against a product limit of 24 — ⭐ the second half of what she reported.
+        maybeSync(state);
         toast(`${products.length} product${products.length === 1 ? "" : "s"} back on sale every bake day`);
         run(true);
       },

@@ -588,8 +588,26 @@ function availabilityCard(state, product) {
         button("Sell every bake day — remove the end date", () => {
           confirmDialog(
             `Remove ${what}? With nothing marked this product sells on every bake day, with no end date — which is what it does when you have marked nothing. Your delivery days are not touched.`,
-            () => { rules = []; sel = -1; paint(); },
-            { yesLabel: "Remove the marks", danger: true });
+            // ⚠️⚠️ AND THIS PRESS SAVES THE PRODUCT, WHICH IS THE WHOLE POINT (v680). ⚠️ It used to only clear
+            // the marks IN THE FORM and repaint the card — ⭐ so pressing it looked done: the red warning went,
+            // the title said "Every day" — and ⚠️ **nothing was written and nothing was published.** Close the
+            // pop-up and the product was exactly as it was. ⭐ Her report after v679 shipped: __"on the 6 nov on
+            // store, it says foccacia is unavailable ... YOU call the checked?"__ — ⭐ a repair that needs a
+            // second press on another button is a DEAD CONTROL, and this app's oldest rule is that a press that
+            // does nothing reads as a bug.
+            () => {
+              rules = [];
+              sel = -1;
+              delete product.sellRules;
+              delete product.validFrom;
+              delete product.validTo;
+              save(state);
+              if (isLive(product)) maybeSyncStorefront(state);
+              maybeSync(state);
+              paint();
+              toast("Back on sale — every bake day");
+            },
+            { yesLabel: "Remove the marks and save", danger: true });
         }, "primary")));
   }
 

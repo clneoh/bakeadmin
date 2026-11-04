@@ -1,4 +1,15 @@
-# Jienluv2bake — change history (v54 → v679)
+# Jienluv2bake — change history (v54 → v680)
+
+**4 Nov 2026 — engine v680, THE ONE PRESS DID NOT SAVE (NO DATABASE STEP).**
+
+**My mistake, not yours.** You pressed the button I gave you and the shop stayed exactly as it was — because that button only changed the screen.
+
+1. ⚠️⚠️ **Sell every bake day** cleared the ten marks **in the form** and redrew the card. The title turned to "Every day" and the red warning disappeared — ⚠️ **and nothing was written and nothing was published.** Close the pop-up and the product was untouched. ⭐ *A press that looks done and changes nothing* is the exact thing this app calls a bug.
+2. ⭐ **The press now saves the product itself** — clears the marks, saves, publishes the menu and the counts, and says **"Back on sale — every bake day"**. It no longer needs a second press on Update product.
+3. ⭐ **The same repair on Check my system** saved but published only the menu, so the day kept reading the fallback 12 against a product limit of 24. It now publishes both.
+4. ⚠️ **Your three numbers were always one fault.** Until the marks are cleared: the **store** refuses every day (the product's own rule says it is not sold after 31 Oct); the **order calendar day** shows **12**, which is the default used when nothing is on sale that day — it is not reading the product at all; the **product setting** shows **24**, its own daily limit, which only counts while the product is on sale.
+
+**No database step.** 4,001 tests green.
 
 **4 Nov 2026 — engine v679, THE REST OF THE SAME FIX: THE COUNTS NOW CATCH UP WHEN YOU SAVE (NO DATABASE STEP).**
 

@@ -1343,17 +1343,21 @@ test("★★★ a product that cannot be sold says so, and one press puts it bac
   // ⭐ AND THE PRESS REALLY PUTS IT BACK — driven, not asserted to exist.
   fire(walk(warn).find((n) => n.tagName === "BUTTON"));
   const yes = walk(layers["confirm-layer"]).find((n) => n.tagName === "BUTTON"
-    && (n.children || []).some((c) => c.text === "Remove the marks"));
+    && (n.children || []).some((c) => c.text === "Remove the marks and save"));
   assert.ok(yes, "the repair asks first — removing ten marks is not a slip of the finger");
   fire(yes);
 
   assert.deepEqual(markLabels(pop), [], "★ the marks are still there");
   assert.equal(availHandles(pop).summary.textContent, "Every day",
     "★ with nothing marked it must read as selling every bake day");
-  walk(pop).find((n) => n.tagName === "SELECT").value = "u_loaf";
-  fire(buttonByText(pop, "Update product"));
+
+  // ⚠️⚠️ AND IT IS SAVED BY THAT PRESS ALONE (v680). ⚠️ The first version only cleared the marks IN THE FORM:
+  // ⭐ the red warning went, the title said "Every day" — ⚠️ **and nothing was written.** Close the pop-up and
+  // the product was exactly as it was, which is precisely what she reported after v679 went live. ⭐ So this
+  // asserts on the SAVED product, not on the pop-up, and it never presses "Update product" at all.
   assert.equal(state.products[0].sellRules, undefined,
-    "★ and the saved product carries no end date, which is what the shop reads");
+    "★ the repair cleared the screen but did not save — a press that looks done and changes nothing");
+  assert.equal(state.products[0].validTo, undefined);
 });
 
 test("taking the last mark off is the one way back to selling every delivery day", () => {
