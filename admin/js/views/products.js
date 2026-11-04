@@ -5,7 +5,7 @@
 import { el, button, select, emptyState, confirmDialog, showPopup, toast, wireRowReorder, menuRow } from "../ui.js";
 import { byId, productUnitOptions, fmtRM, round2, newId, save } from "../state.js";
 import { recipeLineCosts, validateRecipeNoCycle } from "../bom.js";
-import { maybeSyncStorefront } from "../supabase.js";
+import { maybeSync, maybeSyncStorefront } from "../supabase.js";
 // readPhoto, at 360 px — the SAME reader the customer photos use, at a bigger
 // size. It centre-crops the photo to a square, which is what the baker asked for:
 // the shop's window is square, and the photo is cropped to fill it.
@@ -1246,6 +1246,7 @@ function setProductState(state, p, target, root) {
     delete p.draft;
     save(state);
     maybeSyncStorefront(state);
+    maybeSync(state); // ⚠️ a product coming ON the shop has rows to publish (v678)
     toast(wasDraft ? `"${p.name}" is on the shop now` : `"${p.name}" back on the menu`);
     renderAll(root, state, { keepForm: true });
     if (wasDraft) kickoffAutoTranslate(state, p);
@@ -1254,6 +1255,10 @@ function setProductState(state, p, target, root) {
     delete p.draft;
     save(state);
     maybeSyncStorefront(state);
+    // ⚠️⚠️ AND A PRODUCT LEAVING THE SHOP HAS ROWS TO REMOVE (v678). ⚠️ Hiding one republished only the menu,
+    // so its daily count stayed published on every coming day — ⭐ that is how a Sandwich sat in her shop's
+    // availability table for months after it stopped being sold.
+    maybeSync(state);
     toast(`"${p.name}" hidden — history kept`);
     renderAll(root, state, { keepForm: true });
   }
@@ -1391,6 +1396,12 @@ function openEditProductPopup(state, product, root) {
             : "Product updated");
           save(state);
           if (wasLive) maybeSyncStorefront(state); // live text changed → shop gets it
+          // ⚠️⚠️ AND THE AVAILABILITY GOES WITH IT (v678). ⚠️ Only the MENU was ever republished from this
+          // screen, so ⚠️ **a product's daily limit and its sell days changed on the phone while the shop's day
+          // and product counts stayed as they were** — ⭐ which is the "12 here, 24 there" she reported, and the
+          // reason a hidden product's rows lingered for months. ⭐ Measured on her own data: clearing her marks
+          // re-opens the card at once, but the DAY row keeps saying 12 until this runs.
+          if (wasLive) maybeSync(state);
           close();
           renderAll(root, state, { keepForm: true });
           kickoffAutoTranslate(state, product); // fill / refresh translations online

@@ -1,4 +1,14 @@
-# Jienluv2bake — change history (v54 → v678)
+# Jienluv2bake — change history (v54 → v679)
+
+**4 Nov 2026 — engine v679, THE REST OF THE SAME FIX: THE COUNTS NOW CATCH UP WHEN YOU SAVE (NO DATABASE STEP).**
+
+**Found by checking, after you asked me whether I had.** v678 shipped the card, the warning and the one press. Then I ran your own live product through the shop's rules and found one more link that was not connected.
+
+1. ⚠️⚠️ **SAVING A PRODUCT REPUBLISHED ONLY THE MENU — NEVER THE SHOP'S DAY AND PRODUCT COUNTS.** ⭐ So after you clear the marks the card re-opens at once, but the **day** keeps reading the fallback **12** while the product's own limit is **24**. That is the "12 here, 24 there" you reported, and it would have looked like a second fault.
+2. ⭐ **Saving a product now republishes both**, and **hiding one does too** — which is how a hidden product's rows used to linger on the shop for months (the phantom Sandwich).
+3. ⭐ **Measured on your live data, not argued:** every coming bake day was refused with *"up to 31 Oct"*; with the marks cleared, all six days I looked at come back **orderable**, and your product rows already say **24 left**.
+
+**No database step.** 4,001 tests green (12 new). ⚠️ v678 is already published, so this rides as its own number rather than changing a commit that is already on GitHub.
 
 **4 Nov 2026 — engine v678, YOUR SHOP WENT DARK BECAUSE YOUR SELL DAYS RAN OUT (NO DATABASE STEP).**
 
@@ -12,7 +22,9 @@
 6. ⚠️ **The Sandwich was mine, not yours.** Your shop had exactly **one** product; a **phantom "Sandwich"** row sat in the shop's availability table for all 18 coming days, because a product that had left the menu kept publishing a daily count. ⭐ The menu and the availability table now use **one rule** for "is this on the shop", and a product that leaves loses its rows.
 7. ⚠️ **The day said 12 and the product said 24 for the same reason.** With nothing on sale on a day, the app falls back to the default capacity (12) while the product row still showed its own 24. **That disagreement disappears with the marks fixed** — there was never a second fault there.
 
-**No database step.** 3,999 tests green (10 new).
+8. ⚠️⚠️ **AND ONE MORE, FOUND BY CHECKING RATHER THAN GUESSING.** Saving a product republished only the **menu** — never the shop's day and product counts. ⭐ So after you clear the marks the card re-opens at once, but the **day** keeps reading the fallback 12 while the product's own limit is 24. That is the "12 here, 24 there" you reported. ⭐ **Saving a product now republishes both**, and so does hiding one — which is how a hidden product's rows used to linger for months.
+
+**No database step.** 4,001 tests green (12 new).
 
 What changed in each version of the backoffice app, newest first. Each version
 number is the "Engine" you can see on the app's **More** screen, so you can

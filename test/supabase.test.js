@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { generateUpcomingDates } from "../admin/js/dates.js";
 import { computeSlots, computeProductSlots, syncAvailability, login, syncStorefront, pullIncoming, publishTracking, maybePublishTracking, forgetPublishedCards, trackingSnapshot, refreshStorefront, pendingReviewCount, fetchPromoVisits, importable, stuckOrders, forgetStuckOrders, incomingCapReached, whyUnimportable, isPendingPhoto, reviewPhotoKey, publishReviewWithPhoto, takeDownReviewWithPhoto, deletePublicReviewPhoto, pendingPhotoUrl, fetchReviews, onTheShop, restInList, storefrontPayload } from "../admin/js/supabase.js";
 import { groupOrders, orderCode } from "../admin/js/state.js";
+// ⭐ THE SHOP'S OWN VERDICT, imported so the recovery test can ask the same question a customer's card asks.
+import { closedReason } from "../store/pool.js";
 
 const realFetch = globalThis.fetch;
 
@@ -274,6 +276,78 @@ test("★★★ a product that has left the shop loses its published rows (v678)
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+// ── ⭐⭐ v678 — THE WHOLE RECOVERY, END TO END ───────────────────────────────
+//
+// ⚠️⚠️ THIS IS THE TEST I SHOULD HAVE WRITTEN BEFORE HANDING v678 OVER. ⭐ Her question, and it was the right
+// one: __"is the problem solved? have you check?"__ — then __"why you din check? that is not systemic."__ ⚠️ I had
+// checked that the CARD clears the marks, and ⚠️ **never that clearing them actually puts the product back on the
+// shop** — which is the only outcome she asked for. ⭐ The chain has three links and I had only driven the first:
+// the admin publishes the marks → the shop's `closedReason` refuses the day → the repair unpublishes them.
+// ⭐ It runs on HER EXACT PAYLOAD: the Focaccia, ten weekday marks, September and October, nothing after 31 Oct.
+
+test("★★★ her Focaccia: the expired marks are what closes the shop, and clearing them re-opens it (v678)", () => {
+  const marks = [];
+  for (const [from, to] of [["2026-09-01", "2026-09-30"], ["2026-10-01", "2026-10-31"]]) {
+    for (const day of [1, 2, 3, 4, 5]) marks.push({ days: [day], from, to });
+  }
+  const state = makeState();
+  state.products = [{ id: "prd_foc", name: 'Focaccia 9"x12" ~ 850g', price: 16, unit: "loaf",
+    active: true, alwaysListed: true, limit: 24, sellRules: marks }];
+
+  // 1 · WHAT THE ADMIN PUBLISHES — the marks, end dates and all.
+  const before = storefrontPayload(state).products;
+  assert.equal(before.length, 1, "the shop should be offered exactly one product");
+  assert.equal(before[0].sellRules.length, 10, "all ten marks reach the shop");
+  assert.equal(before[0].sellRules.map((r) => r.to).sort().pop(), "2026-10-31",
+    "and the shop can see that the last one ends on 31 Oct");
+
+  // 2 · WHAT THE SHOP DOES WITH THEM — the fault, in the shop's own words.
+  assert.deepEqual(closedReason(before[0], "2026-11-04", "2026-11-04"), { kind: "to", date: "2026-10-31" },
+    "★ a coming bake day must be refused, or this test is not testing her fault at all");
+
+  // 3 · THE REPAIR the card and Check my system both perform.
+  delete state.products[0].sellRules;
+
+  // 4 · WHAT THE ADMIN PUBLISHES NOW — no key at all, which the shop reads as every bake day.
+  const after = storefrontPayload(state).products;
+  assert.equal("sellRules" in after[0], false,
+    "★ the repair left a sellRules key behind, so the shop still thinks there is an end date");
+
+  // 5 · AND THE OUTCOME SHE ASKED FOR — orderable, on every coming day.
+  for (const day of ["2026-11-04", "2026-11-06", "2026-11-09", "2026-12-14"]) {
+    assert.equal(closedReason(after[0], day, "2026-11-04"), null,
+      `★ the shop still refuses ${day} after the repair`);
+  }
+});
+
+// ⚠️⚠️ AND THE DAY ROW CATCHES UP TOO (v678). ⭐ She reported "the availability wrong between store, app order
+// calendar, and product setting" — the order calendar read **12** while the product's own limit was **24**.
+// ⚠️ That gap is `dayCapacityParts` falling back to the default when NOTHING is on sale that day, and ⭐ **it
+// closes only when the product publishes again** — which is why saving a product now republishes availability
+// and not just the menu. ⭐ Measured on her live rows: the day says 12, the product says 24.
+test("★★ clearing the expired marks moves the day from the 12 fallback to the product's own 24 (v678)", () => {
+  const marks = [];
+  for (const [from, to] of [["2026-09-01", "2026-09-30"], ["2026-10-01", "2026-10-31"]]) {
+    for (const day of [1, 2, 3, 4, 5]) marks.push({ days: [day], from, to });
+  }
+  const state = makeState();
+  state.settings.defaultCapacity = 12;
+  state.products = [{ id: "prd_foc", name: "Focaccia", price: 16, unit: "loaf",
+    active: true, limit: 24, sellRules: marks }];
+  const day = state.deliveryDates.find((d) => d.date >= "2026-11-04")
+    || { date: generateUpcomingDates(state.settings, 1)[0] };
+
+  const before = computeSlots(state, 10).find((r) => r.date === day.date);
+  assert.equal(before.capacity, 12,
+    "★ nothing on sale must fall back to the default capacity — if it does not, this is not her fault");
+
+  delete state.products[0].sellRules;
+  const after = computeSlots(state, 10).find((r) => r.date === day.date);
+  assert.equal(after.capacity, 24,
+    "★ the day still reads the fallback after the product went back on sale");
+  assert.equal(after.slots_left, 24);
 });
 
 test("syncAvailability upserts per-product rows when products have limits", async () => {
