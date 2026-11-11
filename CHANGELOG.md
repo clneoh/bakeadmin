@@ -1,4 +1,21 @@
-# Jienluv2bake — change history (v54 → v685)
+# Jienluv2bake — change history (v54 → v686)
+
+**12 Nov 2026 — engine v686_2, A MORE VERSATILE SHOP, AS A TRIAL AT /store2/ (NO DATABASE STEP).**
+
+**Your words:** __"the store2 is not good, replace it with a more versatile design"__ — and, once it was clear that /store2/ had already become /store/ on 25 Oct (v640): __"new design as a trial at store2"__.
+
+1. ⭐⭐ **THE SECOND GATEWAY IS BACK: `jienluv2bake.com.my/store2/`.** Same Supabase book, so a day, a price, a slot and an order are the same facts on both. **`/store/` is untouched** and stays the address customers are given. The trial says **Engine v686_2** in its footer and is **kept out of Google** (`noindex, nofollow`) so two pages do not compete for the shop's place.
+2. ⭐⭐ **THE MENU IS A GRID OF TILES.** ⚠️ The row it replaces put the name, the unit, the count, the description and the food facts in the gap between a 120px photo and the price — on a phone that column was one word wide (*"Focaccia / 9"x12" / ~ / 850g"* down the card). ⭐ A tile stacks them: **photo on top, the name, the price, and the − and + across the whole card.** How many sit side by side is decided by the screen, not by the product: **two on a 375px phone, one on a 320px phone, three or four on a laptop** — a shop with three products or thirty uses the same rule. ⭐ The prices line up along a row however long the names above them are.
+3. ⭐ **"Details" folds your food facts** (*What is in it*, *Keeping it*) so the tiles in a row stay close to one height. ⚠️ Every + or − rebuilds the card; the fold **stays open** through it, measured. The word is in all three languages (Details · 详情 · Butiran).
+4. ⭐ **A MENU OF ONE.** Measured on your book: **13 Nov has the Focaccia alone**, and one tile sat at half the width beside an empty half. ⭐ When the whole menu holds one product it takes the full row, photo on the left.
+5. ⭐⭐ **ON A LAPTOP OR TABLET THE MENU SITS BESIDE THE DAY** (960px and wider): the code, the day card and step 1 on the left, **the menu on the right**, your details under the day. ⚠️ **On a phone nothing moved** — the page still reads 1 → 2 → 3 → 4, top to bottom.
+6. ⭐ **THE GUARD AGAINST A SECOND, QUIETER SHOP IS BACK** (`test/store2-drift.test.js`): the money, the promo judge, the WhatsApp message and the missing-field marks must be **the same code** in both shops, and **every other module** (calendar, pools, address lookup, config…) must be **the very same file**. The trial changes the look only. Bitten three ways — `cartTotal` drifted, `pool.js` drifted, the trial made indexable — each failed by its own message and was restored byte-identically.
+
+**Measured** in the preview on your book: 375px — tiles 169px wide, two to a row, no sideways scroll; 320px — one to a row, no sideways scroll; 1280px — left column 400px, menu 644px beside it. The day chosen (13 Nov), two pressed, **RM32.00** in the bar. ⚠️ The extra products in the grid test were copies drawn in the page only — **nothing was written to your book.**
+
+**When you like it:** say so, and /store/ becomes this design and /store2/ goes, exactly as on 24–25 Oct. **If you don't:** say what is wrong with it and I change the trial — /store/ is not touched either way.
+
+**No database step and no function deploy.** 4,020 tests green.
 
 **4 Nov 2026 — engine v685, THE STEP BEFORE SEO: GETTING INTO GOOGLE AT ALL (NO DATABASE STEP).**
 
