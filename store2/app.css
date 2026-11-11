@@ -2783,25 +2783,58 @@ button.prod-next.off::after { content: ""; }
 .prod-more-sum:focus-visible { outline: 2px solid var(--brown); outline-offset: 2px; border-radius: 4px; }
 .prod-more .prod-fact:first-of-type { margin-top: 0; }
 
-/* ---- wide screens: the menu beside the day and the details ---- */
+/* ---- wide screens (≥ 960px) ----
+   ⚠️⚠️ THE FIRST TRY WAS WRONG, AND SHE SAID SO: __"it sucks on desktop display"__. Measured at 1440: the menu
+   sat top-right BESIDE the code box, so step 2 came before step 1 to the eye; the left column ran ~2,000px of
+   narrow forms while the right column was empty under one product; and the order bar was a 1,120px strip with
+   the total at one end and the button at the other.
+   ⭐ So the desktop is now the shape every web shop uses: ONE reading column, the steps 1 → 2 → 3 in order, and
+   the basket as a card on the right — count, total, Place order — that stays in view while the page scrolls.
+   The `.col` wrappers are plain blocks again; nothing in the HTML moved. */
 @media (min-width: 960px) {
-  .view { max-width: 1120px; padding-inline: 24px; }
-  .stepbar { max-width: 1120px; padding-inline: 24px; }
-  .hero.hero-photo .hero-inner { max-width: 1120px; padding-inline: 24px; }
-  .flow {
-    display: grid;
-    grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-    column-gap: 28px;
-    align-items: start;
+  :root { --page: 1120px; --side: 300px; --gutter: 32px; }
+  .view {
+    max-width: var(--page);
+    padding-inline: 24px calc(24px + var(--side) + var(--gutter));
   }
-  .col-a { grid-column: 1; grid-row: 1; }
-  .col-b { grid-column: 1; grid-row: 2; }
-  .col-menu { grid-column: 2; grid-row: 1 / span 2; }
-  .menu { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 14px; }
-  /* The bar spans the same width as the page, and its button stays a button rather than a 900px strip. */
-  .order-bar { max-width: 1120px; }
-  .order-bar .btn { flex: 0 1 360px; margin-left: auto; }
+  /* ⚠️ The step bar lives INSIDE .view, so it takes the column's width from it — padding it again (measured)
+     squeezed the four steps into half the column. */
+  .stepbar { max-width: 760px; padding-inline: 0; margin-inline: 0; }
+  .view { padding-bottom: 48px; }
+  .hero.hero-photo .hero-inner { max-width: var(--page); padding-inline: 24px; }
+  /* The reading column: wide enough for three tiles, narrow enough that a form is not a 700px slab. */
+  .flow { max-width: 760px; }
+  /* The code, the "you're in time" answer and the bake-day facts: side by side where they are short. */
+  .col-a { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; align-items: start; }
+  .col-a > * { grid-column: 1 / -1; }
+  .col-a > #day-answer { grid-column: 1; height: 100%; box-sizing: border-box; margin-bottom: 12px; }
+  .col-a > .card.info { grid-column: 2; }
+  .menu { grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 14px; }
+
+  /* THE BASKET CARD. Fixed to the right of the reading column, at the foot of the window so the privacy panel
+     still opens upward from it exactly as it does from the phone bar. */
+  .order-bar {
+    left: auto;
+    right: max(24px, calc((100% - var(--page)) / 2 + 24px));
+    bottom: 24px;
+    width: var(--side);
+    max-width: none;
+    margin: 0;
+    padding: 18px 18px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+  }
+  .order-bar-row { flex-wrap: wrap; row-gap: 14px; }
+  .order-bar .order-summary { flex: 1 1 auto; }
+  .order-bar .bar-total { font-size: 26px; }
+  .order-bar .btn { flex: 1 1 100%; order: 3; }
+  .order-bar .privacy-sheet { left: 0; right: 0; }
+  .bar-spacer { height: 0; }
+}
+/* Between 960 and ~1180 the window is too narrow for a 760px column AND the card, so the column gives way. */
+@media (min-width: 960px) and (max-width: 1180px) {
+  .flow { max-width: none; }
 }
 
 /* ⭐ A MENU OF ONE (v686_2) — measured on her own book: 13 Nov has the Focaccia alone, and a single tile sat
