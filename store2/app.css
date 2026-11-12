@@ -2792,49 +2792,87 @@ button.prod-next.off::after { content: ""; }
    the basket as a card on the right — count, total, Place order — that stays in view while the page scrolls.
    The `.col` wrappers are plain blocks again; nothing in the HTML moved. */
 @media (min-width: 960px) {
-  :root { --page: 1120px; --side: 300px; --gutter: 32px; }
+  :root { --page: 1160px; --side: 320px; --gutter: 32px; }
+  /* ⭐ TWO COLUMNS OF ONE PAGE: the steps on the left, the basket on the right. ⚠️ The basket card is now a
+     child of .view (index.html), so it can be `sticky` in its own column — her words: __"move the basket card
+     up"__. It starts level with the step bar, under the photo, and stays in view while she scrolls. */
   .view {
     max-width: var(--page);
-    padding-inline: 24px calc(24px + var(--side) + var(--gutter));
+    padding: 18px 24px 56px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--side);
+    column-gap: var(--gutter);
+    align-items: start;
   }
-  /* ⚠️ The step bar lives INSIDE .view, so it takes the column's width from it — padding it again (measured)
-     squeezed the four steps into half the column. */
-  .stepbar { max-width: 760px; padding-inline: 0; margin-inline: 0; }
-  .view { padding-bottom: 48px; }
+  .view > * { grid-column: 1; }
+  .stepbar { max-width: none; padding-inline: 0; margin-inline: 0; }
   .hero.hero-photo .hero-inner { max-width: var(--page); padding-inline: 24px; }
-  /* The reading column: wide enough for three tiles, narrow enough that a form is not a 700px slab. */
-  .flow { max-width: 760px; }
-  /* The code, the "you're in time" answer and the bake-day facts: side by side where they are short. */
+  /* "You're in time" and the bake-day facts: side by side where they are short. */
   .col-a { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; align-items: start; }
   .col-a > * { grid-column: 1 / -1; }
   .col-a > #day-answer { grid-column: 1; height: 100%; box-sizing: border-box; margin-bottom: 12px; }
   .col-a > .card.info { grid-column: 2; }
-  .menu { grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 14px; }
+  .menu { grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 16px; }
 
-  /* THE BASKET CARD. Fixed to the right of the reading column, at the foot of the window so the privacy panel
-     still opens upward from it exactly as it does from the phone bar. */
-  .order-bar {
-    left: auto;
-    right: max(24px, calc((100% - var(--page)) / 2 + 24px));
-    bottom: 24px;
-    width: var(--side);
+  /* THE BASKET CARD */
+  .view > .order-bar {
+    grid-column: 2;
+    grid-row: 1 / span 12;
+    position: sticky;
+    top: 24px;
+    left: auto; right: auto; bottom: auto;
+    width: auto;
     max-width: none;
     margin: 0;
-    padding: 18px 18px 14px;
+    padding: 22px 22px 16px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
   }
-  .order-bar-row { flex-wrap: wrap; row-gap: 14px; }
+  .order-bar-row { flex-wrap: wrap; row-gap: 16px; }
   .order-bar .order-summary { flex: 1 1 auto; }
-  .order-bar .bar-total { font-size: 26px; }
-  .order-bar .btn { flex: 1 1 100%; order: 3; }
-  .order-bar .privacy-sheet { left: 0; right: 0; }
-  .bar-spacer { height: 0; }
-}
-/* Between 960 and ~1180 the window is too narrow for a 760px column AND the card, so the column gives way. */
-@media (min-width: 960px) and (max-width: 1180px) {
-  .flow { max-width: none; }
+  .order-bar .bar-count { font-size: 15px; }
+  .order-bar .bar-total { font-size: 30px; }
+  .order-bar .btn { flex: 1 1 100%; order: 3; font-size: 17px; min-height: 54px; }
+  .order-bar .order-notice { font-size: 14px; }
+  .order-bar .promo-bar { font-size: 14px; }
+  /* The privacy panel opens DOWNWARD from a card at the top of the screen (upward it would leave the window). */
+  .order-bar .privacy-sheet { left: 0; right: 0; bottom: auto; top: calc(100% + 8px); }
+  /* The phone's spacer is written by the script as the bar's height; a sidebar card needs none. */
+  .bar-spacer { display: none; }
+  /* The update strip pinned above the phone bar sits at the window's foot here. */
+  .build-notice { bottom: 0; }
+
+  /* ★★ BIGGER TEXT ON A DESKTOP — her words: __"bigger text"__. ⚠️ Phone sizes were being drawn on a
+     1,440px screen, where a 15px product name read as small print. ⭐ Desktop only: on a phone every size
+     is what it was. Roughly ×1.2–1.3, the whole page in step, so nothing jumps out of scale. */
+  .section { font-size: 23px; }
+  .step-num { width: 34px; height: 34px; font-size: 17px; }
+  .bake-day-what { font-size: 15.5px; }
+  .stepbar-item { font-size: 11.5px; }
+  .answer-kicker { font-size: 12.5px; }
+  .answer-big { font-size: 22px; }
+  .answer-sub { font-size: 15px; }
+  .info-row { font-size: 16.5px; }
+  .facts-line .privacy-link { font-size: 16px; }
+  .field label, .field .field-label { font-size: 15px; }
+  .input { font-size: 17px; }
+  .card-sub { font-size: 15px; }
+  .cal-title { font-size: 19px; }
+  .cal-dow { font-size: 12.5px; }
+  .cal-cell { font-size: 17px; }
+  .menu-cat { font-size: 21px; }
+  .tile .card-title { font-size: 20px; }
+  .tile .card-sub { font-size: 15px; }
+  .tile .prod-desc { font-size: 15px; }
+  .tile .card-words .prod-stamp { font-size: 11.5px; }
+  .tile .card-price { font-size: 23px; }
+  .tile .step-btn { width: 50px; height: 50px; flex-basis: 50px; font-size: 21px; }
+  .tile .stepper-val { font-size: 18px; }
+  .prod-more { font-size: 15px; }
+  .prod-fact { font-size: 15px; }
+  .prod-note { font-size: 14px; }
+  .step-note { font-size: 15.5px; }
 }
 
 /* ⭐ A MENU OF ONE (v686_2) — measured on her own book: 13 Nov has the Focaccia alone, and a single tile sat
