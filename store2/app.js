@@ -46,7 +46,7 @@ import { fullDayAnswer } from "./full_day.js";
 // cache.** ⚠️ And it must be kept in step with `admin/js/version.js` by hand, which is a second place for
 // one fact: ⭐ **that is accepted here ONLY because a test fails the moment they disagree** (see
 // `store-build-notice.test.js`), so a forgotten bump is a red suite rather than a shop that lies.
-export const SHOP_BUILD = "686";
+export const SHOP_BUILD = "687";
 // "Is this page the newest one?" — the comparison and the probe's address, kept on their own so a
 // test can pin them (this file calls `render()` at the top level and cannot be imported at all).
 import { BUILD_TRIED_KEY, VERSION_URL, newerBuild, freshenAssets } from "./build.js";
@@ -190,6 +190,9 @@ export function postLabelOpen(code, cfg) {
 // with it would count the same open twice. Nothing about the customer is kept — one boolean
 // for the life of the tab.
 const countLabelOpen = labelOpenCounter(postLabelOpen);
+// The bar's resize listener (v687_2) — module scope for the same reason: one binding per tab, however often
+// render() runs.
+let barResizeBound = false;
 
 // ⭐ One look per page load, counted in her own Supabase — see store/visits.js (v674).
 const countShopLook = shopLookCounter(postShopLook);
@@ -2859,8 +2862,13 @@ function clearFieldMarks() {
       // side: two on a phone, three or four on a wide screen, with no product-specific sizes anywhere.
       // ⭐ The food facts fold under "Details" so every tile in a row stays close to the same height; the fold
       // remembers itself across the rebuild every stepper press makes (`factsOpen`, like `noteOpen`).
-      const hasFacts = !!(p.allergens || p.keeping);
-      const factsFold = hasFacts
+      // ⚠️⚠️ WHAT IS IN IT STAYS ON THE TILE (v687_2). v686_2 folded it under "Details" with the keeping
+      // note, so a customer with an allergy saw nothing unless they pressed — on /store/ it is printed under the
+      // name. ⭐ An allergen line is the one fact a customer must not have to go looking for; how to keep the bread
+      // can wait behind a press.
+      const allergenLine = p.allergens ? el("p", { class: "prod-fact" },
+        `${t("allergenLabel")}: ${String(p.allergens).trim()}`) : null;
+      const factsFold = p.keeping
         ? el("details", {
             class: "prod-more",
             ...(factsOpen.has(p.name) ? { open: "" } : {}),
@@ -2868,10 +2876,7 @@ function clearFieldMarks() {
           },
             el("summary", { class: "prod-more-sum" }, t("cardMore")),
             // ★★ THIS PRODUCT'S OWN FACTS (v639) — ⚠️ her words, drawn only when she has written them.
-            p.allergens ? el("p", { class: "prod-fact" },
-              `${t("allergenLabel")}: ${String(p.allergens).trim()}`) : null,
-            p.keeping ? el("p", { class: "prod-fact" },
-              `${t("keepingLabel")}: ${String(p.keeping).trim()}`) : null)
+            el("p", { class: "prod-fact" }, `${t("keepingLabel")}: ${String(p.keeping).trim()}`))
         : null;
       return el("div", {
         class: `card menu-item tile${soldOut ? " soldout" : ""}${p.thumb ? "" : " no-photo"}`,
@@ -2885,7 +2890,8 @@ function clearFieldMarks() {
             el("p", { class: "card-title" }, nameFor(p, lang)),
             el("p", { class: "card-sub" }, unitFor(p, lang)),
             stamp,
-            desc ? el("p", { class: "prod-desc" }, desc) : null),
+            desc ? el("p", { class: "prod-desc" }, desc) : null,
+            allergenLine),
           el("div", { class: "card-buy" },
             el("p", { class: "card-price" }, `RM${p.price.toFixed(2)}`),
             el("div", { class: "stepper" }, dec, qtyBox, inc)),
@@ -3978,7 +3984,14 @@ function clearFieldMarks() {
     // passes through, **and the same number the strip pins itself to is the number the page pads its foot
     // with.** One reading, two uses.
     // ⚠️ Guarded: a page with no bar (or a test shim with no layout) simply keeps the fallback.
-    const barEl = document.querySelector(".order-bar");
+    measureBarHeight();
+    return total;
+  }
+
+  // ⚠️ Lifted out of renderBar (v687_2) so a RESIZE can ask the same question — see the listener under
+  // syncBarSpacer. Guarded: a page with no bar (or a test shim with no layout) simply keeps the fallback.
+  function measureBarHeight() {
+    const barEl = document.querySelector && document.querySelector(".order-bar");
     if (barEl && typeof barEl.getBoundingClientRect === "function"
         && typeof document !== "undefined" && document.documentElement) {
       try {
@@ -3986,7 +3999,6 @@ function clearFieldMarks() {
         if (h > 0) document.documentElement.style.setProperty("--bar-h", `${h}px`);
       } catch { /* no layout — the fallback stands, and it is a sane one */ }
     }
-    return total;
   }
 
   // Keep `.bar-spacer` at the closed bar's REAL height (v408). Hoisted for the same reason
@@ -4008,6 +4020,15 @@ function clearFieldMarks() {
     const spacer = document.getElementById("bar-spacer");
     if (!bar || !spacer || !bar.offsetHeight) return;
     spacer.style.height = `${bar.offsetHeight}px`;
+  }
+  // ★★ AND BOTH ARE READ AGAIN WHEN THE WINDOW CHANGES SHAPE (v687_2). ⚠️ On /store2/ the bar is TWO shapes —
+  // a strip along a phone's foot, a tall card beside the steps from 960px — and they were measured only when the
+  // basket changed. ⭐ Measured: an iPad turned from landscape (1024, the card) to portrait (768, the strip) kept
+  // the card's height, so the page's foot and the update strip sat ~130px too high until something was added.
+  // ⚠️ Bound ONCE for the life of the tab — `render()` can run more than once, so the latch is module-level.
+  if (!barResizeBound && typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    barResizeBound = true;
+    window.addEventListener("resize", () => { measureBarHeight(); syncBarSpacer(); });
   }
 
   // ★★ THE FOURTH BALL TURNS GREEN WHEN THE ORDER IS PLACED (v451).

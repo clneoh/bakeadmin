@@ -84,14 +84,16 @@
          never typed again here — so the bar and the step under it cannot name the same thing differently, and
          the three languages arrive with the headings. ⚠️ `aria-hidden`: the numbered headings below are the
          real, readable content; this is the same four facts drawn as a line. -->
+    <!-- ★★ THE STEPS, AS ONE COLUMN (v687_2). ⚠️ On a phone this wrapper is invisible: the page reads top to
+         bottom exactly as before. ⭐ On a wide screen (≥ 960px) it is the LEFT column of `.view` and the basket
+         card (`.order-bar`, below) is the right one — two children, so the card's sticky range is this whole
+         column by construction, with no count of rows to keep right. (v686_2 placed the card across a guessed
+         "span 12" rows and kept three wrappers from a layout she had already turned down.)
+         ⚠️ A wrapper only — every id inside is the one the script already reads, and nothing reads a parent. -->
+    <div class="steps-col">
     <nav id="stepbar" class="stepbar" aria-hidden="true"></nav>
-    <!-- ★★ THREE COLUMNS OF ONE PAGE (v686_2) — the "more versatile" trial. ⚠️ On a phone these three wrappers are
-         invisible: the page reads top to bottom exactly as before (the day, then the menu, then your details).
-         ⭐ On a wide screen (≥ 960px) the MENU takes the right-hand column beside the day and the details, so a
-         customer on a laptop or tablet sees what there is and when they can have it without scrolling between them.
-         ⚠️ Wrappers only — every id inside is the one the script already reads, and nothing reads a parent. -->
-    <div class="flow">
-    <div class="col col-a">
+    <!-- ⭐ The day's opening facts: on a wide screen "You're in time" and the bake-day card sit side by side. -->
+    <div class="col-a">
     <!-- The code the shop is running today, at the top of the page and under the
          shop name (v269). A statement, never a control: it names the code so the
          customer can type it, and the bakery still takes the money off by hand in
@@ -184,14 +186,11 @@
     <!-- ★★ "YOUR LAST ORDER" (v638) — the regular's way back in. ⚠️ Filled from the customer's own phone at
          boot; empty (and so invisible) for anyone who has not ordered here before. -->
     </div><!-- /.col-a -->
-    <div class="col col-menu">
     <div id="again-slot"></div>
     <div class="step-head" id="step2"><span class="step-num">2</span>
       <h2 class="section" data-i18n="sWhat">What would you like?</h2></div>
     <div id="menu-note" class="menu-note" role="status" hidden></div>
     <div id="menu" class="menu"></div>
-    </div><!-- /.col-menu -->
-    <div class="col col-b">
 
     <div class="step-head" id="step3"><span class="step-num">3</span>
       <h2 class="section" data-i18n="sYourDetails">Your details</h2></div>
@@ -354,13 +353,12 @@
         <p id="policy-text" class="policy-text"></p>
       </div>
     </section>
-    </div><!-- /.col-b -->
-    </div><!-- /.flow -->
 
     <div id="confirm-msg" class="confirm-msg" role="status" hidden></div>
     <div id="social" class="social"></div>
     <div id="dev-foot" class="dev-foot" hidden></div>
     <div id="fb-foot" class="fb-foot" hidden></div>
+    </div><!-- /.steps-col -->
     <!-- ★★ THE BASKET LIVES INSIDE THE PAGE ON /store2/ (v686_2). Her words: __"move the basket card up"__.
          ⚠️ On a phone nothing changes: it is `position: fixed` along the bottom, and a fixed box ignores where it
          sits in the page. ⭐ On a desktop it is the right-hand column of `.view`, `sticky` — level with the

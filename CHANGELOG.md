@@ -1,4 +1,19 @@
-# Jienluv2bake — change history (v54 → v686)
+# Jienluv2bake — change history (v54 → v687)
+
+**13 Nov 2026 — engine v687_2, THE /store2/ TRIAL AFTER A CODE REVIEW: EIGHT FIXES (NO DATABASE STEP).**
+
+**Your words:** __"Fix all of them"__ — after a review of v686_2 found eight things. **`/store/` is untouched** (its build number moves to 687 only so the update notice stays in step).
+
+1. ⚠️⚠️ **THE PRIVACY NOTICE FITS A LAPTOP SCREEN AGAIN.** On a desktop the panel opens downward from the basket card, but its height was still the phone's rule — so on a common 768px laptop its foot (the WhatsApp line and the Act line) ran off the window, and the card does not move when you scroll. ⭐ Its height is now what is left under the card. **Measured at 1366×650: the card at 24px, the panel 244–625px in a 650px window**, scrolling inside itself.
+2. ⚠️ **YOUR DESCRIPTION IS SHOWN WHOLE.** The tile cut it to two lines, and nothing opened the rest. ⭐ The price and the + and − still line up across a row, because they sit at the foot of each tile.
+3. ⚠️⚠️ **"WHAT IS IN IT" IS BACK ON THE CARD.** v686_2 put it behind "Details", so a customer with an allergy saw nothing unless they pressed. ⭐ It is printed under the name again, as on /store/; only __Keeping it__ folds.
+4. ⚠️ **TURNING A TABLET RE-MEASURES THE BAR.** The bar is a card from 960px and a strip below it, and its height was read only when the basket changed — an iPad turned from landscape to portrait kept the card's 213px and the page's foot sat too high. ⭐ Measured: a resize now reads **213px → 100px**, the spacer with it.
+5. **The page is two columns by construction** — the steps, and the card — instead of the card spread over a guessed "12 rows" of loose blocks; three wrappers left over from the layout you turned down are gone, and the comments that still described it say what is there now. One stylesheet rule that named the same thing twice names it once.
+6. ⭐ **THE TRIAL'S CARD HAS TESTS OF ITS OWN** — `test/store2-tile.dom.test.js`, six of them: the tile's shape, the whole description, the allergen line on the card, the fold staying open through a + press, a resize re-reading the bar, and the three stylesheet rules. ⭐ Each was broken on purpose and failed by its own message, then restored byte for byte. ⚠️ These are the tests that replace the old card's on the day /store2/ becomes /store/ — three /store/ tests still read the old card and will be rewritten then.
+
+**Measured:** 4,026 tests green. Phone (375): a tile 347px, no sideways scroll, the bar along the foot unchanged. ⚠️ The preview's iPad turn sends no resize event, so the turn itself was checked by sending one.
+
+No database step.
 
 **12 Nov 2026 — engine v686_2, A MORE VERSATILE SHOP, AS A TRIAL AT /store2/ (NO DATABASE STEP).**
 

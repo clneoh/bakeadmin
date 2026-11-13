@@ -2713,8 +2713,8 @@ button.prod-next.off::after { content: ""; }
       stacks photo, name, price and a full-width + and −, and `auto-fill` decides how many sit side by side:
       two on a 375 phone, ONE on a 320 phone (where two would leave the stepper no room), three or four on a
       laptop. A shop with three products or thirty is drawn by the same rule.
-   2. ON A WIDE SCREEN THE MENU TAKES THE RIGHT-HAND COLUMN (≥ 960px), beside the day and the details. On a
-      phone nothing moves: the three `.col` wrappers are plain blocks and the page reads 1 → 2 → 3 → 4.
+   2. ON A WIDE SCREEN (≥ 960px) THE STEPS ARE ONE COLUMN AND THE BASKET IS A CARD BESIDE THEM (see the media
+      block below). On a phone nothing moves: `.steps-col` is a plain block and the page reads 1 → 2 → 3 → 4.
    ===================================================================================================== */
 .menu {
   display: grid;
@@ -2744,21 +2744,15 @@ button.prod-next.off::after { content: ""; }
 .tile .card-body { padding: 10px 11px 12px; gap: 8px; flex: 1 1 auto; }
 .tile .card-title { font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; text-wrap: pretty; }
 .tile .card-words .prod-stamp { margin-top: 6px; }
-/* The selling line stays on the tile, two lines at most; her food facts go in the fold below. */
-.tile .prod-desc {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  white-space: normal;
-  margin-top: 4px;
-}
+/* ⚠️ HER DESCRIPTION IS SHOWN WHOLE (v687_2). v686_2 cut it to two lines with nothing that opened the rest, so
+   a longer description simply ended in "…" for ever. ⭐ Nothing is lost by showing it: the price and the + and −
+   are pushed to the foot of the tile (`.card-buy`, below), so a row of tiles still lines its prices up. */
+.tile .prod-desc { margin-top: 4px; }
 /* ⭐ `margin-top: auto` puts the price and the stepper on ONE line across a row of tiles, however long the
    names above them are — the eye runs along the prices. */
 .tile .card-buy { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .tile .card-price { font-size: 17px; }
-.tile .stepper, .menu-item.tile .stepper { display: flex; width: 100%; align-self: stretch; }
+.tile .stepper { display: flex; width: 100%; align-self: stretch; }
 .tile .step-btn { width: 44px; height: 44px; flex: 0 0 44px; font-size: 19px; }
 .tile .stepper-val { flex: 1 1 auto; width: auto; min-width: 0; }
 .tile .line-note { width: 100%; box-sizing: border-box; }
@@ -2790,7 +2784,8 @@ button.prod-next.off::after { content: ""; }
    the total at one end and the button at the other.
    ⭐ So the desktop is now the shape every web shop uses: ONE reading column, the steps 1 → 2 → 3 in order, and
    the basket as a card on the right — count, total, Place order — that stays in view while the page scrolls.
-   The `.col` wrappers are plain blocks again; nothing in the HTML moved. */
+   ⭐ (v687_2) The page is TWO children of `.view`: `.steps-col` and the card. v686_2 placed the card across a
+   guessed `span 12` rows of loose children, which ended its sticky range wherever row 12 did. */
 @media (min-width: 960px) {
   :root { --page: 1160px; --side: 320px; --gutter: 32px; }
   /* ⭐ TWO COLUMNS OF ONE PAGE: the steps on the left, the basket on the right. ⚠️ The basket card is now a
@@ -2804,7 +2799,7 @@ button.prod-next.off::after { content: ""; }
     column-gap: var(--gutter);
     align-items: start;
   }
-  .view > * { grid-column: 1; }
+  .steps-col { grid-column: 1; min-width: 0; }
   .stepbar { max-width: none; padding-inline: 0; margin-inline: 0; }
   .hero.hero-photo .hero-inner { max-width: var(--page); padding-inline: 24px; }
   /* "You're in time" and the bake-day facts: side by side where they are short. */
@@ -2817,7 +2812,7 @@ button.prod-next.off::after { content: ""; }
   /* THE BASKET CARD */
   .view > .order-bar {
     grid-column: 2;
-    grid-row: 1 / span 12;
+    grid-row: 1;
     position: sticky;
     top: 24px;
     left: auto; right: auto; bottom: auto;
@@ -2838,6 +2833,11 @@ button.prod-next.off::after { content: ""; }
   .order-bar .promo-bar { font-size: 14px; }
   /* The privacy panel opens DOWNWARD from a card at the top of the screen (upward it would leave the window). */
   .order-bar .privacy-sheet { left: 0; right: 0; bottom: auto; top: calc(100% + 8px); }
+  /* ⚠️⚠️ AND ITS HEIGHT IS WHAT IS LEFT UNDER THE CARD (v687_2). The phone's cap (100vh − 160px) assumes a panel
+     rising from the screen's foot. Hung from a card 24px from the top, it ran off a 768px laptop's window — and
+     the card is sticky, so scrolling the page never brought the WhatsApp line or the Act line into view.
+     ⭐ The card's own measured height is `--bar-h` (renderBar writes it); 24 above, 8 between, 24 below. */
+  .order-bar .privacy-sheet { max-height: max(160px, calc(100vh - var(--bar-h, 260px) - 56px)); }
   /* The phone's spacer is written by the script as the bar's height; a sidebar card needs none. */
   .bar-spacer { display: none; }
   /* The update strip pinned above the phone bar sits at the window's foot here. */
