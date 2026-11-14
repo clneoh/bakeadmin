@@ -1,6 +1,20 @@
-# Jienluv2bake — change history (v54 → v687)
+# Jienluv2bake — change history (v54 → v688)
+
+**13 Nov 2026 — engine v688, THE /store2/ TRIAL IS DROPPED (NO DATABASE STEP).**
+
+**Your words:** __"drop the store2, i will change only when i have more product offering"__ — after three desktop layouts were drawn for you to choose from. ⭐ **And it is the right reason:** the trial's main idea was a grid of products, and your menu holds one product, so on a phone it never showed; on a desktop it only made the same page wider.
+
+1. **`/store2/` is gone** — the folder, its two tests (the drift guard and the tile test) and the one word only it used ("Details" in three languages). It now answers "not found", as it did before 12 Nov.
+2. **`/store/` is unchanged** apart from its build number (688), so the update notice stays in step.
+3. ⭐ **The three drawings are kept** (on this Mac, not on the website), for the day you have more products: **A** everything on one screen, **B** a big menu with your order on the right, **C** the phone page centred and bigger.
+
+**Measured:** 4,016 tests green (the trial's 10 went with it). /store/ loads, says Engine v688, and draws the Focaccia; /store2/ answers 404.
+
+No database step.
 
 **13 Nov 2026 — engine v687_2, THE /store2/ TRIAL AFTER A CODE REVIEW: EIGHT FIXES (NO DATABASE STEP).**
+
+__Dropped at v688 (13 Nov 2026):__ you closed the trial — /store2/ no longer exists; /store/ is the shop.
 
 **Your words:** __"Fix all of them"__ — after a review of v686_2 found eight things. **`/store/` is untouched** (its build number moves to 687 only so the update notice stays in step).
 
@@ -16,6 +30,8 @@
 No database step.
 
 **12 Nov 2026 — engine v686_2, A MORE VERSATILE SHOP, AS A TRIAL AT /store2/ (NO DATABASE STEP).**
+
+__Dropped at v688 (13 Nov 2026):__ you closed the trial — /store2/ no longer exists; /store/ is the shop.
 
 **Your words:** __"the store2 is not good, replace it with a more versatile design"__ — and, once it was clear that /store2/ had already become /store/ on 25 Oct (v640): __"new design as a trial at store2"__.
 
